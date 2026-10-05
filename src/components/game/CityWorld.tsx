@@ -86,7 +86,7 @@ export function CityWorld({
       }
       return best;
     }
-    function layRiver(pts: RiverPoint[], half: number) {
+    function layRiver(pts: RiverPoint[], half: number, swell?: { index: number; extra: number }, y = 0.06) {
       riverLines.push({ pts, half });
       const positions: number[] = [];
       const normals: number[] = [];
@@ -114,8 +114,12 @@ export function CityWorld({
         nz /= nl;
         const denom = Math.max(0.55, nx * -az + nz * ax);
         const miter = Math.min(1.25, 1 / denom);
-        const wide = half * (0.96 + 0.04 * Math.sin(i * 0.35)) * miter;
-        positions.push(curr.x - nx * wide, 0.06, curr.z - nz * wide, curr.x + nx * wide, 0.06, curr.z + nz * wide);
+        let wide = half * (0.96 + 0.04 * Math.sin(i * 0.35)) * miter;
+        if (swell) {
+          const along = Math.abs(i - swell.index);
+          if (along < 12) wide += swell.extra * (1 - along / 12) ** 2;
+        }
+        positions.push(curr.x - nx * wide, y, curr.z - nz * wide, curr.x + nx * wide, y, curr.z + nz * wide);
         normals.push(0, 1, 0, 0, 1, 0);
         left.push({ x: curr.x - nx * wide, z: curr.z - nz * wide });
         right.push({ x: curr.x + nx * wide, z: curr.z + nz * wide });
@@ -129,7 +133,7 @@ export function CityWorld({
       geo.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
       geo.setIndex(indices);
       scene.add(new THREE.Mesh(geo, water));
-      return { left, right };
+      return { left, right, position: geo.getAttribute("position") as THREE.BufferAttribute };
     }
     function distToPoly(pts: RiverPoint[], x: number, z: number) {
       let best = Infinity;
@@ -166,7 +170,7 @@ export function CityWorld({
     for (const point of otamiriPts) {
       if (Math.hypot(point.x - roughEnd.x, point.z - roughEnd.z) < Math.hypot(mouth.x - roughEnd.x, mouth.z - roughEnd.z)) mouth = point;
     }
-    while (nworiePts.length > 12 && Math.hypot(nworiePts[nworiePts.length - 1].x - mouth.x, nworiePts[nworiePts.length - 1].z - mouth.z) < 96) {
+    while (nworiePts.length > 16 && Math.hypot(nworiePts[nworiePts.length - 1].x - mouth.x, nworiePts[nworiePts.length - 1].z - mouth.z) < 170) {
       nworiePts.pop();
     }
     const tail = nworiePts[nworiePts.length - 1];
@@ -175,81 +179,34 @@ export function CityWorld({
     }
     const mouthIndex = Math.max(0, otamiriPts.indexOf(mouth));
     const joinPrev = nworiePts[nworiePts.length - 2];
-    const gap = Math.hypot(mouth.x - tail.x, mouth.z - tail.z) || 1;
+    const upstream = otamiriPts[Math.max(0, mouthIndex - 6)];
+    const downstream = otamiriPts[Math.min(otamiriPts.length - 1, mouthIndex + 6)];
+    let tx = downstream.x - upstream.x;
+    let tz = downstream.z - upstream.z;
+    const flow = Math.hypot(tx, tz) || 1;
+    tx /= flow;
+    tz /= flow;
+    const arrive = { x: mouth.x, z: mouth.z };
+    const gap = Math.hypot(arrive.x - tail.x, arrive.z - tail.z) || 1;
     let sx = tail.x - joinPrev.x;
     let sz = tail.z - joinPrev.z;
     const sl = Math.hypot(sx, sz) || 1;
-    sx = (sx / sl) * gap * 0.45;
-    sz = (sz / sl) * gap * 0.45;
-    const upstream = otamiriPts[Math.max(0, mouthIndex - 4)];
-    const downstream = otamiriPts[Math.min(otamiriPts.length - 1, mouthIndex + 4)];
-    let ex = downstream.x - upstream.x;
-    let ez = downstream.z - upstream.z;
-    const flow = Math.hypot(ex, ez) || 1;
-    ex = (ex / flow) * gap * 0.45;
-    ez = (ez / flow) * gap * 0.45;
-    const steps = Math.max(20, Math.round(gap / 4));
+    sx = (sx / sl) * gap * 0.55;
+    sz = (sz / sl) * gap * 0.55;
+    const ex = tx * gap * 0.55;
+    const ez = tz * gap * 0.55;
+    const steps = Math.max(36, Math.round(gap / 3));
     for (let i = 1; i <= steps; i += 1) {
       const t = i / steps;
       const t2 = t * t;
       const t3 = t2 * t;
       nworiePts.push({
-        x: (2 * t3 - 3 * t2 + 1) * tail.x + (t3 - 2 * t2 + t) * sx + (-2 * t3 + 3 * t2) * mouth.x + (t3 - t2) * ex,
-        z: (2 * t3 - 3 * t2 + 1) * tail.z + (t3 - 2 * t2 + t) * sz + (-2 * t3 + 3 * t2) * mouth.z + (t3 - t2) * ez,
+        x: (2 * t3 - 3 * t2 + 1) * tail.x + (t3 - 2 * t2 + t) * sx + (-2 * t3 + 3 * t2) * arrive.x + (t3 - t2) * ex,
+        z: (2 * t3 - 3 * t2 + 1) * tail.z + (t3 - 2 * t2 + t) * sz + (-2 * t3 + 3 * t2) * arrive.z + (t3 - t2) * ez,
       });
     }
-    while (nworiePts.length > 8 && distToPoly(otamiriPts, nworiePts[nworiePts.length - 1].x, nworiePts[nworiePts.length - 1].z) < 14) {
-      nworiePts.pop();
-    }
-    const nworieRibbon = layRiver(nworiePts, 11);
-    const otamiriRibbon = layRiver(otamiriPts, 11);
-    const tip = nworiePts[nworiePts.length - 1];
-    let joinAt = 0;
-    let joinDist = Infinity;
-    for (let i = 0; i < otamiriPts.length; i += 1) {
-      const dist = Math.hypot(otamiriPts[i].x - tip.x, otamiriPts[i].z - tip.z);
-      if (dist < joinDist) {
-        joinDist = dist;
-        joinAt = i;
-      }
-    }
-    const tipL = nworieRibbon.left[nworieRibbon.left.length - 1];
-    const tipR = nworieRibbon.right[nworieRibbon.right.length - 1];
-    const useLeft = Math.hypot(tip.x - otamiriRibbon.left[joinAt].x, tip.z - otamiriRibbon.left[joinAt].z) < Math.hypot(tip.x - otamiriRibbon.right[joinAt].x, tip.z - otamiriRibbon.right[joinAt].z);
-    const bankEdge = useLeft ? otamiriRibbon.left : otamiriRibbon.right;
-    const span = 8;
-    const from = Math.max(0, joinAt - span);
-    const to = Math.min(bankEdge.length - 1, joinAt + span);
-    const mouthPositions: number[] = [];
-    const mouthNormals: number[] = [];
-    const mouthIndices: number[] = [];
-    const count = to - from + 1;
-    for (let i = 0; i < count; i += 1) {
-      const t = count === 1 ? 0.5 : i / (count - 1);
-      const edge = bankEdge[from + i];
-      const pullX = tip.x - edge.x;
-      const pullZ = tip.z - edge.z;
-      const pull = Math.hypot(pullX, pullZ) || 1;
-      mouthPositions.push(
-        tipL.x + (tipR.x - tipL.x) * t,
-        0.06,
-        tipL.z + (tipR.z - tipL.z) * t,
-        edge.x + (pullX / pull) * 0.8,
-        0.06,
-        edge.z + (pullZ / pull) * 0.8,
-      );
-      mouthNormals.push(0, 1, 0, 0, 1, 0);
-    }
-    for (let i = 0; i < count - 1; i += 1) {
-      const a = i * 2;
-      mouthIndices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
-    }
-    const mouthGeo = new THREE.BufferGeometry();
-    mouthGeo.setAttribute("position", new THREE.Float32BufferAttribute(mouthPositions, 3));
-    mouthGeo.setAttribute("normal", new THREE.Float32BufferAttribute(mouthNormals, 3));
-    mouthGeo.setIndex(mouthIndices);
-    scene.add(new THREE.Mesh(mouthGeo, water));
-    riverLines.push({ pts: [tip, otamiriPts[joinAt]], half: 14 });
+    layRiver(nworiePts, 11, undefined, 0.065);
+    layRiver(otamiriPts, 11, { index: mouthIndex, extra: 6 });
     const before = otamiriPts[Math.max(0, mouthIndex - 1)];
     const after = otamiriPts[Math.min(otamiriPts.length - 1, mouthIndex + 1)];
     let bankTx = after.x - before.x;
@@ -387,12 +344,14 @@ export function CityWorld({
     function tower(x: number, z: number, tint: number) {
       const group = new THREE.Group();
       const height = 9.2;
-      const body = new THREE.Mesh(new THREE.BoxGeometry(4.6, height, 3.4), new THREE.MeshLambertMaterial({ color: tint }));
+      const width = 15;
+      const depth = 3.4;
+      const body = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), new THREE.MeshLambertMaterial({ color: tint }));
       body.position.y = height / 2;
-      const cap = new THREE.Mesh(new THREE.BoxGeometry(4.9, 0.32, 3.6), new THREE.MeshLambertMaterial({ color: 0xe0b15a }));
+      const cap = new THREE.Mesh(new THREE.BoxGeometry(width + 0.3, 0.32, depth + 0.2), new THREE.MeshLambertMaterial({ color: 0xe0b15a }));
       cap.position.y = height + 0.16;
-      const glass = new THREE.Mesh(new THREE.BoxGeometry(4.1, height * 0.72, 0.1), new THREE.MeshLambertMaterial({ color: 0x9fd0ea }));
-      glass.position.set(0, height * 0.48, 1.72);
+      const glass = new THREE.Mesh(new THREE.BoxGeometry(width - 0.7, height * 0.72, 0.1), new THREE.MeshLambertMaterial({ color: 0x9fd0ea }));
+      glass.position.set(0, height * 0.48, depth / 2 + 0.02);
       group.add(body, cap, glass);
       group.position.set(x, 0, z);
       scene.add(group);
@@ -520,6 +479,7 @@ export function CityWorld({
     const restaurants = new Set(["donalds", "kilimanjaro", "november-5", "mangrove-grill"]);
     const landmark = new Set(["sam-mbakwe", "state-cid", "imsu", "futo", "fedpoly-nekede", "eke-ukwu", "relief-market", "ikenegbu-market", "owerri-mall", "heroes-square", "cartel-beach", "heartland-resort", "nworie-park", "amusement-park", "city-bank", "teaching-hospital", "general-hospital", "umezuruike-hospital", "st-davids", "shelly-hospital", "imo-specialist"]);
     const roadside = new Set(["mama-nkechi", "josephs-pot", "feedwell", "crunchies"]);
+    const hotels = new Set(PLACES.filter((place) => place.kind === "hotel").map((place) => place.id));
     for (let pass = 0; pass < 36; pass += 1) {
       for (let i = 0; i < laidSpots.length; i += 1) {
         for (let j = i + 1; j < laidSpots.length; j += 1) {
@@ -546,7 +506,7 @@ export function CityWorld({
         }
       }
       for (const spot of laidSpots) {
-        const pad = spot.id === "sam-mbakwe" ? 100 : schools.has(spot.id) ? 56 : clubs.has(spot.id) ? 16 : markets.has(spot.id) ? 30 : restaurants.has(spot.id) ? 16 : landmark.has(spot.id) ? 16 : roadside.has(spot.id) ? 6 : 4;
+        const pad = spot.id === "sam-mbakwe" ? 100 : schools.has(spot.id) ? 56 : clubs.has(spot.id) ? 16 : markets.has(spot.id) ? 30 : restaurants.has(spot.id) ? 16 : landmark.has(spot.id) ? 16 : hotels.has(spot.id) ? 12 : roadside.has(spot.id) ? 6 : 4;
         shoveOut(spot, pad);
       }
     }
@@ -696,6 +656,7 @@ export function CityWorld({
             if (restaurants.has(spot.id)) return dist < 18;
             if (roadside.has(spot.id)) return dist < 8;
             if (landmark.has(spot.id)) return dist < 18;
+            if (hotels.has(spot.id)) return Math.abs(x - spot.x) < 8.2 && Math.abs(z - spot.z) < 2.4;
             return false;
           });
           if (onStrip(x, z, 2) || crowded) continue;
