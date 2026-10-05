@@ -72,7 +72,7 @@ import type { BetPick, TravelMode, WorkStyle } from "@/lib/game/types";
 type Run = (
   work: () => Promise<{ ok: true; notice?: string } | { ok: false; error: string }>,
 ) => Promise<{ ok: true; notice?: string } | { ok: false; error: string }>;
-type Tab = "home" | "map" | "phone" | "people" | "bets" | "ledger";
+type Tab = "home" | "room" | "map" | "phone" | "people" | "bets" | "ledger";
 
 const styles: Array<{ id: WorkStyle; name: string; detail: string }> = [
   { id: "steady", name: "Steady", detail: "Reliable shift." },
@@ -139,7 +139,8 @@ export function GameShell({ view }: { view: GameView }) {
       : `${crowd.fromName} did dorime · ${naira(crowd.amount)}`
     : null;
   const [phone, setPhone] = useState<HTMLDivElement | null>(null);
-  const [furnishToken, setFurnishToken] = useState(0);
+  const [roomEntry, setRoomEntry] = useState<"look" | "shop">("look");
+  const [shopNonce, setShopNonce] = useState(0);
 
   useEffect(() => {
     const block = (event: WheelEvent) => {
@@ -165,9 +166,20 @@ export function GameShell({ view }: { view: GameView }) {
             {crowdText}
           </p>
         ) : null}
-        <main className={`absolute inset-0 ${!account && tab === "home" ? "overflow-hidden" : !account && tab === "phone" ? "overflow-hidden px-3 pb-24 pt-[4.5rem]" : "overflow-y-auto px-4 pb-28 pt-20"}`}>
+        <main className={`absolute inset-0 ${!account && (tab === "home" || tab === "room") ? "overflow-hidden" : !account && tab === "phone" ? "overflow-hidden px-3 pb-24 pt-[4.5rem]" : "overflow-y-auto px-4 pb-28 pt-20"}`}>
           {account ? <AccountPage view={view} pending={pending} run={run} onBack={() => setAccount(false)} /> : null}
-          {!account && tab === "home" ? <HomePanel view={view} run={run} pending={pending} furnishToken={furnishToken} onOpenMap={() => setTab("map")} /> : null}
+          {!account && tab === "home" ? <HomePanel view={view} run={run} pending={pending} onOpenMap={() => setTab("map")} onOpenRoom={() => { setRoomEntry("look"); setTab("room"); }} /> : null}
+          {!account && tab === "room" ? (
+            <HouseRoom
+              name={homeById(me.homeId).name}
+              look={me.look}
+              owned={me.furniture}
+              pending={pending}
+              entry={roomEntry}
+              shopNonce={shopNonce}
+              onBuy={(itemId) => run(() => buyFurniture(itemId))}
+            />
+          ) : null}
           {!account && tab === "map" ? <MapPanel view={view} run={run} pending={pending} onOpen={setPersonId} sheetRoot={phone} /> : null}
           {!account && tab === "phone" ? (
             <PhonePanel
@@ -240,25 +252,20 @@ export function GameShell({ view }: { view: GameView }) {
           </div>
         </div>
         <nav className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-full bg-white p-1.5 text-[11px] font-semibold shadow-xl">
-          <button type="button" className={`flex w-16 flex-col items-center gap-0.5 rounded-2xl px-2 py-1.5 ${!account && tab === "home" ? "bg-[#17241e] text-white" : "text-[#5d6b62]"}`} onClick={() => { setAccount(false); setTab("home"); }}><span className="text-base leading-none">⌂</span>Home</button>
+          <button type="button" className={`flex w-16 flex-col items-center gap-0.5 rounded-2xl px-2 py-1.5 ${!account && (tab === "home" || tab === "map") ? "bg-[#17241e] text-white" : "text-[#5d6b62]"}`} onClick={() => { setAccount(false); setTab("home"); }}><span className="text-base leading-none">⌖</span>Map</button>
           <button
             type="button"
             className="flex w-16 flex-col items-center gap-0.5 rounded-2xl px-2 py-1.5 text-[#5d6b62]"
             onClick={() => {
               setAccount(false);
-              setTab("home");
-              const home = homeById(me.homeId);
-              if (me.locationId !== home.areaId) {
-                flash("Go home first. Buy opens the furniture in your house.", true);
-                return;
-              }
-              if (!me.indoors) run(enterDoor);
-              setFurnishToken((value) => value + 1);
+              setRoomEntry("shop");
+              setShopNonce((value) => value + 1);
+              setTab("room");
             }}
           >
             <span className="text-base leading-none">▣</span>Buy
           </button>
-          <button type="button" className={`flex w-16 flex-col items-center gap-0.5 rounded-2xl px-2 py-1.5 ${!account && tab === "map" ? "bg-[#17241e] text-white" : "text-[#5d6b62]"}`} onClick={() => { setAccount(false); setTab("map"); }}><span className="text-base leading-none">⌖</span>Map</button>
+          <button type="button" className={`flex w-16 flex-col items-center gap-0.5 rounded-2xl px-2 py-1.5 ${!account && tab === "room" ? "bg-[#17241e] text-white" : "text-[#5d6b62]"}`} onClick={() => { setAccount(false); setRoomEntry("look"); setTab("room"); }}><span className="text-base leading-none">⌂</span>Home</button>
           <button type="button" className={`flex w-16 flex-col items-center gap-0.5 rounded-2xl px-2 py-1.5 ${!account && tab === "phone" ? "bg-[#17241e] text-white" : "text-[#5d6b62]"}`} onClick={() => { setAccount(false); setTab("phone"); }}><span className="text-base leading-none">▢</span>Phone</button>
         </nav>
         {person ? (
@@ -487,17 +494,11 @@ function PlaceTrip({
   );
 }
 
-function HomePanel({ view, run, pending, furnishToken, onOpenMap }: { view: GameView; run: Run; pending: boolean; furnishToken: number; onOpenMap: () => void }) {
+function HomePanel({ view, run, pending, onOpenMap, onOpenRoom }: { view: GameView; run: Run; pending: boolean; onOpenMap: () => void; onOpenRoom: () => void }) {
   const router = useRouter();
-  const [roomOpen, setRoomOpen] = useState(false);
-  const furnishSeen = useRef(furnishToken);
   const me = view.me;
   const home = homeById(me.homeId);
   const atHome = me.locationId === home.areaId;
-  if (furnishToken !== furnishSeen.current) {
-    furnishSeen.current = furnishToken;
-    if (atHome && !roomOpen) setRoomOpen(true);
-  }
   const here = placeById(me.locationId);
   const ward = NPCS.find((npc) => npc.placeId === me.locationId && (npc.role === "Doctor" || npc.role === "Nurse" || npc.role === "Chemist"));
   const clinic = here.kind === "health" || here.id === "eke-ukwu";
@@ -513,39 +514,19 @@ function HomePanel({ view, run, pending, furnishToken, onOpenMap }: { view: Game
   return (
     <div className="relative h-full">
       <section className="absolute inset-0 overflow-hidden bg-[#d7ebdd]">
-        {atHome && me.indoors && roomOpen ? (
-          <div className="h-full overflow-y-auto p-3">
-            <button type="button" onClick={() => setRoomOpen(false)} className="mb-3 text-xs font-semibold text-[#143d2c]">
-              Back to the map
-            </button>
-            <HouseRoom name={home.name} look={me.look} owned={me.furniture} pending={pending} onBuy={(itemId) => run(() => buyFurniture(itemId))} />
-          </div>
-        ) : (
-          <>
-            <CityWorld homeAreaId={home.areaId} locationId={me.locationId} onSelect={setPickedPlace} />
-            {atHome ? (
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() => {
-                  if (me.indoors) {
-                    setRoomOpen(true);
-                    return;
-                  }
-                  run(enterDoor).then((result) => {
-                    if (result.ok) setRoomOpen(true);
-                  });
-                }}
-                className="absolute bottom-28 left-1/2 z-10 -translate-x-1/2 rounded-full bg-[#17241e] px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
-              >
-                {me.indoors ? "See the room" : "Go inside"}
-              </button>
-            ) : null}
-            <button type="button" onClick={() => setLifeOpen((open) => !open)} className="absolute left-3 top-20 z-10 rounded-full bg-white px-3 py-2 text-xs font-semibold shadow">
-              {lifeOpen ? "Hide" : "Your life"}
-            </button>
-          </>
-        )}
+        <CityWorld homeAreaId={home.areaId} locationId={me.locationId} onSelect={setPickedPlace} />
+        {atHome ? (
+          <button
+            type="button"
+            onClick={onOpenRoom}
+            className="absolute bottom-28 left-1/2 z-10 -translate-x-1/2 rounded-full bg-[#17241e] px-4 py-2 text-sm font-semibold text-white"
+          >
+            Your room
+          </button>
+        ) : null}
+        <button type="button" onClick={() => setLifeOpen((open) => !open)} className="absolute left-3 top-20 z-10 rounded-full bg-white px-3 py-2 text-xs font-semibold shadow">
+          {lifeOpen ? "Hide" : "Your life"}
+        </button>
       </section>
       {pickedPlace ? <PlaceTrip placeId={pickedPlace} view={view} pending={pending} run={run} onClose={() => setPickedPlace(null)} onEntered={onOpenMap} /> : null}
       {lifeOpen ? <div className="absolute bottom-24 left-3 top-32 z-20 w-[min(24rem,calc(100%-1.5rem))] space-y-4 overflow-y-auto">

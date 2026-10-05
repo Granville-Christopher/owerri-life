@@ -763,7 +763,6 @@ export function furnish(player: Player, ledger: LedgerEntry[], itemId: string): 
   const item = FURNITURE.find((piece) => piece.id === itemId);
   if (!item) return fail(player, ledger, "That piece is not for sale.");
   const home = homeById(player.homeId);
-  if (player.locationId !== home.areaId || !player.indoors) return fail(player, ledger, "Buy furniture inside your house.");
   if (player.furniture.includes(item.id)) return fail(player, ledger, `You already have a ${item.name.toLowerCase()}.`);
   const paid = debit(ledger, player, item.cost, `Furniture · ${item.name}`, stamp(player.day, player.hour));
   if (!paid) return fail(player, ledger, "Your wallet cannot cover that.");
