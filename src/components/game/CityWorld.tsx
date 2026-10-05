@@ -834,6 +834,8 @@ export function CityWorld({
     pill("Old Owerri", new THREE.Vector3(spot(54, 58).x, 1, spot(54, 58).z));
     pill("New Owerri", new THREE.Vector3(spot(68, 80).x, 1, spot(68, 80).z));
     pill("Wetheral", new THREE.Vector3(spot(48, 30).x, 1, spot(48, 30).z));
+    pill("MCC", new THREE.Vector3(spot(62, 34).x, 1, spot(62, 34).z));
+    pill("Egbu Road", new THREE.Vector3(spot(92, 22).x, 1, spot(92, 22).z));
     pill("Campus", new THREE.Vector3(spot(76, 18).x, 1, spot(76, 18).z));
 
     const here = PLACES.find((place) => place.id === locationId);
