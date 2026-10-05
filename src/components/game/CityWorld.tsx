@@ -112,16 +112,76 @@ export function CityWorld({
       return group;
     }
 
-    for (const areaId of ["ikenegbu", "world-bank", "aladinma", "new-owerri"]) {
-      const area = PLACES.find((place) => place.id === areaId);
-      if (!area) continue;
-      const origin = spot(area.x, area.y);
-      for (let row = 0; row < 4; row += 1) {
-        for (let col = 0; col < 5; col += 1) {
-          if (row === 1 && col === 2) continue;
-          house(origin.x + (col - 2) * 2.3, origin.z + (row - 1) * 2.3, 0xf4efe4, 0.9, 0x2f6b45);
-        }
+    function tower(x: number, z: number, tint: number) {
+      const group = new THREE.Group();
+      const height = 6.4;
+      const body = new THREE.Mesh(new THREE.BoxGeometry(3.6, height, 2.8), new THREE.MeshLambertMaterial({ color: tint }));
+      body.position.y = height / 2;
+      const cap = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.28, 3), new THREE.MeshLambertMaterial({ color: 0xe0b15a }));
+      cap.position.y = height + 0.14;
+      const glass = new THREE.Mesh(new THREE.BoxGeometry(3.2, height * 0.7, 0.08), new THREE.MeshLambertMaterial({ color: 0x9fd0ea }));
+      glass.position.set(0, height * 0.5, 1.42);
+      group.add(body, cap, glass);
+      group.position.set(x, 0, z);
+      scene.add(group);
+      return group;
+    }
+
+    function carMesh(color: number) {
+      const group = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.42, 0.85), new THREE.MeshLambertMaterial({ color }));
+      body.position.y = 0.42;
+      const cabin = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.34, 0.72), new THREE.MeshLambertMaterial({ color: 0xd7e7f5 }));
+      cabin.position.y = 0.78;
+      group.add(body, cabin);
+      return group;
+    }
+
+    const traffic: Array<{ mesh: THREE.Group; along: number; axis: "x" | "z"; fixed: number; speed: number; min: number; max: number }> = [];
+    function addTraffic(axis: "x" | "z", fixed: number, min: number, max: number, count: number, color: number) {
+      for (let i = 0; i < count; i += 1) {
+        const mesh = carMesh(color);
+        const along = min + ((i + 0.3) / count) * (max - min);
+        mesh.position.set(axis === "x" ? along : fixed, 0, axis === "z" ? along : fixed);
+        if (axis === "z") mesh.rotation.y = Math.PI / 2;
+        scene.add(mesh);
+        traffic.push({ mesh, along, axis, fixed, speed: 0.12 + (i % 3) * 0.04, min, max });
       }
+    }
+    addTraffic("x", 1.6, -190, 190, 6, 0xc4552a);
+    addTraffic("x", -78.4, -160, 160, 5, 0xf2c14e);
+    addTraffic("x", 81.6, -120, 140, 4, 0x1f6b45);
+    addTraffic("z", -38.4, -150, 150, 5, 0x245c78);
+    addTraffic("z", 71.6, -110, 130, 4, 0x17241e);
+
+    const posters: THREE.Texture[] = [];
+    function billboard(x: number, z: number, turn: number, title: string, line: string, paint: string) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 512;
+      canvas.height = 256;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.fillStyle = paint;
+      ctx.fillRect(0, 0, 512, 256);
+      ctx.fillStyle = "#e0b15a";
+      ctx.fillRect(0, 0, 512, 10);
+      ctx.font = "700 54px sans-serif";
+      ctx.fillStyle = "#fffaf2";
+      ctx.fillText(title, 28, 110);
+      ctx.font = "32px sans-serif";
+      ctx.fillStyle = "#f3e2b8";
+      ctx.fillText(line, 28, 170);
+      const texture = new THREE.CanvasTexture(canvas);
+      posters.push(texture);
+      const group = new THREE.Group();
+      const face = new THREE.Mesh(new THREE.PlaneGeometry(7.2, 3.6), new THREE.MeshLambertMaterial({ map: texture, side: THREE.DoubleSide }));
+      face.position.y = 3.4;
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 3.2, 6), new THREE.MeshLambertMaterial({ color: 0x6a4630 }));
+      pole.position.y = 1.6;
+      group.add(face, pole);
+      group.position.set(x, 0, z);
+      group.rotation.y = turn;
+      scene.add(group);
     }
 
     const buildings: THREE.Object3D[] = [];
@@ -171,12 +231,37 @@ export function CityWorld({
     }
     const laid = new Map(laidSpots.map((item) => [item.id, item]));
 
+    function estate(cx: number, cz: number, rows: number, cols: number) {
+      for (let row = 0; row < rows; row += 1) {
+        for (let col = 0; col < cols; col += 1) {
+          if (row === Math.floor(rows / 2) && col === Math.floor(cols / 2)) continue;
+          house(cx + (col - cols / 2) * 2.35, cz + (row - rows / 2) * 2.35, 0xf4efe4, 0.85, 0x2f6b45);
+        }
+      }
+    }
+    const newOwerri = laid.get("new-owerri");
+    const wetheral = laid.get("wetheral-strip");
+    const ikenegbu = laid.get("ikenegbu");
+    const worldBank = laid.get("world-bank");
+    const aladinma = laid.get("aladinma");
+    if (newOwerri) estate(newOwerri.x + 24, newOwerri.z, 6, 8);
+    if (wetheral) estate(wetheral.x - 22, wetheral.z + 6, 5, 7);
+    if (ikenegbu) estate(ikenegbu.x + 16, ikenegbu.z, 4, 6);
+    if (worldBank) estate(worldBank.x - 16, worldBank.z, 4, 5);
+    if (aladinma) estate(aladinma.x + 16, aladinma.z, 4, 5);
+    billboard(-30, 12, 0.4, "Wetheral night", "Clubs open till dawn", "#7a2e1e");
+    billboard(24, -70, 0.2, "Bus to campus", "IMSU, FUTO, Nekede", "#143d2c");
+    billboard(55, 18, -0.5, "Mama Nkechi", "Rice, stew, and gist", "#8a5a2a");
+    billboard(-55, 40, 0.8, "New Owerri", "Flats and duplexes", "#1f6b45");
+    billboard(90, 70, -0.3, "Sam Mbakwe", "Flights out of Imo", "#245c78");
+
     for (const place of PLACES) {
       const at = laid.get(place.id) ?? spot(place.x, place.y);
       const mine = place.id === homeAreaId;
-      const height = mine ? 2.6 : place.kind === "nightlife" ? 2.4 : place.kind === "hotel" ? 2.1 : 1.5;
+      const hotel = place.kind === "hotel";
+      const height = mine ? 2.6 : hotel ? 6.4 : place.kind === "nightlife" ? 2.4 : 1.5;
       const roof = mine ? 0xc4552a : place.kind === "nightlife" ? 0x7a2e1e : place.kind === "health" ? 0x3d7ea6 : place.kind === "school" ? 0x3d6b4f : 0x245c3a;
-      const group = house(at.x, at.z, mine ? 0xfffaf2 : 0xf7f1e8, height, roof);
+      const group = hotel ? tower(at.x, at.z, mine ? 0xfffaf2 : 0xf3efe4) : house(at.x, at.z, mine ? 0xfffaf2 : 0xf7f1e8, height, roof);
       group.userData.placeId = place.id;
       buildings.push(group);
       if (mine) homes.push(group);
@@ -311,6 +396,12 @@ export function CityWorld({
     const loop = () => {
       const pulse = 1 + Math.sin(clock.getElapsedTime() * 3) * 0.16;
       for (const home of homes) home.scale.setScalar(pulse);
+      for (const car of traffic) {
+        car.along += car.speed;
+        if (car.along > car.max) car.along = car.min;
+        if (car.axis === "x") car.mesh.position.x = car.along;
+        else car.mesh.position.z = car.along;
+      }
       const width = root.clientWidth;
       const height = root.clientHeight;
       for (const label of labelNodes) {
@@ -341,6 +432,7 @@ export function CityWorld({
       wrap.removeEventListener("wheel", onWheel);
       zoomIn?.removeEventListener("click", inHandler);
       zoomOut?.removeEventListener("click", outHandler);
+      for (const texture of posters) texture.dispose();
       renderer.dispose();
       renderer.domElement.remove();
       labelRoot.replaceChildren();

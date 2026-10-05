@@ -63,7 +63,7 @@ import {
   useRestroom,
   go,
 } from "@/lib/game/actions";
-import { BET_STAKES, CAREERS, DREAMS, HOMES, LANDS, NPCS, PLACES, TOP_UPS, TRAITS, TREATMENT_FEE, TRIPS, careerById, coursesAt, homeById, lectureLabel, placeById, type Course } from "@/lib/game/content";
+import { BET_STAKES, CAREERS, DREAMS, HOMES, LANDS, NPCS, PLACES, TOP_UPS, TRAITS, TREATMENT_FEE, TRIPS, careerById, coursesAt, homeById, lectureLabel, placeActs, placeById, type Course } from "@/lib/game/content";
 import { POLICE_ID, multiplyOdds, travelOptions } from "@/lib/game/engine";
 import { clockLabel, dreamProgress, jobTitle, levelPay, moodLabel, naira, skillLabel, skillNeeded, weekday } from "@/lib/game/format";
 import type { GameView, PersonCard } from "@/lib/game/queries";
@@ -174,9 +174,12 @@ export function GameShell({ view }: { view: GameView }) {
               view={view}
               run={run}
               pending={pending}
-              onGo={(dest) => {
-                if (dest === "account") setAccount(true);
-                else setTab(dest);
+              onArrived={() => setTab("map")}
+              onOpen={setPersonId}
+              onMeet={(id) => {
+                run(() => goMeet(id)).then((result) => {
+                  if (result.ok) setTab("map");
+                });
               }}
             />
           ) : null}
@@ -1343,38 +1346,32 @@ function courseCount() {
   return PLACES.filter((item) => item.kind === "school").reduce((sum, item) => sum + coursesAt(item.id).length, 0);
 }
 
+type PhoneApp = "jobs" | "messages" | "bets" | "houses" | "land" | "wallet" | "bus" | "food" | "campus" | "market" | "night" | "club" | "health" | "fly" | "skills" | "settings";
+
 function PhoneDeck({
   view,
   onPick,
-  onGo,
 }: {
   view: GameView;
-  onPick: (app: "jobs" | "houses" | "land" | "bus" | "school") => void;
-  onGo: (dest: "people" | "bets" | "ledger" | "map" | "account") => void;
+  onPick: (app: PhoneApp) => void;
 }) {
-  const apps = [
-    { name: "Jobs", icon: "💼", tone: "bg-[#143d2c]", pick: "jobs" as const },
-    { name: "Messages", icon: "💬", tone: "bg-[#3d7ea6]", go: "people" as const },
-    { name: "Bets", icon: "⚽", tone: "bg-[#1f6b45]", go: "bets" as const },
-    { name: "Houses", icon: "🏠", tone: "bg-[#a9782a]", pick: "houses" as const },
-    { name: "Plots", icon: "🌿", tone: "bg-[#3d6b4f]", pick: "land" as const },
-    { name: "Bank", icon: "🏛", tone: "bg-[#245c78]", go: "ledger" as const },
-    { name: "Bus", icon: "🚌", tone: "bg-[#c4552a]", pick: "bus" as const },
-    { name: "Ward", icon: "🏥", tone: "bg-[#b5523a]", go: "map" as const },
-    { name: "Campus", icon: "🎓", tone: "bg-[#5a3d7a]", pick: "school" as const },
-    { name: "Market", icon: "🛍", tone: "bg-[#8a5a2a]", go: "map" as const },
-    { name: "Night", icon: "🎶", tone: "bg-[#7a2e1e]", go: "map" as const },
-    { name: "Fly", icon: "✈", tone: "bg-[#3d7ea6]", go: "map" as const },
-    { name: "People", icon: "👋", tone: "bg-[#1f6b45]", go: "people" as const },
-    { name: "Wallet", icon: "💰", tone: "bg-[#c48a2a]", go: "ledger" as const },
-    { name: "Food", icon: "🍲", tone: "bg-[#b5523a]", go: "map" as const },
-    { name: "Club", icon: "🪩", tone: "bg-[#5a3d7a]", go: "map" as const },
-    { name: "Gist", icon: "📰", tone: "bg-[#245c78]", go: "people" as const },
-    { name: "Health", icon: "💊", tone: "bg-[#3d7ea6]", go: "map" as const },
-    { name: "Invite", icon: "🔗", tone: "bg-[#1f6b45]", go: "people" as const },
-    { name: "Staff", icon: "🧹", tone: "bg-[#8a5a2a]", pick: "jobs" as const },
-    { name: "Skills", icon: "✨", tone: "bg-[#5a3d7a]", pick: "school" as const },
-    { name: "Settings", icon: "⚙", tone: "bg-[#5d6b62]", go: "account" as const },
+  const apps: Array<{ name: string; icon: string; tone: string; pick: PhoneApp }> = [
+    { name: "Jobs", icon: "💼", tone: "bg-[#143d2c]", pick: "jobs" },
+    { name: "Messages", icon: "💬", tone: "bg-[#3d7ea6]", pick: "messages" },
+    { name: "Bets", icon: "⚽", tone: "bg-[#1f6b45]", pick: "bets" },
+    { name: "Houses", icon: "🏠", tone: "bg-[#a9782a]", pick: "houses" },
+    { name: "Plots", icon: "🌿", tone: "bg-[#3d6b4f]", pick: "land" },
+    { name: "Wallet", icon: "💰", tone: "bg-[#c48a2a]", pick: "wallet" },
+    { name: "Food", icon: "🍲", tone: "bg-[#b5523a]", pick: "food" },
+    { name: "Campus", icon: "🎓", tone: "bg-[#5a3d7a]", pick: "campus" },
+    { name: "Market", icon: "🛍", tone: "bg-[#8a5a2a]", pick: "market" },
+    { name: "Night", icon: "🎶", tone: "bg-[#7a2e1e]", pick: "night" },
+    { name: "Club", icon: "🪩", tone: "bg-[#5a3d12]", pick: "club" },
+    { name: "Health", icon: "💊", tone: "bg-[#b5523a]", pick: "health" },
+    { name: "Fly", icon: "✈", tone: "bg-[#245c78]", pick: "fly" },
+    { name: "Skills", icon: "✨", tone: "bg-[#3d6b4f]", pick: "skills" },
+    { name: "Bus", icon: "🚌", tone: "bg-[#c4552a]", pick: "bus" },
+    { name: "Settings", icon: "⚙", tone: "bg-[#5d6b62]", pick: "settings" },
   ];
   const clock = clockLabel(view.me.day, view.me.hour).split(" ").at(-1);
   return (
@@ -1391,10 +1388,7 @@ function PhoneDeck({
               <button
                 key={app.name}
                 type="button"
-                onClick={() => {
-                  if ("go" in app && app.go) onGo(app.go);
-                  else if ("pick" in app && app.pick) onPick(app.pick);
-                }}
+                onClick={() => onPick(app.pick)}
                 className="flex flex-col items-center gap-1"
               >
                 <span className={`grid h-14 w-14 place-items-center rounded-2xl text-2xl shadow ${app.tone}`}>{app.icon}</span>
@@ -1411,35 +1405,127 @@ function PhoneDeck({
   );
 }
 
+function placesFor(app: PhoneApp) {
+  if (app === "food") return PLACES.filter((place) => placeActs(place).plate);
+  if (app === "campus") return PLACES.filter((place) => place.kind === "school");
+  if (app === "market") return PLACES.filter((place) => place.kind === "market");
+  if (app === "night") return PLACES.filter((place) => place.kind === "nightlife");
+  if (app === "club") return PLACES.filter((place) => place.kind === "nightlife" || place.id === "concord-hotel");
+  if (app === "health") return PLACES.filter((place) => place.kind === "health");
+  if (app === "fly") return PLACES.filter((place) => place.kind === "airport");
+  return [];
+}
+
 function PhonePanel({
   view,
   run,
   pending,
-  onGo,
+  onArrived,
+  onOpen,
+  onMeet,
 }: {
   view: GameView;
   run: Run;
   pending: boolean;
-  onGo: (dest: "people" | "bets" | "ledger" | "map" | "account") => void;
+  onArrived: () => void;
+  onOpen: (id: string) => void;
+  onMeet: (id: string) => void;
 }) {
   const me = view.me;
-  const [app, setApp] = useState<null | "jobs" | "houses" | "land" | "bus" | "school">(null);
-  if (!app) return <PhoneDeck view={view} onPick={setApp} onGo={onGo} />;
+  const [app, setApp] = useState<PhoneApp | null>(null);
+  const [picked, setPicked] = useState<string | null>(null);
+  const [peer, setPeer] = useState<string | null>(null);
+  if (!app) return <PhoneDeck view={view} onPick={setApp} />;
+  const titles: Record<PhoneApp, string> = {
+    jobs: "Jobs",
+    messages: "Messages",
+    bets: "Bets",
+    houses: "Houses",
+    land: "Plots",
+    wallet: "Wallet",
+    bus: "Bus",
+    food: "Food",
+    campus: "Campus",
+    market: "Market",
+    night: "Nightlife",
+    club: "Clubs",
+    health: "Health",
+    fly: "Fly",
+    skills: "Skills",
+    settings: "Settings",
+  };
+  function close() {
+    if (picked) {
+      setPicked(null);
+      return;
+    }
+    if (peer) {
+      setPeer(null);
+      return;
+    }
+    setApp(null);
+  }
+  const farePlace = picked ? placeById(picked) : null;
+  const fareRides = farePlace && farePlace.id !== me.locationId ? travelOptions(me.locationId, farePlace.id, me.hasCar, view.balance) : [];
+  const fareActs = farePlace ? placeActs(farePlace) : null;
   return (
-    <div className="mx-auto flex h-full w-full max-w-[390px] flex-col overflow-hidden rounded-[2.6rem] border-[12px] border-[#14110e] bg-[#14110e] text-[#17241e] shadow-2xl">
-      <button type="button" onClick={() => setApp(null)} className="px-4 py-3 text-left text-sm font-semibold text-[#f6f1e6]">Back</button>
+    <div className="relative mx-auto flex h-full w-full max-w-[390px] flex-col overflow-hidden rounded-[2.6rem] border-[12px] border-[#14110e] bg-[#14110e] text-[#17241e] shadow-2xl">
+      <div className="flex items-center justify-between px-4 py-3">
+        <p className="text-sm font-semibold text-[#f6f1e6]">{titles[app]}</p>
+        <button type="button" aria-label="Close" onClick={close} className="grid h-8 w-8 place-items-center rounded-full bg-white text-lg leading-none text-[#17241e]">×</button>
+      </div>
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-[#f4efe4] p-3">
       {app === "bus" ? (
         <section className="rounded-3xl bg-white p-4 text-sm leading-6">
           <h2 className="font-display text-2xl">Bus</h2>
-          <p className="mt-2 text-[#5d6b62]">Owerri moves by bus, keke, and okada. Open a place on the city map and pick the ride. There is no danfo here.</p>
+          <p className="mt-2 text-[#5d6b62]">Owerri moves by bus, keke, and okada. Open Food, Campus, Market, Night, or Club and the fare is on the next screen. There is no danfo here.</p>
         </section>
       ) : null}
-      {app === "school" ? (
-        <section className="rounded-3xl bg-white p-4 text-sm leading-6">
-          <h2 className="font-display text-2xl">Campus</h2>
-          <p className="mt-2 text-[#5d6b62]">IMSU, FUTO, and Federal Polytechnic Nekede are on the map. Go inside a school to apply. One school at a time.</p>
-        </section>
+      {app === "messages" ? (
+        <div className="h-[32rem]">
+          <PeoplePanel view={view} run={run} pending={pending} peerId={peer} onPeer={setPeer} onOpen={onOpen} onMeet={onMeet} />
+        </div>
+      ) : null}
+      {app === "bets" ? <BetsPanel view={view} run={run} pending={pending} /> : null}
+      {app === "wallet" ? <LedgerPanel view={view} /> : null}
+      {app === "settings" ? (
+        <label className="block rounded-3xl bg-white p-4 text-sm">
+          Who can see your net worth
+          <select
+            className="mt-2 w-full rounded-2xl border border-[#e4d8c4] bg-white px-3 py-3"
+            value={me.netWorthVisibility}
+            onChange={(event) => run(() => setWealthPrivacy(event.target.value as typeof me.netWorthVisibility))}
+          >
+            <option value="friends">Friends only</option>
+            <option value="public">Public</option>
+            <option value="hidden">Hidden</option>
+          </select>
+        </label>
+      ) : null}
+      {app === "skills" ? (
+        <div className="grid gap-2">
+          {(Object.keys(me.skills) as Array<keyof typeof me.skills>).map((skill) => (
+            <div key={skill} className="flex items-center justify-between rounded-2xl bg-white px-3 py-3 text-sm">
+              <span className="font-semibold">{skillLabel(skill)}</span>
+              <span>{me.skills[skill].toFixed(1)}</span>
+            </div>
+          ))}
+          <p className="px-1 text-xs text-[#5d6b62]">A shift raises the skill for that job. Open Jobs to apply, then ride to the workplace.</p>
+        </div>
+      ) : null}
+      {(["food", "campus", "market", "night", "club", "health", "fly"] as PhoneApp[]).includes(app) ? (
+        <div className="grid gap-2">
+          {placesFor(app).map((place) => {
+            const plate = placeActs(place).plate;
+            return (
+              <button key={place.id} type="button" onClick={() => setPicked(place.id)} className="rounded-2xl bg-white px-3 py-3 text-left text-sm">
+                <span className="block font-semibold">{place.name}</span>
+                <span className="text-[#5d6b62]">{place.area}</span>
+                {plate ? <span className="mt-1 block font-semibold text-[#1f6b45]">{plate.name} · {naira(plate.cost)}</span> : null}
+              </button>
+            );
+          })}
+        </div>
       ) : null}
       {app === "jobs" ? <><section className="rounded-3xl bg-[#143d2c] p-4 text-[#f6f1e6]">
         <p className="text-xs uppercase tracking-[0.16em] text-[#d5e4d8]">{weekday(me.day)}</p>
@@ -1475,25 +1561,32 @@ function PhonePanel({
           ))}
         </div>
       </section></> : null}
-      {app === "houses" ? <section>
-        <h2 className="font-display text-2xl">Move house</h2>
-        <div className="mt-2 grid gap-2">
-          {HOMES.map((home) => (
-            <button
-              key={home.id}
-              disabled={pending || home.id === me.homeId}
-              onClick={() => run(() => changeHome(home.id))}
-              className="flex items-center justify-between rounded-2xl bg-white px-3 py-3 text-left text-sm disabled:opacity-60"
-            >
-              <span>
-                <span className="block font-semibold">{home.name}</span>
-                <span className="text-[#5d6b62]">{home.tier}{home.id === me.homeId ? " · you live here" : ""}</span>
-              </span>
-              <span className="font-semibold">{naira(home.rent)}/wk</span>
-            </button>
+      {app === "houses" ? (
+        <div className="grid gap-4">
+          <p className="text-sm text-[#5d6b62]">Homes you can move into. Rent is weekly. New Owerri is the big section. Wetheral is the night street, so the rooms on that side are Ikenegbu.</p>
+          {["new-owerri", "ikenegbu", "world-bank", "aladinma"].map((areaId) => (
+            <section key={areaId}>
+              <h2 className="font-display text-2xl">{placeById(areaId).name}</h2>
+              <div className="mt-2 grid gap-2">
+                {HOMES.filter((home) => home.areaId === areaId).map((home) => (
+                  <button
+                    key={home.id}
+                    disabled={pending || home.id === me.homeId}
+                    onClick={() => run(() => changeHome(home.id))}
+                    className="flex items-center justify-between rounded-2xl bg-white px-3 py-3 text-left text-sm disabled:opacity-60"
+                  >
+                    <span>
+                      <span className="block font-semibold">{home.name}</span>
+                      <span className="text-[#5d6b62]">{home.tier}{home.id === me.homeId ? " · you live here" : ""}</span>
+                    </span>
+                    <span className="font-semibold">{naira(home.rent)}/wk</span>
+                  </button>
+                ))}
+              </div>
+            </section>
           ))}
         </div>
-      </section> : null}
+      ) : null}
       {app === "land" ? <section>
         <h2 className="font-display text-2xl">Land</h2>
         <p className="mt-1 text-sm text-[#5d6b62]">Buy a plot. Every Saturday the tenants pay you. That rent is earned, so it can pay a meet-up. Topped-up naira still cannot.</p>
@@ -1536,6 +1629,54 @@ function PhonePanel({
         </label>
       </section> : null}
       </div>
+      {farePlace && fareActs ? (
+        <div className="absolute inset-0 z-20 flex items-end bg-black/45 p-3">
+          <div className="max-h-[78%] w-full overflow-y-auto rounded-[1.6rem] bg-white p-4 text-[#17241e] shadow-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#a9782a]">{farePlace.area}</p>
+                <h2 className="font-display text-2xl leading-none">{farePlace.name}</h2>
+              </div>
+              <button type="button" aria-label="Close" onClick={() => setPicked(null)} className="grid h-8 w-8 place-items-center rounded-full bg-[#f4efe4] text-lg leading-none">×</button>
+            </div>
+            {fareActs.plate ? <p className="mt-3 text-sm font-semibold text-[#1f6b45]">{fareActs.plate.name} · {naira(fareActs.plate.cost)}</p> : null}
+            <p className="mt-2 text-sm leading-6 text-[#5d6b62]">{farePlace.summary}</p>
+            {farePlace.id === me.locationId ? (
+              <div className="mt-4 grid gap-2">
+                <p className="text-sm font-semibold text-[#1f6b45]">You are already here.</p>
+                {fareActs.plate ? (
+                  <button type="button" disabled={pending} onClick={() => run(orderFood)} className="rounded-full bg-[#17241e] py-3 text-sm font-semibold text-white disabled:opacity-40">
+                    Order {fareActs.plate.name}
+                  </button>
+                ) : null}
+              </div>
+            ) : (
+              <div className="mt-4 grid gap-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#a9782a]">Get there</p>
+                {fareRides.map((option) => (
+                  <button
+                    key={option.mode}
+                    type="button"
+                    disabled={pending || !option.available || !option.affordable}
+                    onClick={() => {
+                      run(() => go(farePlace.id, option.mode)).then((result) => {
+                        if (result.ok) onArrived();
+                      });
+                    }}
+                    className="flex items-center justify-between rounded-2xl border border-[#e4d8c4] px-3 py-3 text-left text-sm disabled:opacity-40"
+                  >
+                    <span>
+                      <span className="block font-semibold">{option.label}</span>
+                      <span className="text-[#5d6b62]">{option.hours}h{option.reason ? ` · ${option.reason}` : ""}</span>
+                    </span>
+                    <span className="font-semibold">{option.cost === 0 ? "Free" : naira(option.cost)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
