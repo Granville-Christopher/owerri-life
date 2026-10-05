@@ -37,7 +37,7 @@ export type Lottery = "heir" | "struggle";
 export type MoneySource = "earned" | "gifted" | "purchased";
 export type Gender = "male" | "female";
 export type Sick = "none" | "mild" | "severe";
-export type TravelMode = "trek" | "keke" | "okada" | "cab" | "car";
+export type TravelMode = "trek" | "bus" | "keke" | "okada" | "cab" | "car";
 export type WorkStyle = "steady" | "jaguda" | "gist" | "oga" | "easy" | "leave";
 export type NetWorthVisibility = "public" | "friends" | "hidden";
 

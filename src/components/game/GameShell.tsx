@@ -139,10 +139,19 @@ export function GameShell({ view }: { view: GameView }) {
       : `${crowd.fromName} did dorime · ${naira(crowd.amount)}`
     : null;
   const [phone, setPhone] = useState<HTMLDivElement | null>(null);
+  const [furnishToken, setFurnishToken] = useState(0);
+
+  useEffect(() => {
+    const block = (event: WheelEvent) => {
+      if (event.ctrlKey) event.preventDefault();
+    };
+    window.addEventListener("wheel", block, { passive: false });
+    return () => window.removeEventListener("wheel", block);
+  }, []);
 
   return (
-    <div className="min-h-dvh bg-[#d9e8f2] text-[#17241e]">
-      <div ref={setPhone} className="relative mx-auto h-dvh w-full overflow-hidden bg-[#d7ebdd]">
+    <div className="fixed inset-0 overflow-hidden bg-[#d7ebdd] text-[#17241e]">
+      <div ref={setPhone} className="relative h-full w-full overflow-hidden">
         {toast ? (
           <p
             key={toast.id}
@@ -156,11 +165,21 @@ export function GameShell({ view }: { view: GameView }) {
             {crowdText}
           </p>
         ) : null}
-        <main className={`absolute inset-0 ${!account && tab === "home" ? "overflow-hidden" : "overflow-y-auto px-4 pb-28 pt-20"}`}>
+        <main className={`absolute inset-0 ${!account && tab === "home" ? "overflow-hidden" : !account && tab === "phone" ? "overflow-hidden px-3 pb-24 pt-[4.5rem]" : "overflow-y-auto px-4 pb-28 pt-20"}`}>
           {account ? <AccountPage view={view} pending={pending} run={run} onBack={() => setAccount(false)} /> : null}
-          {!account && tab === "home" ? <HomePanel view={view} run={run} pending={pending} /> : null}
+          {!account && tab === "home" ? <HomePanel view={view} run={run} pending={pending} furnishToken={furnishToken} onOpenMap={() => setTab("map")} /> : null}
           {!account && tab === "map" ? <MapPanel view={view} run={run} pending={pending} onOpen={setPersonId} sheetRoot={phone} /> : null}
-          {!account && tab === "phone" ? <PhonePanel view={view} run={run} pending={pending} /> : null}
+          {!account && tab === "phone" ? (
+            <PhonePanel
+              view={view}
+              run={run}
+              pending={pending}
+              onGo={(dest) => {
+                if (dest === "account") setAccount(true);
+                else setTab(dest);
+              }}
+            />
+          ) : null}
           {!account && tab === "bets" ? <BetsPanel view={view} run={run} pending={pending} /> : null}
           {!account && tab === "people" ? (
             <div className="flex h-full min-h-0 flex-col">
@@ -188,10 +207,11 @@ export function GameShell({ view }: { view: GameView }) {
           <div className="pointer-events-auto flex max-w-full items-center gap-3 overflow-x-auto rounded-full bg-white px-4 py-2 text-sm shadow-lg">
             <span className="shrink-0 font-semibold">{clockLabel(me.day, me.hour)}</span>
             <span className="shrink-0 text-[#5d6b62]">{moodLabel(me.needs, me.sick)}</span>
-            <span className="shrink-0 text-[#5d6b62]">{placeById(me.locationId).name}</span>
+            <span className="shrink-0 text-[#5d6b62]">{view.city.length} online</span>
             <InstallButton />
-            <button type="button" className="shrink-0 rounded-full bg-[#eef6ea] px-3 py-1 font-semibold" aria-label="Your balance" onClick={() => setTopUpOpen(true)}>
+            <button type="button" className="flex shrink-0 items-center gap-1 rounded-full bg-[#eef6ea] py-1 pl-3 pr-1 font-semibold" aria-label="Your balance" onClick={() => setTopUpOpen(true)}>
               {naira(view.balance)}
+              <span className="grid h-6 w-6 place-items-center rounded-full bg-[#1f6b45] text-sm text-white">+</span>
             </button>
           </div>
         </div>
@@ -216,21 +236,27 @@ export function GameShell({ view }: { view: GameView }) {
             ))}
           </div>
         </div>
-        <nav className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 gap-1 rounded-full bg-white p-1.5 text-xs font-semibold shadow-xl">
-          {(
-            [
-              ["home", "Home"],
-              ["map", "Map"],
-              ["phone", "Phone"],
-              ["people", "People"],
-              ["bets", "Bets"],
-              ["ledger", "Ledger"],
-            ] as const
-          ).map(([id, label]) => (
-            <button key={id} className={`rounded-full px-3 py-2 ${!account && tab === id ? "bg-[#17241e] text-white" : "text-[#5d6b62]"}`} onClick={() => { setAccount(false); setTab(id); }}>
-              {label}
-            </button>
-          ))}
+        <nav className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-full bg-white p-1.5 text-[11px] font-semibold shadow-xl">
+          <button type="button" className={`flex w-16 flex-col items-center gap-0.5 rounded-2xl px-2 py-1.5 ${!account && tab === "home" ? "bg-[#17241e] text-white" : "text-[#5d6b62]"}`} onClick={() => { setAccount(false); setTab("home"); }}><span className="text-base leading-none">⌂</span>Home</button>
+          <button
+            type="button"
+            className="flex w-16 flex-col items-center gap-0.5 rounded-2xl px-2 py-1.5 text-[#5d6b62]"
+            onClick={() => {
+              setAccount(false);
+              setTab("home");
+              const home = homeById(me.homeId);
+              if (me.locationId !== home.areaId) {
+                flash("Go home first. Buy opens the furniture in your house.", true);
+                return;
+              }
+              if (!me.indoors) run(enterDoor);
+              setFurnishToken((value) => value + 1);
+            }}
+          >
+            <span className="text-base leading-none">▣</span>Buy
+          </button>
+          <button type="button" className={`flex w-16 flex-col items-center gap-0.5 rounded-2xl px-2 py-1.5 ${!account && tab === "map" ? "bg-[#17241e] text-white" : "text-[#5d6b62]"}`} onClick={() => { setAccount(false); setTab("map"); }}><span className="text-base leading-none">⌖</span>Map</button>
+          <button type="button" className={`flex w-16 flex-col items-center gap-0.5 rounded-2xl px-2 py-1.5 ${!account && tab === "phone" ? "bg-[#17241e] text-white" : "text-[#5d6b62]"}`} onClick={() => { setAccount(false); setTab("phone"); }}><span className="text-base leading-none">▢</span>Phone</button>
         </nav>
         {person ? (
           <PersonSheet
@@ -380,12 +406,14 @@ function PlaceTrip({
   pending,
   run,
   onClose,
+  onEntered,
 }: {
   placeId: string;
   view: GameView;
   pending: boolean;
   run: Run;
   onClose: () => void;
+  onEntered: () => void;
 }) {
   const place = placeById(placeId);
   const here = place.id === view.me.locationId;
@@ -410,7 +438,23 @@ function PlaceTrip({
             ))}
           </div>
         ) : null}
-        {here ? <p className="mt-4 text-sm font-semibold text-[#1f6b45]">You are here. Go inside from the city when this is your stop.</p> : (
+        {here ? (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => {
+              run(enterDoor).then((result) => {
+                if (result.ok) {
+                  onClose();
+                  onEntered();
+                }
+              });
+            }}
+            className="mt-4 w-full rounded-full bg-[#17241e] py-3 text-sm font-semibold text-white disabled:opacity-40"
+          >
+            Go inside
+          </button>
+        ) : (
           <div className="mt-4 grid gap-2">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#a9782a]">Go there</p>
             {rides.map((option) => (
@@ -440,12 +484,17 @@ function PlaceTrip({
   );
 }
 
-function HomePanel({ view, run, pending }: { view: GameView; run: Run; pending: boolean }) {
+function HomePanel({ view, run, pending, furnishToken, onOpenMap }: { view: GameView; run: Run; pending: boolean; furnishToken: number; onOpenMap: () => void }) {
   const router = useRouter();
   const [roomOpen, setRoomOpen] = useState(false);
+  const furnishSeen = useRef(furnishToken);
   const me = view.me;
   const home = homeById(me.homeId);
   const atHome = me.locationId === home.areaId;
+  if (furnishToken !== furnishSeen.current) {
+    furnishSeen.current = furnishToken;
+    if (atHome && !roomOpen) setRoomOpen(true);
+  }
   const here = placeById(me.locationId);
   const ward = NPCS.find((npc) => npc.placeId === me.locationId && (npc.role === "Doctor" || npc.role === "Nurse" || npc.role === "Chemist"));
   const clinic = here.kind === "health" || here.id === "eke-ukwu";
@@ -495,7 +544,7 @@ function HomePanel({ view, run, pending }: { view: GameView; run: Run; pending: 
           </>
         )}
       </section>
-      {pickedPlace ? <PlaceTrip placeId={pickedPlace} view={view} pending={pending} run={run} onClose={() => setPickedPlace(null)} /> : null}
+      {pickedPlace ? <PlaceTrip placeId={pickedPlace} view={view} pending={pending} run={run} onClose={() => setPickedPlace(null)} onEntered={onOpenMap} /> : null}
       {lifeOpen ? <div className="absolute bottom-24 left-3 top-32 z-20 w-[min(24rem,calc(100%-1.5rem))] space-y-4 overflow-y-auto">
       <section className="rounded-[1.6rem] bg-[#143d2c] p-5 text-[#f6f1e6]">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#e0b15a]">{moodLabel(me.needs, me.sick)}</p>
@@ -1249,11 +1298,105 @@ function courseCount() {
   return PLACES.filter((item) => item.kind === "school").reduce((sum, item) => sum + coursesAt(item.id).length, 0);
 }
 
-function PhonePanel({ view, run, pending }: { view: GameView; run: Run; pending: boolean }) {
-  const me = view.me;
+function PhoneDeck({
+  view,
+  onPick,
+  onGo,
+}: {
+  view: GameView;
+  onPick: (app: "jobs" | "houses" | "land" | "bus" | "school") => void;
+  onGo: (dest: "people" | "bets" | "ledger" | "map" | "account") => void;
+}) {
+  const apps = [
+    { name: "Jobs", icon: "💼", tone: "bg-[#143d2c]", pick: "jobs" as const },
+    { name: "Messages", icon: "💬", tone: "bg-[#3d7ea6]", go: "people" as const },
+    { name: "Bets", icon: "⚽", tone: "bg-[#1f6b45]", go: "bets" as const },
+    { name: "Houses", icon: "🏠", tone: "bg-[#a9782a]", pick: "houses" as const },
+    { name: "Plots", icon: "🌿", tone: "bg-[#3d6b4f]", pick: "land" as const },
+    { name: "Bank", icon: "🏛", tone: "bg-[#245c78]", go: "ledger" as const },
+    { name: "Bus", icon: "🚌", tone: "bg-[#c4552a]", pick: "bus" as const },
+    { name: "Ward", icon: "🏥", tone: "bg-[#b5523a]", go: "map" as const },
+    { name: "Campus", icon: "🎓", tone: "bg-[#5a3d7a]", pick: "school" as const },
+    { name: "Market", icon: "🛍", tone: "bg-[#8a5a2a]", go: "map" as const },
+    { name: "Night", icon: "🎶", tone: "bg-[#7a2e1e]", go: "map" as const },
+    { name: "Fly", icon: "✈", tone: "bg-[#3d7ea6]", go: "map" as const },
+    { name: "People", icon: "👋", tone: "bg-[#1f6b45]", go: "people" as const },
+    { name: "Wallet", icon: "💰", tone: "bg-[#c48a2a]", go: "ledger" as const },
+    { name: "Food", icon: "🍲", tone: "bg-[#b5523a]", go: "map" as const },
+    { name: "Club", icon: "🪩", tone: "bg-[#5a3d7a]", go: "map" as const },
+    { name: "Gist", icon: "📰", tone: "bg-[#245c78]", go: "people" as const },
+    { name: "Health", icon: "💊", tone: "bg-[#3d7ea6]", go: "map" as const },
+    { name: "Invite", icon: "🔗", tone: "bg-[#1f6b45]", go: "people" as const },
+    { name: "Staff", icon: "🧹", tone: "bg-[#8a5a2a]", pick: "jobs" as const },
+    { name: "Skills", icon: "✨", tone: "bg-[#5a3d7a]", pick: "school" as const },
+    { name: "Settings", icon: "⚙", tone: "bg-[#5d6b62]", go: "account" as const },
+  ];
+  const clock = clockLabel(view.me.day, view.me.hour).split(" ").at(-1);
   return (
-    <div className="space-y-4">
-      <section className="rounded-3xl bg-[#143d2c] p-4 text-[#f6f1e6]">
+    <div className="mx-auto flex h-full w-full max-w-[390px] flex-col overflow-hidden rounded-[2.6rem] border-[12px] border-[#14110e] bg-[#14110e] shadow-2xl">
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.7rem] bg-gradient-to-b from-[#12382c] via-[#1f6b45] to-[#e39a45] text-white">
+        <div className="pointer-events-none absolute left-1/2 top-2 z-10 h-5 w-24 -translate-x-1/2 rounded-full bg-[#14110e]" />
+        <div className="px-5 pb-3 pt-9 text-center">
+          <p className="font-display text-6xl leading-none">{clock}</p>
+          <p className="mt-1 text-sm">{weekday(view.me.day)} · Owerri</p>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-6">
+          <div className="grid grid-cols-4 gap-x-2 gap-y-4">
+            {apps.map((app) => (
+              <button
+                key={app.name}
+                type="button"
+                onClick={() => {
+                  if ("go" in app && app.go) onGo(app.go);
+                  else if ("pick" in app && app.pick) onPick(app.pick);
+                }}
+                className="flex flex-col items-center gap-1"
+              >
+                <span className={`grid h-14 w-14 place-items-center rounded-2xl text-2xl shadow ${app.tone}`}>{app.icon}</span>
+                <span className="text-[11px] font-medium">{app.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="flex justify-center py-2">
+        <span className="h-1 w-28 rounded-full bg-white/80" />
+      </div>
+    </div>
+  );
+}
+
+function PhonePanel({
+  view,
+  run,
+  pending,
+  onGo,
+}: {
+  view: GameView;
+  run: Run;
+  pending: boolean;
+  onGo: (dest: "people" | "bets" | "ledger" | "map" | "account") => void;
+}) {
+  const me = view.me;
+  const [app, setApp] = useState<null | "jobs" | "houses" | "land" | "bus" | "school">(null);
+  if (!app) return <PhoneDeck view={view} onPick={setApp} onGo={onGo} />;
+  return (
+    <div className="mx-auto flex h-full w-full max-w-[390px] flex-col overflow-hidden rounded-[2.6rem] border-[12px] border-[#14110e] bg-[#14110e] text-[#17241e] shadow-2xl">
+      <button type="button" onClick={() => setApp(null)} className="px-4 py-3 text-left text-sm font-semibold text-[#f6f1e6]">Back</button>
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-[#f4efe4] p-3">
+      {app === "bus" ? (
+        <section className="rounded-3xl bg-white p-4 text-sm leading-6">
+          <h2 className="font-display text-2xl">Bus</h2>
+          <p className="mt-2 text-[#5d6b62]">Owerri moves by bus, keke, and okada. Open a place on the city map and pick the ride. There is no danfo here.</p>
+        </section>
+      ) : null}
+      {app === "school" ? (
+        <section className="rounded-3xl bg-white p-4 text-sm leading-6">
+          <h2 className="font-display text-2xl">Campus</h2>
+          <p className="mt-2 text-[#5d6b62]">IMSU, FUTO, and Federal Polytechnic Nekede are on the map. Go inside a school to apply. One school at a time.</p>
+        </section>
+      ) : null}
+      {app === "jobs" ? <><section className="rounded-3xl bg-[#143d2c] p-4 text-[#f6f1e6]">
         <p className="text-xs uppercase tracking-[0.16em] text-[#d5e4d8]">{weekday(me.day)}</p>
         <p className="font-display text-3xl">{naira(view.balance)}</p>
         <p className="mt-2 text-sm text-[#d5e4d8]">In-game naira only. It never converts back to cash, and the server writes every change to the ledger.</p>
@@ -1286,8 +1429,8 @@ function PhonePanel({ view, run, pending }: { view: GameView; run: Run; pending:
             </div>
           ))}
         </div>
-      </section>
-      <section>
+      </section></> : null}
+      {app === "houses" ? <section>
         <h2 className="font-display text-2xl">Move house</h2>
         <div className="mt-2 grid gap-2">
           {HOMES.map((home) => (
@@ -1305,8 +1448,8 @@ function PhonePanel({ view, run, pending }: { view: GameView; run: Run; pending:
             </button>
           ))}
         </div>
-      </section>
-      <section>
+      </section> : null}
+      {app === "land" ? <section>
         <h2 className="font-display text-2xl">Land</h2>
         <p className="mt-1 text-sm text-[#5d6b62]">Buy a plot. Every Saturday the tenants pay you. That rent is earned, so it can pay a meet-up. Topped-up naira still cannot.</p>
         <div className="mt-2 grid gap-2">
@@ -1334,19 +1477,20 @@ function PhonePanel({ view, run, pending }: { view: GameView; run: Run; pending:
             );
           })}
         </div>
-      </section>
-      <label className="block text-sm">
-        Who can see your net worth
-        <select
-          className="mt-1 w-full rounded-2xl border border-[#e4d8c4] bg-white px-3 py-3"
-          value={me.netWorthVisibility}
-          onChange={(event) => run(() => setWealthPrivacy(event.target.value as typeof me.netWorthVisibility))}
-        >
-          <option value="friends">Friends only</option>
-          <option value="public">Public</option>
-          <option value="hidden">Hidden</option>
-        </select>
-      </label>
+        <label className="mt-4 block text-sm">
+          Who can see your net worth
+          <select
+            className="mt-1 w-full rounded-2xl border border-[#e4d8c4] bg-white px-3 py-3"
+            value={me.netWorthVisibility}
+            onChange={(event) => run(() => setWealthPrivacy(event.target.value as typeof me.netWorthVisibility))}
+          >
+            <option value="friends">Friends only</option>
+            <option value="public">Public</option>
+            <option value="hidden">Hidden</option>
+          </select>
+        </label>
+      </section> : null}
+      </div>
     </div>
   );
 }

@@ -275,6 +275,7 @@ export function travelOptions(fromId: string, toId: string, hasCar: boolean, bal
   const km = distanceKm(fromId, toId);
   const modes: Array<{ mode: TravelMode; label: string; cost: number; hours: number; available: boolean; reason?: string }> = [
     { mode: "trek", label: "Trek", cost: 0, hours: Math.max(1, Math.round(km / 3)), available: true },
+    { mode: "bus", label: "Bus", cost: Math.round(50 + 3 * km), hours: Math.max(1, Math.round(km / 10)), available: true },
     { mode: "keke", label: "Keke", cost: Math.round(100 + 5 * km), hours: Math.max(1, Math.round(km / 12)), available: true },
     { mode: "okada", label: "Okada", cost: Math.round(150 + 8 * km), hours: Math.max(1, Math.round(km / 18)), available: true },
     { mode: "cab", label: "Cab", cost: Math.round(300 + 15 * km), hours: Math.max(1, Math.round(km / 20)), available: true },

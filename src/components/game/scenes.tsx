@@ -743,6 +743,20 @@ function Ride({ mode }: { mode: TravelMode }) {
       </div>
     );
   }
+  if (mode === "bus") {
+    return (
+      <div className="relative h-12 w-28">
+        <div className="absolute bottom-2 h-7 w-28 rounded-md bg-[#1f6b45]">
+          <div className="absolute left-2 top-1 h-3 w-4 rounded-sm bg-[#e7f3fb]" />
+          <div className="absolute left-8 top-1 h-3 w-4 rounded-sm bg-[#e7f3fb]" />
+          <div className="absolute left-14 top-1 h-3 w-4 rounded-sm bg-[#e7f3fb]" />
+          <div className="absolute right-2 top-1 h-3 w-4 rounded-sm bg-[#e7f3fb]" />
+        </div>
+        <div className="absolute bottom-0 left-3 h-4 w-4 rounded-full bg-[#111]" />
+        <div className="absolute bottom-0 right-3 h-4 w-4 rounded-full bg-[#111]" />
+      </div>
+    );
+  }
   if (mode === "keke") {
     return (
       <div className="relative h-12 w-16">
