@@ -285,7 +285,8 @@ export function CityWorld({
       const at = spot(place.x, place.y);
       return { id: place.id, x: at.x, z: at.z };
     });
-    const landmark = new Set(["sam-mbakwe", "state-cid", "imsu", "futo", "fedpoly-nekede", "eke-ukwu", "relief-market", "ikenegbu-market", "owerri-mall", "heroes-square", "cartel-beach", "heartland-resort", "nworie-park", "amusement-park", "city-bank"]);
+    const landmark = new Set(["sam-mbakwe", "state-cid", "imsu", "futo", "fedpoly-nekede", "eke-ukwu", "relief-market", "ikenegbu-market", "owerri-mall", "heroes-square", "cartel-beach", "heartland-resort", "nworie-park", "amusement-park", "city-bank", "teaching-hospital", "general-hospital", "umezuruike-hospital", "st-davids", "shelly-hospital", "imo-specialist"]);
+    const roadside = new Set(["mama-nkechi", "josephs-pot", "feedwell", "november-5", "crunchies"]);
     for (let pass = 0; pass < 36; pass += 1) {
       for (let i = 0; i < laidSpots.length; i += 1) {
         for (let j = i + 1; j < laidSpots.length; j += 1) {
@@ -305,8 +306,68 @@ export function CityWorld({
         }
       }
       for (const spot of laidSpots) {
-        const pad = spot.id === "sam-mbakwe" ? 70 : landmark.has(spot.id) ? 16 : 4;
+        const pad = spot.id === "sam-mbakwe" ? 70 : landmark.has(spot.id) ? 16 : roadside.has(spot.id) ? 6 : 4;
         shoveOut(spot, pad);
+      }
+    }
+    const shoulders = [
+      { axis: "x" as const, fixed: 0, min: -300, max: 300 },
+      { axis: "x" as const, fixed: -90, min: -250, max: 250 },
+      { axis: "x" as const, fixed: 90, min: -190, max: 270 },
+      { axis: "x" as const, fixed: 200, min: -200, max: 200 },
+      { axis: "z" as const, fixed: -50, min: -250, max: 250 },
+      { axis: "z" as const, fixed: 80, min: -200, max: 240 },
+      { axis: "z" as const, fixed: 150, min: -190, max: 150 },
+    ];
+    for (const spot of laidSpots) {
+      if (!roadside.has(spot.id)) continue;
+      let bestX = spot.x;
+      let bestZ = spot.z;
+      let best = Infinity;
+      for (const road of shoulders) {
+        if (road.axis === "x") {
+          const along = Math.min(road.max, Math.max(road.min, spot.x));
+          const dist = Math.abs(spot.z - road.fixed);
+          if (dist < best) {
+            best = dist;
+            const side = spot.z >= road.fixed ? 1 : -1;
+            bestX = along;
+            bestZ = road.fixed + side * 8;
+          }
+        } else {
+          const along = Math.min(road.max, Math.max(road.min, spot.z));
+          const dist = Math.abs(spot.x - road.fixed);
+          if (dist < best) {
+            best = dist;
+            const side = spot.x >= road.fixed ? 1 : -1;
+            bestX = road.fixed + side * 8;
+            bestZ = along;
+          }
+        }
+      }
+      for (let step = 0; step < 14 && onStrip(bestX, bestZ, 2); step += 1) {
+        if (Math.abs(bestZ) % 90 < 20) bestX += 8;
+        else bestZ += 8;
+      }
+      spot.x = Math.min(280, Math.max(-280, bestX));
+      spot.z = Math.min(280, Math.max(-280, bestZ));
+    }
+    const shops = laidSpots.filter((spot) => roadside.has(spot.id));
+    for (let pass = 0; pass < 8; pass += 1) {
+      for (let i = 0; i < shops.length; i += 1) {
+        for (let j = i + 1; j < shops.length; j += 1) {
+          let dx = shops[j].x - shops[i].x;
+          let dz = shops[j].z - shops[i].z;
+          const dist = Math.hypot(dx, dz) || 0.01;
+          if (dist >= 14) continue;
+          const push = (14 - dist) / 2;
+          dx /= dist;
+          dz /= dist;
+          shops[i].x -= dx * push;
+          shops[i].z -= dz * push;
+          shops[j].x += dx * push;
+          shops[j].z += dz * push;
+        }
       }
     }
     const laid = new Map(laidSpots.map((item) => [item.id, item]));
@@ -341,7 +402,14 @@ export function CityWorld({
           if (row === Math.floor(rows / 2) && col === Math.floor(cols / 2)) continue;
           const x = cx + (col - cols / 2) * gap;
           const z = cz + (row - rows / 2) * gap;
-          if (onStrip(x, z, 2) || nearAirport(x, z)) continue;
+          const crowded = laidSpots.some((spot) => {
+            const dist = Math.hypot(x - spot.x, z - spot.z);
+            if (spot.id === "sam-mbakwe") return Math.abs(x - spot.x) < 72 && Math.abs(z - spot.z) < 48;
+            if (roadside.has(spot.id)) return dist < 8;
+            if (landmark.has(spot.id)) return dist < 18;
+            return false;
+          });
+          if (onStrip(x, z, 2) || crowded) continue;
           house(x, z, 0xf4efe4, 1.15, 0x2f6b45);
         }
       }
@@ -593,6 +661,32 @@ export function CityWorld({
       return group;
     }
 
+    function hospitalYard(x: number, z: number) {
+      const group = new THREE.Group();
+      group.add(block(28, 0.12, 20, 0xe7eef2, 0, 0.1, 0));
+      fence(group, 28, 20, 2.1, 0xd5e4ea);
+      group.add(block(12, 4.4, 6.2, 0xf7fbfc, -3, 2.3, -2));
+      group.add(block(7, 2.8, 4.2, 0xe7f0f4, 6.5, 1.5, 2));
+      group.add(block(1.4, 0.28, 0.12, 0xc4552a, -3, 4.2, 1.16));
+      group.add(block(0.28, 1.4, 0.12, 0xc4552a, -3, 4.2, 1.16));
+      const ambulance = carMesh(0xf7fbfc);
+      ambulance.position.set(8.2, 0, 5.2);
+      group.add(ambulance);
+      group.position.set(x, 0, z);
+      scene.add(group);
+      return group;
+    }
+
+    function shopfront(x: number, z: number) {
+      const group = new THREE.Group();
+      group.add(block(3.6, 1.7, 2.8, 0xf3d27a, 0, 0.95, 0));
+      group.add(block(4, 0.14, 1.6, 0xc4552a, 0, 1.9, 1.5));
+      group.add(block(2.4, 0.55, 0.1, 0x1f6b45, 0, 2.3, 1.45));
+      group.position.set(x, 0, z);
+      scene.add(group);
+      return group;
+    }
+
     for (const place of PLACES) {
       const at = laid.get(place.id) ?? spot(place.x, place.y);
       const mine = place.id === homeAreaId;
@@ -617,6 +711,12 @@ export function CityWorld({
       } else if (place.id === "city-bank") {
         group = bankYard(at.x, at.z);
         labelY = 8.6;
+      } else if (place.kind === "health") {
+        group = hospitalYard(at.x, at.z);
+        labelY = 6.4;
+      } else if (roadside.has(place.id)) {
+        group = shopfront(at.x, at.z);
+        labelY = 3.2;
       } else if (place.id === "cartel-beach" || place.id === "heartland-resort" || place.id === "nworie-park" || place.id === "amusement-park") {
         group = parkYard(at.x, at.z, place.id === "cartel-beach" || place.id === "heartland-resort");
         labelY = 5.4;
@@ -625,7 +725,7 @@ export function CityWorld({
         labelY = 10.4;
       } else {
         const height = mine ? 2.8 : place.kind === "nightlife" ? 2.6 : 1.7;
-        const roof = mine ? 0xc4552a : place.kind === "nightlife" ? 0x7a2e1e : place.kind === "health" ? 0x3d7ea6 : 0x245c3a;
+        const roof = mine ? 0xc4552a : place.kind === "nightlife" ? 0x7a2e1e : 0x245c3a;
         group = house(at.x, at.z, mine ? 0xfffaf2 : 0xf7f1e8, height, roof);
         labelY = height + 1.4;
       }
