@@ -582,7 +582,41 @@ export function CityWorld({
     }
     field(-220, 210, "Egbu farmland · level 3");
     field(210, 200, "Nekede rice · level 4");
-    field(-200, -190, "Owerri West palms · level 5");
+
+    function palmEstate(x: number, z: number) {
+      const group = new THREE.Group();
+      const width = 120;
+      const depth = 88;
+      group.add(block(width, 0.12, depth, 0x8a6a32, 0, 0.08, 0));
+      group.add(block(width - 6, 0.08, depth - 6, 0x6d8a3e, 0, 0.14, 0));
+      group.add(block(width, 1.3, 0.4, 0xe7dcc8, 0, 0.75, -depth / 2));
+      group.add(block(width, 1.3, 0.4, 0xe7dcc8, 0, 0.75, depth / 2));
+      group.add(block(0.4, 1.3, depth, 0xe7dcc8, -width / 2, 0.75, 0));
+      group.add(block(0.4, 1.3, 28, 0xe7dcc8, width / 2, 0.75, -26));
+      group.add(block(0.4, 1.3, 28, 0xe7dcc8, width / 2, 0.75, 26));
+      group.add(block(0.5, 2.2, 0.5, 0xe0b15a, width / 2, 1.2, -6));
+      group.add(block(0.5, 2.2, 0.5, 0xe0b15a, width / 2, 1.2, 6));
+      const trunkMat = new THREE.MeshLambertMaterial({ color: 0x6a4630 });
+      const crownMat = new THREE.MeshLambertMaterial({ color: 0x2a6b38 });
+      for (let row = -5; row <= 5; row += 1) {
+        for (let col = -6; col <= 5; col += 1) {
+          const px = col * 8;
+          const pz = row * 7;
+          const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.34, 3.2, 5), trunkMat);
+          trunk.position.set(px, 1.7, pz);
+          const crown = new THREE.Mesh(new THREE.SphereGeometry(1.45, 6, 5), crownMat);
+          crown.scale.y = 0.5;
+          crown.position.set(px, 3.4, pz);
+          group.add(trunk, crown);
+        }
+      }
+      group.add(block(8, 2.6, 5, 0xf7f1e6, 44, 1.4, 28));
+      group.add(block(8.6, 0.35, 5.6, 0xc4552a, 44, 2.85, 28));
+      group.position.set(x, 0, z);
+      scene.add(group);
+      pill("Owerri West palms · level 5", new THREE.Vector3(x, 5, z));
+    }
+    palmEstate(airportAt && Math.abs(airportAt.x + 320) < 140 && Math.abs(airportAt.z + 280) < 110 ? 300 : -320, -280);
 
     function plotPad(x: number, z: number, label: string) {
       const group = new THREE.Group();
