@@ -645,7 +645,7 @@ export const PLACES: Place[] = [
     y: 50,
     hours: "20:00 – 04:00",
     tier: "Pickup",
-    summary: "A pickup street. Listed adults set their own price. Fade to black. No explicit scenes.",
+    summary: "A pickup street. Tap her, pay the price on her head, and the scene fades to black. The naira is added to her.",
     activities: ["See who is listed", "Send an offer"],
   },
   {
@@ -657,7 +657,7 @@ export const PLACES: Place[] = [
     y: 32,
     hours: "20:00 – 04:00",
     tier: "Pickup",
-    summary: "The third pickup zone. Same rules: opt-in list, your offer, then a hotel and a fade to black.",
+    summary: "The third pickup zone. Tap her, pay her price, and the scene fades to black. The naira is added to her.",
     activities: ["See who is listed", "Send an offer"],
   },
   {

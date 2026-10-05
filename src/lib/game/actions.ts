@@ -55,7 +55,7 @@ import {
 import { stamp } from "./format";
 import { authBlocked, authCleared, authFailed, burnPasswordCheck, clearSession, hashPassword, needsUpgrade, sessionPlayerId, setSession, verifyPassword } from "./auth";
 import { mutate, readDb } from "./store";
-import type { BetPick, ChatQuote, CreateInput, LookId, NetWorthVisibility, Reveal, TraitId, TravelMode, WorkStyle } from "./types";
+import type { BetPick, ChatQuote, CreateInput, Gender, LookId, NetWorthVisibility, Reveal, TraitId, TravelMode, WorkStyle } from "./types";
 
 export type ActionResult = { ok: true; notice?: string } | { ok: false; error: string };
 export type CreateResult =
@@ -124,6 +124,7 @@ export async function createAccount(input: {
   password: string;
   ageConfirmed: boolean;
   look: string;
+  gender: string;
   traits: string[];
   dream: string;
   careerId: string;
@@ -135,6 +136,7 @@ export async function createAccount(input: {
   if (blocked) return { ok: false, error: blocked };
   const accountError = validAccount(username, email, input.password);
   if (accountError) return { ok: false, error: accountError };
+  if (input.gender !== "male" && input.gender !== "female") return { ok: false, error: "Choose male or female." };
   if (!validateLook(input.look) || !validateTraits(input.traits) || !validateDream(input.dream)) {
     return { ok: false, error: "Finish look, two traits, and a dream." };
   }
@@ -154,6 +156,7 @@ export async function createAccount(input: {
       username,
       email,
       look: input.look as LookId,
+      gender: input.gender as Gender,
       traits: input.traits as TraitId[],
       dream: input.dream as CreateInput["dream"],
       careerId: input.careerId,
@@ -449,8 +452,8 @@ export async function leaveSchool() {
 export async function takeFlight(tripId: string) {
   return withPlayer((id) => simple(id, (player, ledger) => flyAway(player, ledger, tripId)));
 }
-export async function makeOffer(npcId: string, offer: number, hotelId: string) {
-  return withPlayer((id) => simple(id, (player, ledger) => sendOffer(player, ledger, npcId, offer, hotelId)));
+export async function makeOffer(npcId: string) {
+  return withPlayer((id) => simple(id, (player, ledger) => sendOffer(player, ledger, npcId)));
 }
 export async function eatBuka() {
   return withPlayer((id) => simple(id, (player, ledger) => eat(player, ledger, "buka")));

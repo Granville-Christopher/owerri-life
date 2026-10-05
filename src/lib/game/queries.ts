@@ -17,6 +17,7 @@ export interface PersonCard {
   netWorth: string | null;
   skills: string;
   look: Player["look"] | null;
+  gender: Player["gender"];
   circle: string;
   friend: boolean;
   blocked: boolean;
@@ -29,6 +30,7 @@ export interface GameView {
     username: string;
     email: string;
     look: Player["look"];
+    gender: Player["gender"];
     traits: Player["traits"];
     dream: Player["dream"];
     lottery: Player["lottery"];
@@ -112,7 +114,7 @@ function wealthVisible(owner: Player, viewer: Player) {
   return false;
 }
 
-function cardForNpc(id: string, viewer: Player): PersonCard | null {
+function cardForNpc(id: string, viewer: Player, balance = 0): PersonCard | null {
   const npc = npcById(id);
   if (!npc) return null;
   return {
@@ -120,13 +122,14 @@ function cardForNpc(id: string, viewer: Player): PersonCard | null {
     name: npc.name,
     role: npc.role,
     mood: npc.mood,
-    relationship: viewer.friends.includes(npc.id) ? "Padi" : "Stranger",
+    relationship: viewer.friends.includes(npc.id) ? "Padi" : viewer.met.includes(npc.id) ? "You have met" : "Stranger",
     bio: npc.bio,
     dream: "Living in Owerri",
     home: npc.home,
-    netWorth: null,
+    netWorth: npc.asking ? naira(balance) : null,
     skills: "Not listed",
     look: LOOKS[npc.id.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0) % LOOKS.length].id,
+    gender: npc.asking ? "female" : null,
     circle: "Known around the venue",
     friend: viewer.friends.includes(npc.id),
     blocked: viewer.blocked.includes(npc.id),
@@ -148,6 +151,7 @@ function cardForPlayer(other: Player, viewer: Player, balance: number): PersonCa
     netWorth: visible ? naira(balance - other.loanRemaining - other.arrears) : null,
     skills: other.traits.map((trait) => traitById(trait).name).join(", "),
     look: other.look,
+    gender: other.gender,
     circle: `${other.friends.length} on the padi ladder`,
     friend: viewer.friends.includes(other.id),
     blocked: viewer.blocked.includes(other.id),
@@ -164,7 +168,7 @@ export async function buildView(playerId: string): Promise<GameView | null> {
   const nearby: PersonCard[] = [];
   for (const npc of npcsAt(me.locationId)) {
     if (me.blocked.includes(npc.id)) continue;
-    const card = cardForNpc(npc.id, me);
+    const card = cardForNpc(npc.id, me, wallet(db.ledger, npc.id));
     if (card) nearby.push(card);
   }
   for (const other of db.players) {
@@ -175,7 +179,7 @@ export async function buildView(playerId: string): Promise<GameView | null> {
   const knownIds = new Set([...me.met, ...me.friends, ...me.blocked]);
   const known: PersonCard[] = [];
   for (const id of knownIds) {
-    const npcCard = cardForNpc(id, me);
+    const npcCard = cardForNpc(id, me, wallet(db.ledger, id));
     if (npcCard) {
       known.push(npcCard);
       continue;
@@ -205,6 +209,7 @@ export async function buildView(playerId: string): Promise<GameView | null> {
       username: me.username,
       email: me.email,
       look: me.look,
+      gender: me.gender,
       traits: me.traits,
       dream: me.dream,
       lottery: me.lottery,

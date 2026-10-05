@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { DORIME_AMOUNTS, HOTEL_RATE, LOOKS, TREATMENT_FEE, npcsAt, placeActs, placeById, sprayFloor } from "@/lib/game/content";
+import { DORIME_AMOUNTS, LOOKS, TREATMENT_FEE, npcsAt, placeActs, placeById, sprayFloor } from "@/lib/game/content";
 import type { Place } from "@/lib/game/content";
 import { naira } from "@/lib/game/format";
 import type { LookId, TravelMode } from "@/lib/game/types";
@@ -681,11 +681,9 @@ function PickupStreet({
   people: Array<{ id: string; name: string; asking: number }>;
   spendable: number;
   pending: boolean;
-  onTake: (npcId: string, asking: number, hotelId: string) => Promise<{ ok: boolean }>;
+  onTake: (npcId: string) => Promise<{ ok: boolean }>;
 }) {
-  const [chosen, setChosen] = useState<string | null>(null);
   const [miss, setMiss] = useState<string | null>(null);
-  const picked = people.find((person) => person.id === chosen) ?? null;
 
   return (
     <div className="ol-stage relative h-80 overflow-hidden bg-[radial-gradient(circle_at_50%_10%,#3a2a28,#120c10_60%)]">
@@ -703,13 +701,13 @@ function PickupStreet({
               price={naira(person.asking)}
               style={{ left: `${10 + (index % 3) * 28}%`, top: `${34 + Math.floor(index / 3) * 22}%` }}
               onClick={() => {
+                if (pending) return;
                 if (!meets) {
-                  setChosen(null);
                   setMiss(`${person.name} asks ${naira(person.asking)}. Check someone whose price you can meet.`);
                   return;
                 }
                 setMiss(null);
-                setChosen(person.id);
+                void onTake(person.id);
               }}
             />
           );
@@ -717,34 +715,6 @@ function PickupStreet({
       </div>
       </ZoomStage>
       {miss ? <p className="absolute inset-x-3 bottom-3 rounded-2xl bg-[#fffaf2] px-3 py-2 text-xs text-[#17241e]">{miss}</p> : null}
-      {picked ? (
-        <div className="fixed inset-0 z-40 grid place-items-end bg-black/55 p-3">
-          <div className="w-full max-w-md rounded-3xl bg-[#fffaf2] p-4 text-[#17241e]">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#a9782a]">She agrees</p>
-            <h3 className="font-display text-2xl">{picked.name}</h3>
-            <p className="mt-1 text-sm text-[#5d6b62]">Her price is {naira(picked.asking)}. Choose the hotel. The scene fades to black. Nothing explicit is shown. Topped-up naira cannot pay.</p>
-            <div className="mt-3 grid gap-2">
-              {Object.entries(HOTEL_RATE).map(([id, rate]) => (
-                <button
-                  key={id}
-                  type="button"
-                  disabled={pending}
-                  onClick={async () => {
-                    const result = await onTake(picked.id, picked.asking, id);
-                    if (!result.ok) return;
-                    setChosen(null);
-                  }}
-                  className="flex items-center justify-between rounded-2xl bg-white px-3 py-3 text-left text-sm disabled:opacity-40"
-                >
-                  <span className="font-semibold">{placeById(id).name}</span>
-                  <span>Hour {naira(rate.hour)}</span>
-                </button>
-              ))}
-            </div>
-            <button type="button" className="mt-3 text-sm text-[#5d6b62]" onClick={() => setChosen(null)}>Check someone else</button>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -915,7 +885,7 @@ export function VenueInterior({
   onDance: () => Promise<{ ok: boolean }>;
   onFood: () => void;
   onBook: (stay: "night" | "hour") => void;
-  onOffer: (npcId: string, offer: number, hotelId: string) => Promise<{ ok: boolean }>;
+  onOffer: (npcId: string) => Promise<{ ok: boolean }>;
   onOutside: () => void;
   spendable: number;
   room: "hour" | "night" | null;
@@ -979,8 +949,8 @@ export function VenueInterior({
             people={listed.map((npc) => ({ id: npc.id, name: npc.name, asking: npc.asking ?? 0 }))}
             spendable={spendable}
             pending={pending}
-            onTake={async (npcId, asking, hotelId) => {
-              const result = await onOffer(npcId, asking, hotelId);
+            onTake={async (npcId) => {
+              const result = await onOffer(npcId);
               if (result.ok) {
                 setDark(true);
                 window.setTimeout(() => setDark(false), 2600);
@@ -1109,7 +1079,7 @@ export function VenueInterior({
             </button>
           </div>
         ) : null}
-        {acts.pickup ? <p className="text-xs text-[#d5e4d8]">The price sits on her head. If you can meet it, she goes with you and you pick the hotel. If you cannot, check the others.</p> : null}
+        {acts.pickup ? <p className="text-xs text-[#d5e4d8]">Tap her. You pay the price on her head, the scene fades to black, and that naira is added to her. Then message her, or open her profile.</p> : null}
         <button
           type="button"
           onClick={() => {

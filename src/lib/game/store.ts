@@ -64,6 +64,7 @@ function hydrate(parsed: Partial<DB> | null): DB {
     if (player.room === undefined) player.room = null;
     if (!player.lands) player.lands = [];
     if (player.besideId === undefined) player.besideId = null;
+    if (player.gender !== "male" && player.gender !== "female") player.gender = null;
   }
   return {
     players,

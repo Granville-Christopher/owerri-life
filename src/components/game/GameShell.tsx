@@ -318,6 +318,7 @@ function AccountPage({
           </div>
         </div>
         <dl className="mt-4 grid gap-2 text-sm">
+          <div className="flex justify-between gap-3"><dt className="text-[#5d6b62]">Gender</dt><dd className="text-right font-semibold">{me.gender === "female" ? "Female" : me.gender === "male" ? "Male" : "Not set"}</dd></div>
           <div className="flex justify-between gap-3"><dt className="text-[#5d6b62]">Where</dt><dd className="text-right font-semibold">{placeById(me.locationId).name}</dd></div>
           <div className="flex justify-between gap-3"><dt className="text-[#5d6b62]">Home</dt><dd className="text-right font-semibold">{home.name}</dd></div>
           <div className="flex justify-between gap-3"><dt className="text-[#5d6b62]">Dream</dt><dd className="text-right font-semibold">{dream?.name}</dd></div>
@@ -732,7 +733,7 @@ function MapPanel({
           onFood={() => run(orderFood)}
           onSpray={(amount) => run(() => spray(amount))}
           onBook={(stay) => run(() => takeRoom(stay))}
-          onOffer={(npcId, offer, hotelId) => run(() => makeOffer(npcId, offer, hotelId))}
+          onOffer={(npcId) => run(() => makeOffer(npcId))}
           onOutside={() => run(goOutside)}
           spendable={view.pools.earned + view.pools.gifted}
           room={view.me.room?.placeId === place.id ? view.me.room.stay : null}
@@ -1875,7 +1876,7 @@ function PersonSheet({
           <Avatar look={person.look} name={person.name} size={52} />
           <div>
             <h2 className="font-display text-2xl leading-none">{person.name}</h2>
-            <p className="mt-1 text-sm text-[#5d6b62]">{person.role} · {person.mood} · {person.relationship}</p>
+            <p className="mt-1 text-sm text-[#5d6b62]">{person.gender === "female" ? "Female" : person.gender === "male" ? "Male" : person.role} · {person.mood} · {person.relationship}</p>
           </div>
         </div>
         <button className="text-sm font-semibold" onClick={onClose}>Close</button>

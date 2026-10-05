@@ -556,33 +556,29 @@ export function dropOut(player: Player, ledger: LedgerEntry[]): Step {
   return succeed(next, ledger, [`You dropped out of ${course.name} at ${placeById(course.schoolId).name}.`]);
 }
 
-export function sendOffer(player: Player, ledger: LedgerEntry[], npcId: string, offer: number, hotelId: string): Step {
+export function sendOffer(player: Player, ledger: LedgerEntry[], npcId: string): Step {
   const npc = npcById(npcId);
-  const hotel = HOTEL_RATE[hotelId] ? placeById(hotelId) : null;
-  if (!npc?.asking || !hotel) return fail(player, ledger, "That offer is not available.");
+  if (!npc?.asking) return fail(player, ledger, "That offer is not available.");
   if (player.locationId !== npc.placeId || !player.indoors) return fail(player, ledger, "Enter the pickup street first.");
-  const price = Math.round(offer);
-  if (price < npc.asking) return fail(player, ledger, `${npc.name} set ${naira(npc.asking)}. Raise the offer.`);
-  const room = HOTEL_RATE[hotelId].hour;
-  const total = price + room;
+  const price = npc.asking;
   const pools = poolsOf(ledger, player.id);
   const clean = Math.max(0, pools.earned) + Math.max(0, pools.gifted);
-  if (clean < total && wallet(ledger, player.id) >= total) {
+  if (clean < price && wallet(ledger, player.id) >= price) {
     return fail(player, ledger, "Topped-up naira cannot be used on a meet-up.");
   }
   const at = stamp(player.day, player.hour);
-  const paid = debit(ledger, player, total, `Offer · ${npc.name} · ${hotel.name}`, at, ["earned", "gifted"]);
-  if (!paid) return fail(player, ledger, "Your earned naira cannot cover the offer and the room.");
-  const passed = advance(player, paid, 2);
+  const paid = debit(ledger, player, price, `Meet-up · ${npc.name}`, at, ["earned", "gifted"]);
+  if (!paid) return fail(player, ledger, `${npc.name} set ${naira(price)}. Your earned naira cannot cover it.`);
+  const credited = credit(paid, { id: npc.id } as Player, price, "earned", `Meet-up · ${player.username}`, at);
+  const passed = advance(player, credited, 2);
   passed.player.needs.social = clamp(passed.player.needs.social + 24);
   passed.player.needs.fun = clamp(passed.player.needs.fun + 16);
   passed.player.needs.energy = clamp(passed.player.needs.energy - 30);
-  passed.player.locationId = hotelId;
-  passed.player.indoors = false;
-  const fee = Math.round(price * 0.1);
+  if (!passed.player.met.includes(npc.id)) passed.player.met.push(npc.id);
+  passed.player.besideId = npc.id;
   return succeed(passed.player, passed.ledger, [
     ...passed.notes,
-    `Two hours later. The scene stayed dark. ${naira(fee)} was the platform fee inside the ${naira(price)} offer. You are outside ${hotel.name}.`,
+    `Two hours later. The scene stayed dark. ${naira(price)} is now with ${npc.name}. Message her, or open her profile.`,
   ]);
 }
 
@@ -1168,6 +1164,7 @@ export function createNewPlayer(input: CreateInput, id: string, rng: () => numbe
     email: input.email,
     passwordHash: "",
     look: input.look,
+    gender: input.gender,
     traits: input.traits,
     dream: input.dream,
     lottery,

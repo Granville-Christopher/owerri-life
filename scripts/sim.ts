@@ -5,6 +5,7 @@ const input = {
   username: "Adaeze",
   email: "ada@example.com",
   look: "ada" as const,
+  gender: "female" as const,
   traits: ["sharp", "calm"] as ["sharp", "calm"],
   dream: "big-man" as const,
   careerId: "banking",

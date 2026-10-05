@@ -20,6 +20,7 @@ export function JoinWizard() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [age, setAge] = useState(false);
+  const [gender, setGender] = useState<"" | "male" | "female">("");
   const [look, setLook] = useState<LookId>("ada");
   const [traits, setTraits] = useState<TraitId[]>([]);
   const [dream, setDream] = useState(DREAMS[0].id);
@@ -35,7 +36,7 @@ export function JoinWizard() {
   }
 
   const canNext =
-    (step === 0 && age && username.trim().length >= 3 && email.includes("@") && password.length >= 8) ||
+    (step === 0 && age && (gender === "male" || gender === "female") && username.trim().length >= 3 && email.includes("@") && password.length >= 8) ||
     (step === 1) ||
     (step === 2 && traits.length === 2) ||
     (step === 3) ||
@@ -49,6 +50,7 @@ export function JoinWizard() {
       email,
       password,
       ageConfirmed: age,
+      gender,
       look,
       traits,
       dream,
@@ -142,6 +144,21 @@ export function JoinWizard() {
             Password
             <input type="password" className="mt-1 w-full rounded-2xl border border-[#e4d8c4] bg-white px-3 py-3" value={password} onChange={(event) => setPassword(event.target.value)} />
           </label>
+          <div>
+            <p className="text-sm font-semibold">Gender</p>
+            <div className="mt-1 grid grid-cols-2 gap-2">
+              {(["male", "female"] as const).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setGender(option)}
+                  className={`rounded-2xl border px-3 py-3 text-sm font-semibold ${gender === option ? "border-[#1f6b45] bg-white" : "border-[#e4d8c4] bg-white/70"}`}
+                >
+                  {option === "male" ? "Male" : "Female"}
+                </button>
+              ))}
+            </div>
+          </div>
           <label className="flex items-start gap-3 rounded-2xl bg-white px-3 py-3 text-sm">
             <input type="checkbox" className="mt-1" checked={age} onChange={(event) => setAge(event.target.checked)} />
             I confirm I am 18 or older.
