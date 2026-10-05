@@ -75,6 +75,18 @@ export interface Home {
   rent: number;
 }
 
+export const FURNITURE = [
+  { id: "bed", name: "Bed", cost: 20000 },
+  { id: "table", name: "Table", cost: 12000 },
+  { id: "sofa", name: "Sofa", cost: 35000 },
+  { id: "fridge", name: "Fridge", cost: 55000 },
+  { id: "television", name: "Television", cost: 80000 },
+] as const;
+
+export function furnitureById(id: string) {
+  return FURNITURE.find((item) => item.id === id) ?? null;
+}
+
 export const HOMES: Home[] = [
   { id: "ikenegbu-room", areaId: "ikenegbu", name: "Ikenegbu room", tier: "Cheapest", rent: 2500 },
   { id: "world-bank-flat", areaId: "world-bank", name: "World Bank area flat", tier: "Low-mid", rent: 7000 },

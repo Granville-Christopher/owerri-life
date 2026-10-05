@@ -14,6 +14,7 @@ import {
   dropOut,
   eat,
   enterPlace,
+  furnish,
   flyAway,
   hangOut,
   honourInvite,
@@ -371,6 +372,9 @@ export async function sleepAtHome() {
 }
 export async function showerAtHome() {
   return withPlayer((id) => simple(id, shower));
+}
+export async function buyFurniture(itemId: string) {
+  return withPlayer((id) => simple(id, (player, ledger) => furnish(player, ledger, itemId)));
 }
 export async function useRestroom() {
   return withPlayer((id) => simple(id, restroom));

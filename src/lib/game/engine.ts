@@ -5,6 +5,7 @@ import {
   HOTEL_RATE,
   PLATE,
   COURSES,
+  FURNITURE,
   careerById,
   courseById,
   dreamById,
@@ -751,6 +752,19 @@ export function sleep(player: Player, ledger: LedgerEntry[]): Step {
   }, "You slept. Morning in Owerri.");
 }
 
+export function furnish(player: Player, ledger: LedgerEntry[], itemId: string): Step {
+  const item = FURNITURE.find((piece) => piece.id === itemId);
+  if (!item) return fail(player, ledger, "That piece is not for sale.");
+  const home = homeById(player.homeId);
+  if (player.locationId !== home.areaId || !player.indoors) return fail(player, ledger, "Buy furniture inside your house.");
+  if (player.furniture.includes(item.id)) return fail(player, ledger, `You already have a ${item.name.toLowerCase()}.`);
+  const paid = debit(ledger, player, item.cost, `Furniture · ${item.name}`, stamp(player.day, player.hour));
+  if (!paid) return fail(player, ledger, "Your wallet cannot cover that.");
+  const next = structuredClone(player);
+  next.furniture = [...player.furniture, item.id];
+  return succeed(next, paid, [`You bought a ${item.name.toLowerCase()} for ${home.name}.`]);
+}
+
 export function shower(player: Player, ledger: LedgerEntry[]): Step {
   const home = homeById(player.homeId);
   if (player.locationId !== home.areaId) return fail(player, ledger, "Shower at home.");
@@ -1195,6 +1209,7 @@ export function createNewPlayer(input: CreateInput, id: string, rng: () => numbe
     school: null,
     room: null,
     lands: [],
+    furniture: lottery === "heir" ? ["bed", "sofa", "television"] : [],
     besideId: null,
     dmToday: 0,
     lastChatKey: "",

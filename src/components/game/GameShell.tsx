@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, useTransition, type ReactNode } from "reac
 import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/Avatar";
 import { InstallButton } from "@/components/InstallApp";
-import { ArrivalScene, VenueInterior } from "@/components/game/scenes";
+import { ArrivalScene, HouseRoom, PersonFigure, VenueInterior } from "@/components/game/scenes";
 import {
   acceptFriendRequest,
   addFriend,
@@ -33,6 +33,7 @@ import {
   leaveSchool,
   letTimePass,
   addTopUp,
+  buyFurniture,
   buyPlot,
   goMeet,
   logout,
@@ -363,8 +364,43 @@ function AccountPage({
   );
 }
 
+function HomeMap({ view }: { view: GameView }) {
+  const homeArea = homeById(view.me.homeId).areaId;
+  const laid = layoutPins(PLACES);
+  return (
+    <div className="absolute inset-0">
+      <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full" aria-hidden>
+        <rect width="100" height="100" fill="#d7ebdd" />
+        <path d="M8 8 C 28 18, 18 36, 34 52 C 48 66, 28 78, 42 98" fill="none" stroke="#8ec4d4" strokeWidth="6" />
+        <path d="M6 62 H 94 M 18 20 H 88 M 30 8 V 92 M 55 12 V 90" fill="none" stroke="#c9b48a" strokeWidth="1.1" />
+      </svg>
+      {PLACES.map((item) => {
+        const spot = laid.get(item.id) ?? item;
+        const mine = item.id === homeArea;
+        const here = item.id === view.me.locationId;
+        return (
+          <div
+            key={item.id}
+            className="absolute grid h-8 w-8 -translate-x-1/2 -translate-y-1/2 place-items-center"
+            style={{ left: `${spot.x}%`, top: `${spot.y}%` }}
+          >
+            {item.kind === "home" ? (
+              <span className={`ol-house ${mine ? "ol-home-pulse" : ""}`} />
+            ) : (
+              <span className={`block h-2.5 w-2.5 rounded-full border-2 border-white shadow ${here ? "h-3 w-3 bg-[#1f6b45]" : dotClass(item.kind)}`} />
+            )}
+            {here ? <PersonFigure look={view.me.look} className="pointer-events-none absolute bottom-5 h-9 w-5" /> : null}
+            {mine ? <span className="pointer-events-none absolute top-full w-16 text-center text-[8px] font-semibold text-[#10211a]">Home</span> : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function HomePanel({ view, run, pending }: { view: GameView; run: Run; pending: boolean }) {
   const router = useRouter();
+  const [roomOpen, setRoomOpen] = useState(false);
   const me = view.me;
   const home = homeById(me.homeId);
   const atHome = me.locationId === home.areaId;
@@ -377,8 +413,59 @@ function HomePanel({ view, run, pending }: { view: GameView; run: Run; pending: 
   const ratio = Math.min(1, progress.target === 0 ? 0 : progress.current / progress.target);
   const career = me.job ? careerById(me.job.careerId) : null;
 
+  const meters = [
+    ["Hunger", me.needs.hunger],
+    ["Energy", me.needs.energy],
+    ["Hygiene", me.needs.hygiene],
+    ["Bladder", me.needs.bladder],
+    ["Fun", me.needs.fun],
+    ["Social", me.needs.social],
+  ] as const;
+
   return (
     <div className="space-y-4">
+      <section className="relative -mx-4 -mt-4 h-[calc(100dvh-9rem)] min-h-[32rem] overflow-hidden bg-[#cfe3d4]">
+        {atHome && me.indoors && roomOpen ? (
+          <div className="h-full overflow-y-auto p-3">
+            <button type="button" onClick={() => setRoomOpen(false)} className="mb-3 text-xs font-semibold text-[#143d2c]">
+              Back to the map
+            </button>
+            <HouseRoom name={home.name} owned={me.furniture} pending={pending} onBuy={(itemId) => run(() => buyFurniture(itemId))} />
+          </div>
+        ) : (
+          <>
+            <HomeMap view={view} />
+            {atHome ? (
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => {
+                  if (me.indoors) {
+                    setRoomOpen(true);
+                    return;
+                  }
+                  run(enterDoor).then((result) => {
+                    if (result.ok) setRoomOpen(true);
+                  });
+                }}
+                className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2 rounded-full bg-[#143d2c] px-4 py-2 text-sm font-semibold text-[#f6f1e6] disabled:opacity-40"
+              >
+                {me.indoors ? "See the room" : "Go inside"}
+              </button>
+            ) : null}
+            <div className="absolute inset-x-3 top-3 z-10 flex flex-wrap gap-1.5">
+              {meters.map(([label, value]) => (
+                <span
+                  key={label}
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-semibold shadow ${value < 25 ? "bg-[#f3d6cc] text-[#7a2e1e]" : "bg-white/90 text-[#143d2c]"}`}
+                >
+                  {label} {value}
+                </span>
+              ))}
+            </div>
+          </>
+        )}
+      </section>
       <section className="rounded-[1.6rem] bg-[#143d2c] p-5 text-[#f6f1e6]">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#e0b15a]">{moodLabel(me.needs, me.sick)}</p>
         <h2 className="mt-1 font-display text-3xl leading-tight">{DREAMS.find((dream) => dream.id === me.dream)?.name}</h2>
@@ -436,33 +523,6 @@ function HomePanel({ view, run, pending }: { view: GameView; run: Run; pending: 
           {me.sick === "severe" ? "You are very sick. Open Map, tap Health, go inside a hospital, and pay the doctor." : "You feel sick. A chemist at Eke Ukwu is ₦1,500, or any hospital can see you."}
         </p>
       ) : null}
-      <section className="space-y-2">
-        <div>
-          <h2 className="font-display text-2xl">How you feel</h2>
-          <p className="text-sm text-[#5d6b62]">Each one is out of 100. High is good. Red means handle it now.</p>
-        </div>
-        {(
-          [
-            ["Hunger", me.needs.hunger, "How full you are. 0 means you are starving. Eat at a buka or restaurant."],
-            ["Energy", me.needs.energy, "How rested you are. Sleep at home fills it and you wake at 7."],
-            ["Hygiene", me.needs.hygiene, "How clean you are. Shower at home."],
-            ["Bladder", me.needs.bladder, "How long you can wait. Low means find a toilet. The restroom button does it."],
-            ["Fun", me.needs.fun, "How much you are enjoying the day. A club, beach, or hangout lifts it."],
-            ["Social", me.needs.social, "How connected you feel. Message someone, or hang out where people are."],
-          ] as const
-        ).map(([label, value, hint]) => (
-          <div key={label} className="rounded-2xl bg-white px-3 py-3">
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="font-semibold">{label}</span>
-              <span className={`text-sm font-semibold ${value < 25 ? "text-[#b5523a]" : "text-[#1f6b45]"}`}>{value} / 100</span>
-            </div>
-            <div className="mt-2 h-1.5 rounded-full bg-[#efe4d2]">
-              <div className={`h-full rounded-full ${value < 25 ? "bg-[#b5523a]" : "bg-[#1f6b45]"}`} style={{ width: `${value}%` }} />
-            </div>
-            <p className="mt-2 text-xs leading-5 text-[#5d6b62]">{hint}</p>
-          </div>
-        ))}
-      </section>
       <section className="grid gap-3">
         <div className="rounded-[1.6rem] bg-white p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#a9782a]">Work</p>
@@ -741,6 +801,12 @@ function MapPanel({
           onLeaveRoom={() => run(checkoutRoom)}
           onTreat={() => run(getTreatment)}
           sick={view.me.sick}
+          house={
+            place.kind === "home" && place.id === homeById(view.me.homeId).areaId
+              ? { name: homeById(view.me.homeId).name, owned: view.me.furniture }
+              : null
+          }
+          onBuyFurniture={(itemId) => run(() => buyFurniture(itemId))}
         />
       ) : null}
       {here ? (
@@ -823,7 +889,7 @@ function MapPanel({
         : null}
       <div
         ref={mapFrame}
-        className="relative aspect-square touch-none overflow-hidden rounded-[1.6rem] bg-[#cfe4d4]"
+        className="relative h-[calc(100dvh-11rem)] min-h-[28rem] touch-none overflow-hidden rounded-[1.6rem] bg-[#cfe4d4]"
       >
         <div
           className="absolute inset-0"
@@ -908,9 +974,14 @@ function MapPanel({
                   openPlace(item.id);
                 }}
               >
-                <span
-                  className={`block rounded-full border-2 border-white shadow ${selected ? "h-3.5 w-3.5 bg-[#a9782a]" : current ? "h-3 w-3 bg-[#1f6b45]" : "h-2.5 w-2.5"} ${selected || current ? "" : dotClass(item.kind)}`}
-                />
+                {item.kind === "home" ? (
+                  <span className={`ol-house ${item.id === homeById(view.me.homeId).areaId ? "ol-home-pulse" : ""}`} />
+                ) : (
+                  <span
+                    className={`block rounded-full border-2 border-white shadow ${selected ? "h-3.5 w-3.5 bg-[#a9782a]" : current ? "h-3 w-3 bg-[#1f6b45]" : "h-2.5 w-2.5"} ${selected || current ? "" : dotClass(item.kind)}`}
+                  />
+                )}
+                {current ? <PersonFigure look={view.me.look} className="pointer-events-none absolute bottom-4 h-8 w-4" /> : null}
                 <span className="pointer-events-none absolute top-full mt-px w-14 text-center text-[7px] font-semibold leading-[8px] text-[#10211a]" style={{ textShadow: "0 0 3px #d7ebdd" }}>
                   {item.name}
                 </span>

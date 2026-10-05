@@ -414,6 +414,23 @@ body {
   to { background-position: -28px 0; }
 }
 
+.ol-house {
+  display: block;
+  width: 18px;
+  height: 16px;
+  background: linear-gradient(#f4efe4, #f4efe4) 0 6px / 100% 10px no-repeat, #c4552a;
+  clip-path: polygon(50% 0, 100% 42%, 82% 42%, 82% 100%, 18% 100%, 18% 42%, 0 42%);
+  filter: drop-shadow(0 2px 0 rgb(16 33 26 / 0.25));
+}
+.ol-home-pulse {
+  animation: ol-home-pulse 1.15s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+@keyframes ol-home-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.35); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ol-toast { animation: none; opacity: 1; }
   .ol-dim { animation: none; }
@@ -427,7 +444,7 @@ body {
   }
   .ol-choices { pointer-events: auto; }
   .ol-bit { opacity: 0; }
-  .ol-world, .ol-pose-stand, .ol-pose-dance, .ol-pose-dance .ol-arm, .ol-spot, .ol-carry, .ol-bottle {
+  .ol-world, .ol-pose-stand, .ol-pose-dance, .ol-pose-dance .ol-arm, .ol-spot, .ol-carry, .ol-bottle, .ol-home-pulse {
     animation: none;
   }
 }

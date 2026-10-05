@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { DORIME_AMOUNTS, LOOKS, TREATMENT_FEE, npcsAt, placeActs, placeById, sprayFloor } from "@/lib/game/content";
+import { DORIME_AMOUNTS, FURNITURE, LOOKS, TREATMENT_FEE, npcsAt, placeActs, placeById, sprayFloor } from "@/lib/game/content";
 import type { Place } from "@/lib/game/content";
 import { naira } from "@/lib/game/format";
 import type { LookId, TravelMode } from "@/lib/game/types";
@@ -870,6 +870,8 @@ export function VenueInterior({
   onLeaveRoom,
   onTreat,
   sick,
+  house = null,
+  onBuyFurniture,
 }: {
   place: Place;
   look: LookId;
@@ -893,6 +895,8 @@ export function VenueInterior({
   onLeaveRoom: () => void;
   onTreat: () => void;
   sick: "none" | "mild" | "severe";
+  house?: { name: string; owned: string[] } | null;
+  onBuyFurniture?: (itemId: string) => void;
 }) {
   const acts = placeActs(place);
   const [notes, setNotes] = useState<Array<{ id: number; count: number }>>([]);
@@ -958,6 +962,8 @@ export function VenueInterior({
               return result;
             }}
           />
+        ) : place.kind === "home" && house ? (
+          <HouseRoom name={house.name} owned={house.owned} pending={pending} onBuy={onBuyFurniture ?? (() => undefined)} />
         ) : (
           <>
             <RoomScene look={look} kind={place.kind} people={people} besideId={besideId} selfId={selfId} onPick={onPickPerson} />
@@ -1096,6 +1102,62 @@ export function VenueInterior({
           <p className="font-display text-3xl">Two hours later…</p>
         </div>
       ) : null}
+    </section>
+  );
+}
+
+export function HouseRoom({
+  name,
+  owned,
+  pending,
+  onBuy,
+}: {
+  name: string;
+  owned: string[];
+  pending: boolean;
+  onBuy: (itemId: string) => void;
+}) {
+  const has = (id: string) => owned.includes(id);
+  return (
+    <section className="overflow-hidden rounded-[1.4rem] bg-[#1c1712] text-[#f6f1e6]">
+      <div className="relative h-72 bg-[linear-gradient(180deg,#d7c4a4,#8d6a45)]">
+        <div className="absolute inset-x-5 top-5 bottom-0 rounded-t-[1.2rem] bg-[#efe4d2] shadow-inner">
+          <div className="absolute right-5 top-4 h-12 w-16 rounded-sm bg-[#8ec4d4] shadow-inner ring-4 ring-[#6a4630]" />
+          <div className="absolute left-4 top-4 h-16 w-3 rounded-sm bg-[#6a4630]" />
+          {has("bed") ? (
+            <div className="absolute bottom-5 left-4 h-16 w-28 rounded-md bg-[#f6f1e6] shadow-md">
+              <div className="h-6 rounded-t-md bg-[#143d2c]" />
+            </div>
+          ) : null}
+          {has("sofa") ? <div className="absolute bottom-8 left-1/2 h-12 w-24 -translate-x-1/2 rounded-xl bg-[#7a2e1e] shadow-md" /> : null}
+          {has("table") ? <div className="absolute bottom-10 right-24 h-8 w-14 rounded-sm bg-[#6a4630] shadow" /> : null}
+          {has("fridge") ? <div className="absolute bottom-5 right-20 h-24 w-8 rounded-sm bg-[#d5e4d8] shadow ring-1 ring-[#8d6a45]" /> : null}
+          {has("television") ? (
+            <div className="absolute bottom-5 right-4 h-16 w-20 rounded-sm bg-[#10211a] shadow-lg ring-2 ring-[#1c1916]">
+              <div className="m-1.5 h-9 bg-[#245c78]" />
+            </div>
+          ) : null}
+          {owned.length === 0 ? (
+            <p className="absolute inset-x-6 bottom-16 text-center text-sm leading-6 text-[#5d6b62]">The room is empty. The floor is bare.</p>
+          ) : null}
+        </div>
+      </div>
+      <div className="grid gap-2 p-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#e0b15a]">{name}</p>
+        {FURNITURE.filter((item) => !has(item.id)).map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            disabled={pending}
+            onClick={() => onBuy(item.id)}
+            className="flex items-center justify-between rounded-full bg-white/10 px-3 py-2 text-xs font-semibold disabled:opacity-40"
+          >
+            <span>Buy {item.name}</span>
+            <span>{naira(item.cost)}</span>
+          </button>
+        ))}
+        {FURNITURE.every((item) => has(item.id)) ? <p className="text-xs text-[#d5e4d8]">The house is furnished.</p> : null}
+      </div>
     </section>
   );
 }

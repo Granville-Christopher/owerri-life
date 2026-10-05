@@ -93,6 +93,7 @@ export interface Player {
   } | null;
   room: { stay: "hour" | "night"; placeId: string } | null;
   lands: string[];
+  furniture: string[];
   besideId: string | null;
   dmToday: number;
   lastChatKey: string;
