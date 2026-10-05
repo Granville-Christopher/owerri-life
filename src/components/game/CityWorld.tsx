@@ -291,7 +291,7 @@ export function CityWorld({
       for (let i = 0; i < laidSpots.length; i += 1) {
         for (let j = i + 1; j < laidSpots.length; j += 1) {
           const airportPair = laidSpots[i].id === "sam-mbakwe" || laidSpots[j].id === "sam-mbakwe";
-          const gap = airportPair ? 100 : landmark.has(laidSpots[i].id) || landmark.has(laidSpots[j].id) ? 40 : 24;
+          const gap = airportPair ? 130 : landmark.has(laidSpots[i].id) || landmark.has(laidSpots[j].id) ? 40 : 24;
           let dx = laidSpots[j].x - laidSpots[i].x;
           let dz = laidSpots[j].z - laidSpots[i].z;
           const dist = Math.hypot(dx, dz) || 0.01;
@@ -306,7 +306,7 @@ export function CityWorld({
         }
       }
       for (const spot of laidSpots) {
-        const pad = spot.id === "sam-mbakwe" ? 70 : landmark.has(spot.id) ? 16 : roadside.has(spot.id) ? 6 : 4;
+        const pad = spot.id === "sam-mbakwe" ? 100 : landmark.has(spot.id) ? 16 : roadside.has(spot.id) ? 6 : 4;
         shoveOut(spot, pad);
       }
     }
@@ -374,7 +374,7 @@ export function CityWorld({
     const airportAt = laid.get("sam-mbakwe");
     function nearAirport(x: number, z: number) {
       if (!airportAt) return false;
-      return Math.abs(x - airportAt.x) < 72 && Math.abs(z - airportAt.z) < 48;
+      return Math.abs(x - airportAt.x) < 100 && Math.abs(z - airportAt.z) < 72;
     }
     function avenue(axis: "x" | "z", fixed: number, from: number, to: number, step: number, side: number) {
       for (let along = from; along <= to; along += step) {
@@ -404,7 +404,7 @@ export function CityWorld({
           const z = cz + (row - rows / 2) * gap;
           const crowded = laidSpots.some((spot) => {
             const dist = Math.hypot(x - spot.x, z - spot.z);
-            if (spot.id === "sam-mbakwe") return Math.abs(x - spot.x) < 72 && Math.abs(z - spot.z) < 48;
+            if (spot.id === "sam-mbakwe") return Math.abs(x - spot.x) < 100 && Math.abs(z - spot.z) < 72;
             if (roadside.has(spot.id)) return dist < 8;
             if (landmark.has(spot.id)) return dist < 18;
             return false;
@@ -518,24 +518,81 @@ export function CityWorld({
 
     function airportYard(x: number, z: number) {
       const group = new THREE.Group();
-      group.add(block(32, 0.1, 20, 0xd5d8dc, 0, 0.08, 0));
-      group.add(block(7, 0.16, 18, 0x3a3f46, 9, 0.16, 0));
-      for (let dash = -7; dash <= 7; dash += 2) group.add(block(0.45, 0.2, 1, 0xf4efe4, 9, 0.22, dash));
-      group.add(block(14, 3.4, 4.8, 0xf7f1e6, -6, 1.8, -5.5));
-      group.add(block(9, 1.3, 3.2, 0xe7e2d6, -6, 0.75, -1.4));
-      group.add(block(2, 8, 2, 0x245c78, 2.2, 4.1, -5.2));
-      group.add(block(2.8, 1.2, 2.8, 0x9fd0ea, 2.2, 8.2, -5.2));
-      function airliner(px: number, pz: number, rot: number) {
+      group.add(block(48, 0.1, 34, 0xd5d8dc, 0, 0.08, 0));
+      group.add(block(5.2, 0.16, 30, 0x3a3f46, 14, 0.16, 1));
+      for (let dash = -13; dash <= 13; dash += 2.4) group.add(block(0.35, 0.2, 1.1, 0xf4efe4, 14, 0.22, dash + 1));
+      group.add(block(16, 3.2, 5, 0xf7f1e6, -12, 1.7, -10));
+      group.add(block(10, 1.2, 3.4, 0xe7e2d6, -12, 0.7, -6));
+      group.add(block(2, 8, 2, 0x245c78, -2, 4.1, -10));
+      group.add(block(2.8, 1.2, 2.8, 0x9fd0ea, -2, 8.2, -10));
+      group.add(block(18, 0.12, 12, 0xc5ccd4, -8, 0.14, 8));
+      group.add(block(18, 3.6, 0.35, 0xe7eef2, -8, 1.9, 13.8));
+      group.add(block(0.35, 3.6, 12, 0xe7eef2, -16.8, 1.9, 8));
+      group.add(block(0.35, 3.6, 12, 0xe7eef2, 0.8, 1.9, 8));
+      group.add(block(18, 0.28, 12.4, 0x8aa0b5, -8, 3.7, 8));
+      const pad = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.6, 0.08, 16), new THREE.MeshLambertMaterial({ color: 0x245c78 }));
+      pad.position.set(16, 0.16, -12);
+      const ring = new THREE.Mesh(new THREE.CylinderGeometry(2.1, 2.1, 0.1, 16), new THREE.MeshLambertMaterial({ color: 0xf4f7fb }));
+      ring.position.set(16, 0.2, -12);
+      group.add(pad, ring, block(0.28, 0.12, 1.6, 0x245c78, 16, 0.28, -12), block(1.2, 0.12, 0.28, 0x245c78, 16, 0.28, -12));
+
+      function craft(px: number, pz: number, rot: number, scale: number, color: number, jet: boolean) {
         const plane = new THREE.Group();
-        plane.add(block(8, 0.75, 0.95, 0xf4f7fb, 0, 0.75, 0));
-        plane.add(block(1.6, 0.12, 7, 0xd7dee8, 0.4, 0.75, 0));
-        plane.add(block(1.5, 1.6, 0.14, 0x1f6b45, -3.5, 1.45, 0));
+        const skin = new THREE.MeshLambertMaterial({ color });
+        const fuse = new THREE.Mesh(new THREE.CylinderGeometry(0.38 * scale, 0.42 * scale, 6.4 * scale, 10), skin);
+        fuse.rotation.z = Math.PI / 2;
+        fuse.position.y = 0.85 * scale;
+        const nose = new THREE.Mesh(new THREE.ConeGeometry(0.38 * scale, 1.5 * scale, 10), skin);
+        nose.rotation.z = -Math.PI / 2;
+        nose.position.set(3.9 * scale, 0.85 * scale, 0);
+        const wing = new THREE.Mesh(new THREE.BoxGeometry(2.1 * scale, 0.08 * scale, 7.2 * scale), new THREE.MeshLambertMaterial({ color: 0xd5dee8 }));
+        wing.position.set(0.2 * scale, 0.78 * scale, 0);
+        const fin = new THREE.Mesh(new THREE.BoxGeometry(1.15 * scale, 1.45 * scale, 0.08 * scale), new THREE.MeshLambertMaterial({ color: 0x1f6b45 }));
+        fin.position.set(-2.7 * scale, 1.55 * scale, 0);
+        const stab = new THREE.Mesh(new THREE.BoxGeometry(0.7 * scale, 0.06 * scale, 2.6 * scale), new THREE.MeshLambertMaterial({ color: 0xd5dee8 }));
+        stab.position.set(-3 * scale, 0.95 * scale, 0);
+        plane.add(fuse, nose, wing, fin, stab);
+        if (jet) {
+          for (const side of [-1.5, 1.5]) {
+            const engine = new THREE.Mesh(new THREE.CylinderGeometry(0.2 * scale, 0.22 * scale, 1.3 * scale, 8), new THREE.MeshLambertMaterial({ color: 0x7d8b99 }));
+            engine.rotation.z = Math.PI / 2;
+            engine.position.set(0.5 * scale, 0.48 * scale, side * scale);
+            plane.add(engine);
+          }
+        } else {
+          const prop = new THREE.Mesh(new THREE.BoxGeometry(0.06 * scale, 0.08 * scale, 1.5 * scale), new THREE.MeshLambertMaterial({ color: 0x17241e }));
+          prop.position.set(4.7 * scale, 0.85 * scale, 0);
+          plane.add(prop);
+        }
         plane.position.set(px, 0, pz);
         plane.rotation.y = rot;
         group.add(plane);
       }
-      airliner(4, 2.2, 0.2);
-      airliner(10, -3.2, -0.25);
+
+      function helicopter(px: number, pz: number) {
+        const heli = new THREE.Group();
+        const body = new THREE.Mesh(new THREE.SphereGeometry(0.55, 8, 6), new THREE.MeshLambertMaterial({ color: 0xf4f7fb }));
+        body.scale.set(1.7, 0.75, 0.85);
+        body.position.y = 0.7;
+        const boom = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.14, 1.7, 6), new THREE.MeshLambertMaterial({ color: 0xe7eef2 }));
+        boom.rotation.z = Math.PI / 2;
+        boom.position.set(-1.35, 0.72, 0);
+        const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.45, 6), new THREE.MeshLambertMaterial({ color: 0x17241e }));
+        mast.position.y = 1.15;
+        const rotorA = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.04, 0.14), new THREE.MeshLambertMaterial({ color: 0x243038 }));
+        rotorA.position.y = 1.38;
+        const rotorB = rotorA.clone();
+        rotorB.rotation.y = Math.PI / 2;
+        heli.add(body, boom, mast, rotorA, rotorB);
+        heli.position.set(px, 0.25, pz);
+        group.add(heli);
+      }
+
+      craft(14, 2, Math.PI / 2, 1, 0xf7fbfc, true);
+      craft(-10, 6.5, 0.15, 0.85, 0xe7eef2, true);
+      craft(-6, 9.2, -0.2, 0.48, 0xf2c14e, false);
+      craft(-12, 10, 0.35, 0.42, 0xf4f7fb, false);
+      helicopter(16, -12);
       group.scale.setScalar(4);
       group.position.set(x, 0, z);
       scene.add(group);
