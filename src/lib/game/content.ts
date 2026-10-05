@@ -76,11 +76,11 @@ export interface Home {
 }
 
 export const FURNITURE = [
-  { id: "bed", name: "Bed", cost: 20000 },
-  { id: "table", name: "Table", cost: 12000 },
-  { id: "sofa", name: "Sofa", cost: 35000 },
-  { id: "fridge", name: "Fridge", cost: 55000 },
-  { id: "television", name: "Television", cost: 80000 },
+  { id: "bed", name: "Bed", cost: 20000, group: "Sleep" },
+  { id: "table", name: "Table", cost: 12000, group: "Comfort" },
+  { id: "sofa", name: "Sofa", cost: 35000, group: "Comfort" },
+  { id: "fridge", name: "Fridge", cost: 55000, group: "Kitchen" },
+  { id: "television", name: "Television", cost: 80000, group: "Fun" },
 ] as const;
 
 export function furnitureById(id: string) {

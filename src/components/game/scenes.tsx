@@ -1,5 +1,6 @@
 "use client";
 
+import { createPortal } from "react-dom";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { DORIME_AMOUNTS, FURNITURE, LOOKS, TREATMENT_FEE, npcsAt, placeActs, placeById, sprayFloor } from "@/lib/game/content";
 import type { Place } from "@/lib/game/content";
@@ -1111,53 +1112,63 @@ export function HouseRoom({
   owned,
   pending,
   onBuy,
+  look,
 }: {
   name: string;
   owned: string[];
   pending: boolean;
   onBuy: (itemId: string) => void;
+  look?: LookId;
 }) {
   const has = (id: string) => owned.includes(id);
+  const [group, setGroup] = useState<(typeof FURNITURE)[number]["group"]>("Sleep");
+  const stock = FURNITURE.filter((item) => item.group === group);
   return (
-    <section className="overflow-hidden rounded-[1.4rem] bg-[#1c1712] text-[#f6f1e6]">
-      <div className="relative h-72 bg-[linear-gradient(180deg,#d7c4a4,#8d6a45)]">
-        <div className="absolute inset-x-5 top-5 bottom-0 rounded-t-[1.2rem] bg-[#efe4d2] shadow-inner">
-          <div className="absolute right-5 top-4 h-12 w-16 rounded-sm bg-[#8ec4d4] shadow-inner ring-4 ring-[#6a4630]" />
-          <div className="absolute left-4 top-4 h-16 w-3 rounded-sm bg-[#6a4630]" />
-          {has("bed") ? (
-            <div className="absolute bottom-5 left-4 h-16 w-28 rounded-md bg-[#f6f1e6] shadow-md">
-              <div className="h-6 rounded-t-md bg-[#143d2c]" />
-            </div>
-          ) : null}
-          {has("sofa") ? <div className="absolute bottom-8 left-1/2 h-12 w-24 -translate-x-1/2 rounded-xl bg-[#7a2e1e] shadow-md" /> : null}
-          {has("table") ? <div className="absolute bottom-10 right-24 h-8 w-14 rounded-sm bg-[#6a4630] shadow" /> : null}
-          {has("fridge") ? <div className="absolute bottom-5 right-20 h-24 w-8 rounded-sm bg-[#d5e4d8] shadow ring-1 ring-[#8d6a45]" /> : null}
-          {has("television") ? (
-            <div className="absolute bottom-5 right-4 h-16 w-20 rounded-sm bg-[#10211a] shadow-lg ring-2 ring-[#1c1916]">
-              <div className="m-1.5 h-9 bg-[#245c78]" />
-            </div>
-          ) : null}
-          {owned.length === 0 ? (
-            <p className="absolute inset-x-6 bottom-16 text-center text-sm leading-6 text-[#5d6b62]">The room is empty. The floor is bare.</p>
-          ) : null}
+    <section className="relative h-full min-h-[28rem] overflow-hidden bg-[#d9e8f2] text-[#17241e]">
+      <div className="absolute left-1/2 top-[8%] h-[46%] w-[min(42rem,92%)] -translate-x-1/2 [perspective:900px]">
+        <div className="relative h-full w-full origin-center [transform:rotateX(58deg)] rounded-sm bg-[#d8b48a] shadow-2xl" style={{ backgroundImage: "linear-gradient(#c4a574 1px, transparent 1px), linear-gradient(90deg, #c4a574 1px, transparent 1px)", backgroundSize: "48px 48px" }}>
+          <div className="absolute inset-x-0 top-0 h-8 bg-[#e6d3a1]" />
+          <div className="absolute inset-y-0 left-0 w-8 bg-[#c4a574]" />
+          <div className="absolute left-6 top-10 h-16 w-8 rounded-sm bg-[#6a4630]" />
+          <div className="absolute right-8 top-8 h-14 w-20 bg-[#8ec4d4] ring-4 ring-[#6a4630]" />
+          {has("bed") ? <div className="absolute left-[12%] top-[22%] h-16 w-28 bg-[#f6f1e6] shadow"><div className="h-6 bg-[#143d2c]" /></div> : null}
+          {has("sofa") ? <div className="absolute left-[38%] top-[48%] h-12 w-28 rounded-md bg-[#1f6b45] shadow" /> : null}
+          {has("table") ? <div className="absolute right-[28%] top-[40%] h-10 w-16 bg-[#6a4630] shadow" /> : null}
+          {has("fridge") ? <div className="absolute right-[18%] top-[18%] h-20 w-8 bg-[#d5e4d8] shadow" /> : null}
+          {has("television") ? <div className="absolute right-[8%] top-[55%] h-14 w-20 bg-[#10211a] shadow"><div className="m-1 h-8 bg-[#245c78]" /></div> : null}
         </div>
       </div>
-      <div className="grid gap-2 p-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#e0b15a]">{name}</p>
-        {FURNITURE.filter((item) => !has(item.id)).map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            disabled={pending}
-            onClick={() => onBuy(item.id)}
-            className="flex items-center justify-between rounded-full bg-white/10 px-3 py-2 text-xs font-semibold disabled:opacity-40"
-          >
-            <span>Buy {item.name}</span>
-            <span>{naira(item.cost)}</span>
-          </button>
-        ))}
-        {FURNITURE.every((item) => has(item.id)) ? <p className="text-xs text-[#d5e4d8]">The house is furnished.</p> : null}
-      </div>
+      <PersonFigure look={look ?? "chidi"} className="absolute left-1/2 top-[34%] z-10 h-24 w-12 -translate-x-1/2" />
+      {owned.length === 0 ? <p className="absolute left-1/2 top-[8%] -translate-x-1/2 rounded-full bg-white px-3 py-1 text-xs font-semibold shadow">The room is empty.</p> : null}
+      {typeof document !== "undefined" ? createPortal(
+      <div className="fixed inset-x-0 bottom-0 max-h-[46%] overflow-y-auto rounded-t-[1.6rem] bg-white pb-24 shadow-2xl" style={{ zIndex: 200 }}>
+        <div className="flex items-center justify-between px-4 pt-3">
+          <p className="font-semibold">Catalogue · {name}</p>
+        </div>
+        <div className="flex gap-2 overflow-x-auto px-4 py-2">
+          {(["Sleep", "Comfort", "Kitchen", "Fun"] as const).map((item) => (
+            <button key={item} type="button" onClick={() => setGroup(item)} className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${group === item ? "bg-[#17241e] text-white" : "bg-[#f4efe4]"}`}>
+              {item}
+            </button>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-2 overflow-y-auto px-4 pb-4 sm:grid-cols-3">
+          {stock.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              disabled={pending || has(item.id)}
+              onClick={() => onBuy(item.id)}
+              className="rounded-2xl border border-[#efe4d2] p-3 text-left disabled:opacity-50"
+            >
+              <span className="block text-sm font-semibold">{item.name}</span>
+              <span className="mt-1 block text-sm font-semibold text-[#1f6b45]">{has(item.id) ? "In the room" : naira(item.cost)}</span>
+            </button>
+          ))}
+        </div>
+      </div>,
+      document.body,
+      ) : null}
     </section>
   );
 }

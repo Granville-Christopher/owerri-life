@@ -140,31 +140,8 @@ export function GameShell({ view }: { view: GameView }) {
   const [phone, setPhone] = useState<HTMLDivElement | null>(null);
 
   return (
-    <div className="min-h-dvh bg-[#0c1a14] text-[#17241e] md:py-6 xl:p-0">
-      <div ref={setPhone} className="relative mx-auto flex h-dvh w-full max-w-md flex-col overflow-hidden bg-[#f4efe4] md:h-[calc(100dvh-3rem)] md:rounded-[2rem] md:shadow-2xl xl:h-dvh xl:max-w-none xl:rounded-none">
-        <header className="bg-[#143d2c] px-4 py-3 text-[#f6f1e6]">
-          <div className="flex items-center justify-between gap-3">
-            <button type="button" className="flex min-w-0 items-center gap-3 text-left" aria-label="Your account" onClick={() => setAccount(true)}>
-              <Avatar look={me.look} name={me.username} size={42} />
-              <span className="min-w-0">
-                <span className="block truncate font-semibold leading-tight">{me.username}</span>
-                <span className="block truncate text-xs text-[#d5e4d8]">{placeById(me.locationId).name}</span>
-              </span>
-            </button>
-            <div className="shrink-0 text-right">
-              <div className="flex items-center justify-end gap-2">
-                <InstallButton />
-                <button type="button" className="font-semibold" aria-label="Your balance" onClick={() => setTopUpOpen(true)}>
-                  {naira(view.balance)}
-                </button>
-                <button type="button" className="rounded-full bg-[#e0b15a] px-2.5 py-1 text-xs font-semibold text-[#1a140c]" onClick={() => setTopUpOpen(true)}>
-                  Top up
-                </button>
-              </div>
-              <p className="text-xs text-[#d5e4d8]">{clockLabel(me.day, me.hour)} · Day {me.day}</p>
-            </div>
-          </div>
-        </header>
+    <div className="min-h-dvh bg-[#d9e8f2] text-[#17241e]">
+      <div ref={setPhone} className="relative mx-auto h-dvh w-full overflow-hidden bg-[#d7ebdd]">
         {toast ? (
           <p
             key={toast.id}
@@ -178,7 +155,7 @@ export function GameShell({ view }: { view: GameView }) {
             {crowdText}
           </p>
         ) : null}
-        <main className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+        <main className={`absolute inset-0 ${!account && tab === "home" ? "overflow-hidden" : "overflow-y-auto px-4 pb-28 pt-20"}`}>
           {account ? <AccountPage view={view} pending={pending} run={run} onBack={() => setAccount(false)} /> : null}
           {!account && tab === "home" ? <HomePanel view={view} run={run} pending={pending} /> : null}
           {!account && tab === "map" ? <MapPanel view={view} run={run} pending={pending} onOpen={setPersonId} sheetRoot={phone} /> : null}
@@ -206,7 +183,39 @@ export function GameShell({ view }: { view: GameView }) {
           ) : null}
           {!account && tab === "ledger" ? <LedgerPanel view={view} /> : null}
         </main>
-        <nav className="grid grid-cols-6 border-t border-[#e4d8c4] bg-[#fffaf2] text-[11px] font-semibold">
+        <div className="pointer-events-none absolute inset-x-0 top-3 z-30 flex justify-center px-3">
+          <div className="pointer-events-auto flex max-w-full items-center gap-3 overflow-x-auto rounded-full bg-white px-4 py-2 text-sm shadow-lg">
+            <span className="shrink-0 font-semibold">{clockLabel(me.day, me.hour)}</span>
+            <span className="shrink-0 text-[#5d6b62]">{moodLabel(me.needs, me.sick)}</span>
+            <span className="shrink-0 text-[#5d6b62]">{placeById(me.locationId).name}</span>
+            <InstallButton />
+            <button type="button" className="shrink-0 rounded-full bg-[#eef6ea] px-3 py-1 font-semibold" aria-label="Your balance" onClick={() => setTopUpOpen(true)}>
+              {naira(view.balance)}
+            </button>
+          </div>
+        </div>
+        <div className="absolute bottom-24 left-3 z-30 flex items-center gap-2">
+          <button type="button" aria-label="Your account" onClick={() => setAccount(true)} className="rounded-full bg-white p-1 shadow-lg">
+            <Avatar look={me.look} name={me.username} size={48} />
+          </button>
+          <div className="grid grid-cols-3 gap-1 rounded-full bg-white px-3 py-2 shadow-lg">
+            {(
+              [
+                ["Hunger", me.needs.hunger, "bg-[#e07a3d]"],
+                ["Energy", me.needs.energy, "bg-[#e0b15a]"],
+                ["Hygiene", me.needs.hygiene, "bg-[#3d7ea6]"],
+                ["Bladder", me.needs.bladder, "bg-[#7a5ea7]"],
+                ["Fun", me.needs.fun, "bg-[#c4552a]"],
+                ["Social", me.needs.social, "bg-[#1f6b45]"],
+              ] as const
+            ).map(([label, value, color]) => (
+              <span key={label} title={`${label} ${value}`} className="block h-1.5 w-8 overflow-hidden rounded-full bg-[#efe4d2]">
+                <span className={`block h-full ${color}`} style={{ width: `${value}%` }} />
+              </span>
+            ))}
+          </div>
+        </div>
+        <nav className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 gap-1 rounded-full bg-white p-1.5 text-xs font-semibold shadow-xl">
           {(
             [
               ["home", "Home"],
@@ -217,7 +226,7 @@ export function GameShell({ view }: { view: GameView }) {
               ["ledger", "Ledger"],
             ] as const
           ).map(([id, label]) => (
-            <button key={id} className={`py-3 ${!account && tab === id ? "text-[#1f6b45]" : "text-[#5d6b62]"}`} onClick={() => { setAccount(false); setTab(id); }}>
+            <button key={id} className={`rounded-full px-3 py-2 ${!account && tab === id ? "bg-[#17241e] text-white" : "text-[#5d6b62]"}`} onClick={() => { setAccount(false); setTab(id); }}>
               {label}
             </button>
           ))}
@@ -384,13 +393,11 @@ function HomeMap({ view }: { view: GameView }) {
             className="absolute grid h-8 w-8 -translate-x-1/2 -translate-y-1/2 place-items-center"
             style={{ left: `${spot.x}%`, top: `${spot.y}%` }}
           >
-            {item.kind === "home" ? (
-              <span className={`ol-house ${mine ? "ol-home-pulse" : ""}`} />
-            ) : (
-              <span className={`block h-2.5 w-2.5 rounded-full border-2 border-white shadow ${here ? "h-3 w-3 bg-[#1f6b45]" : dotClass(item.kind)}`} />
-            )}
-            {here ? <PersonFigure look={view.me.look} className="pointer-events-none absolute bottom-5 h-9 w-5" /> : null}
-            {mine ? <span className="pointer-events-none absolute top-full w-16 text-center text-[8px] font-semibold text-[#10211a]">Home</span> : null}
+            <span className={`ol-block ${mine ? "ol-home-pulse" : ""} ${item.kind === "home" ? "ol-block-home" : ""}`} />
+            <span className={`pointer-events-none absolute top-full mt-1 max-w-24 truncate rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold shadow ${mine ? "text-[#1f6b45]" : "text-[#17241e]"}`}>
+              {mine ? "Home" : item.name}
+            </span>
+            {here ? <PersonFigure look={view.me.look} className="pointer-events-none absolute -top-8 h-10 w-5" /> : null}
           </div>
         );
       })}
@@ -413,24 +420,17 @@ function HomePanel({ view, run, pending }: { view: GameView; run: Run; pending: 
   const ratio = Math.min(1, progress.target === 0 ? 0 : progress.current / progress.target);
   const career = me.job ? careerById(me.job.careerId) : null;
 
-  const meters = [
-    ["Hunger", me.needs.hunger],
-    ["Energy", me.needs.energy],
-    ["Hygiene", me.needs.hygiene],
-    ["Bladder", me.needs.bladder],
-    ["Fun", me.needs.fun],
-    ["Social", me.needs.social],
-  ] as const;
+  const [lifeOpen, setLifeOpen] = useState(false);
 
   return (
-    <div className="space-y-4">
-      <section className="relative -mx-4 -mt-4 h-[calc(100dvh-9rem)] min-h-[32rem] overflow-hidden bg-[#cfe3d4]">
+    <div className="relative h-full">
+      <section className="absolute inset-0 overflow-hidden bg-[#d7ebdd]">
         {atHome && me.indoors && roomOpen ? (
           <div className="h-full overflow-y-auto p-3">
             <button type="button" onClick={() => setRoomOpen(false)} className="mb-3 text-xs font-semibold text-[#143d2c]">
               Back to the map
             </button>
-            <HouseRoom name={home.name} owned={me.furniture} pending={pending} onBuy={(itemId) => run(() => buyFurniture(itemId))} />
+            <HouseRoom name={home.name} look={me.look} owned={me.furniture} pending={pending} onBuy={(itemId) => run(() => buyFurniture(itemId))} />
           </div>
         ) : (
           <>
@@ -448,24 +448,18 @@ function HomePanel({ view, run, pending }: { view: GameView; run: Run; pending: 
                     if (result.ok) setRoomOpen(true);
                   });
                 }}
-                className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2 rounded-full bg-[#143d2c] px-4 py-2 text-sm font-semibold text-[#f6f1e6] disabled:opacity-40"
+                className="absolute bottom-28 left-1/2 z-10 -translate-x-1/2 rounded-full bg-[#17241e] px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
               >
                 {me.indoors ? "See the room" : "Go inside"}
               </button>
             ) : null}
-            <div className="absolute inset-x-3 top-3 z-10 flex flex-wrap gap-1.5">
-              {meters.map(([label, value]) => (
-                <span
-                  key={label}
-                  className={`rounded-full px-2.5 py-1 text-[11px] font-semibold shadow ${value < 25 ? "bg-[#f3d6cc] text-[#7a2e1e]" : "bg-white/90 text-[#143d2c]"}`}
-                >
-                  {label} {value}
-                </span>
-              ))}
-            </div>
+            <button type="button" onClick={() => setLifeOpen((open) => !open)} className="absolute left-3 top-20 z-10 rounded-full bg-white px-3 py-2 text-xs font-semibold shadow">
+              {lifeOpen ? "Hide" : "Your life"}
+            </button>
           </>
         )}
       </section>
+      {lifeOpen ? <div className="absolute bottom-24 left-3 top-32 z-20 w-[min(24rem,calc(100%-1.5rem))] space-y-4 overflow-y-auto">
       <section className="rounded-[1.6rem] bg-[#143d2c] p-5 text-[#f6f1e6]">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#e0b15a]">{moodLabel(me.needs, me.sick)}</p>
         <h2 className="mt-1 font-display text-3xl leading-tight">{DREAMS.find((dream) => dream.id === me.dream)?.name}</h2>
@@ -586,7 +580,7 @@ function HomePanel({ view, run, pending }: { view: GameView; run: Run; pending: 
       </div>
       <p className="text-xs leading-5 text-[#5d6b62]">The restroom works anywhere and fills Bladder. Waiting an hour just lets time pass.</p>
       <button
-        className="text-xs text-[#5d6b62] md:hidden"
+        className="text-xs text-[#5d6b62]"
         onClick={() =>
           run(async () => {
             const result = await logout();
@@ -597,6 +591,7 @@ function HomePanel({ view, run, pending }: { view: GameView; run: Run; pending: 
       >
         Sign out
       </button>
+      </div> : null}
     </div>
   );
 }
@@ -974,16 +969,10 @@ function MapPanel({
                   openPlace(item.id);
                 }}
               >
-                {item.kind === "home" ? (
-                  <span className={`ol-house ${item.id === homeById(view.me.homeId).areaId ? "ol-home-pulse" : ""}`} />
-                ) : (
-                  <span
-                    className={`block rounded-full border-2 border-white shadow ${selected ? "h-3.5 w-3.5 bg-[#a9782a]" : current ? "h-3 w-3 bg-[#1f6b45]" : "h-2.5 w-2.5"} ${selected || current ? "" : dotClass(item.kind)}`}
-                  />
-                )}
-                {current ? <PersonFigure look={view.me.look} className="pointer-events-none absolute bottom-4 h-8 w-4" /> : null}
-                <span className="pointer-events-none absolute top-full mt-px w-14 text-center text-[7px] font-semibold leading-[8px] text-[#10211a]" style={{ textShadow: "0 0 3px #d7ebdd" }}>
-                  {item.name}
+                <span className={`ol-block ${item.id === homeById(view.me.homeId).areaId ? "ol-home-pulse ol-block-home" : ""} ${selected ? "ol-block-on" : ""}`} />
+                {current ? <PersonFigure look={view.me.look} className="pointer-events-none absolute -top-8 h-8 w-4" /> : null}
+                <span className="pointer-events-none absolute top-full mt-1 max-w-24 truncate rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-[#17241e] shadow">
+                  {item.id === homeById(view.me.homeId).areaId ? "Home" : item.name}
                 </span>
               </button>
             );
@@ -2001,17 +1990,6 @@ function PersonSheet({
       </div>
     </div>
   );
-}
-
-function dotClass(kind: string) {
-  if (kind === "nightlife") return "bg-[#a9782a]";
-  if (kind === "food") return "bg-[#c4552a]";
-  if (kind === "hotel") return "bg-[#5a3d7a]";
-  if (kind === "pickup") return "bg-[#8c3d55]";
-  if (kind === "market") return "bg-[#1f6b45]";
-  if (kind === "school") return "bg-[#3d6b4f]";
-  if (kind === "airport") return "bg-[#3d7ea6]";
-  return "bg-[#245c78]";
 }
 
 function layoutPins(places: Array<{ id: string; x: number; y: number }>) {
