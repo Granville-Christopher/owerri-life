@@ -85,8 +85,8 @@ export function CityWorld({
       }
       return best;
     }
-    function layRiver(pts: RiverPoint[], half: number) {
-      riverLines.push({ pts, half });
+    function layRiver(pts: RiverPoint[], half: number, flare?: RiverPoint) {
+      riverLines.push({ pts, half: half + (flare ? 8 : 0) });
       const positions: number[] = [];
       const normals: number[] = [];
       const indices: number[] = [];
@@ -98,7 +98,14 @@ export function CityWorld({
         const len = Math.hypot(tx, tz) || 1;
         tx /= len;
         tz /= len;
-        const wide = half * (0.76 + 0.24 * Math.sin(i * 0.55));
+        let wide = half * (0.9 + 0.1 * Math.sin(i * 0.45));
+        if (flare) {
+          const dist = Math.hypot(pts[i].x - flare.x, pts[i].z - flare.z);
+          if (dist < 60) {
+            const blend = 1 - dist / 60;
+            wide += blend * blend * 14;
+          }
+        }
         positions.push(pts[i].x - tz * wide, 0.06, pts[i].z + tx * wide, pts[i].x + tz * wide, 0.06, pts[i].z - tx * wide);
         normals.push(0, 1, 0, 0, 1, 0);
       }
@@ -128,22 +135,48 @@ export function CityWorld({
         z: -400 + t * 530,
       });
     }
+    nworiePts.splice(-14);
     const tail = nworiePts[nworiePts.length - 1];
     let mouth = otamiriPts[0];
     for (const point of otamiriPts) {
       if (Math.hypot(point.x - tail.x, point.z - tail.z) < Math.hypot(mouth.x - tail.x, mouth.z - tail.z)) mouth = point;
     }
-    for (let i = 1; i <= 12; i += 1) {
-      const t = i / 12;
-      const bend = t * t * (3 - 2 * t);
+    const joinPrev = nworiePts[nworiePts.length - 2];
+    let sx = tail.x - joinPrev.x;
+    let sz = tail.z - joinPrev.z;
+    const sl = Math.hypot(sx, sz) || 1;
+    sx = (sx / sl) * 90;
+    sz = (sz / sl) * 90;
+    const mouthIndex = Math.max(0, otamiriPts.indexOf(mouth));
+    const upstream = otamiriPts[Math.max(0, mouthIndex - 3)];
+    const downstream = otamiriPts[Math.min(otamiriPts.length - 1, mouthIndex + 3)];
+    let ex = downstream.x - upstream.x;
+    let ez = downstream.z - upstream.z;
+    const flow = Math.hypot(ex, ez) || 1;
+    ex = (ex / flow) * 70;
+    ez = (ez / flow) * 70;
+    for (let i = 1; i <= 28; i += 1) {
+      const t = i / 28;
+      const t2 = t * t;
+      const t3 = t2 * t;
       nworiePts.push({
-        x: tail.x + (mouth.x - tail.x) * bend + Math.sin(t * Math.PI) * 18,
-        z: tail.z + (mouth.z - tail.z) * bend,
+        x: (2 * t3 - 3 * t2 + 1) * tail.x + (t3 - 2 * t2 + t) * sx + (-2 * t3 + 3 * t2) * mouth.x + (t3 - t2) * ex,
+        z: (2 * t3 - 3 * t2 + 1) * tail.z + (t3 - 2 * t2 + t) * sz + (-2 * t3 + 3 * t2) * mouth.z + (t3 - t2) * ez,
       });
     }
-    layRiver(nworiePts, 10);
-    layRiver(otamiriPts, 10);
-    const mouthIndex = Math.max(0, otamiriPts.indexOf(mouth));
+    layRiver(nworiePts, 10, mouth);
+    layRiver(otamiriPts, 10, mouth);
+    const pool = new THREE.Mesh(new THREE.CircleGeometry(28, 40), water);
+    pool.rotation.x = -Math.PI / 2;
+    pool.position.set(mouth.x, 0.055, mouth.z);
+    scene.add(pool);
+    const poolRing: RiverPoint[] = [];
+    for (let i = 0; i < 10; i += 1) {
+      const angle = (i / 10) * Math.PI * 2;
+      poolRing.push({ x: mouth.x + Math.cos(angle) * 12, z: mouth.z + Math.sin(angle) * 12 });
+    }
+    poolRing.push(poolRing[0]);
+    riverLines.push({ pts: poolRing, half: 10 });
     const before = otamiriPts[Math.max(0, mouthIndex - 1)];
     const after = otamiriPts[Math.min(otamiriPts.length - 1, mouthIndex + 1)];
     let bankTx = after.x - before.x;
@@ -399,6 +432,7 @@ export function CityWorld({
       const at = spot(place.x, place.y);
       return { id: place.id, x: at.x, z: at.z };
     });
+    const clubs = new Set(["wetheral-strip", "cartel-lounge", "orange-room", "channel-garden", "zuma-grill", "ibari-village"]);
     const schools = new Set(["imsu", "futo", "fedpoly-nekede"]);
     const markets = new Set(["eke-ukwu", "relief-market", "ikenegbu-market", "owerri-mall"]);
     const restaurants = new Set(["donalds", "kilimanjaro", "november-5", "mangrove-grill"]);
@@ -409,11 +443,13 @@ export function CityWorld({
         for (let j = i + 1; j < laidSpots.length; j += 1) {
           const pair = new Set([laidSpots[i].id, laidSpots[j].id]);
           const shellyMangrove = pair.has("shelly-hospital") && pair.has("mangrove-grill");
+          const cartelPair = laidSpots[i].id === "cartel-lounge" || laidSpots[j].id === "cartel-lounge";
+          const clubPair = clubs.has(laidSpots[i].id) || clubs.has(laidSpots[j].id);
           const airportPair = laidSpots[i].id === "sam-mbakwe" || laidSpots[j].id === "sam-mbakwe";
           const schoolPair = schools.has(laidSpots[i].id) || schools.has(laidSpots[j].id);
           const marketPair = markets.has(laidSpots[i].id) || markets.has(laidSpots[j].id);
           const bigPair = landmark.has(laidSpots[i].id) || landmark.has(laidSpots[j].id) || restaurants.has(laidSpots[i].id) || restaurants.has(laidSpots[j].id);
-          const gap = airportPair ? 130 : schoolPair ? 110 : shellyMangrove ? 78 : marketPair ? 64 : bigPair ? 42 : 24;
+          const gap = airportPair ? 130 : schoolPair ? 110 : cartelPair ? 78 : shellyMangrove ? 78 : clubPair ? 44 : marketPair ? 64 : bigPair ? 42 : 24;
           let dx = laidSpots[j].x - laidSpots[i].x;
           let dz = laidSpots[j].z - laidSpots[i].z;
           const dist = Math.hypot(dx, dz) || 0.01;
@@ -428,7 +464,7 @@ export function CityWorld({
         }
       }
       for (const spot of laidSpots) {
-        const pad = spot.id === "sam-mbakwe" ? 100 : schools.has(spot.id) ? 56 : markets.has(spot.id) ? 30 : restaurants.has(spot.id) ? 16 : landmark.has(spot.id) ? 16 : roadside.has(spot.id) ? 6 : 4;
+        const pad = spot.id === "sam-mbakwe" ? 100 : spot.id === "cartel-lounge" ? 40 : schools.has(spot.id) ? 56 : clubs.has(spot.id) ? 16 : markets.has(spot.id) ? 30 : restaurants.has(spot.id) ? 16 : landmark.has(spot.id) ? 16 : roadside.has(spot.id) ? 6 : 4;
         shoveOut(spot, pad);
       }
     }
@@ -545,6 +581,8 @@ export function CityWorld({
           const crowded = laidSpots.some((spot) => {
             const dist = Math.hypot(x - spot.x, z - spot.z);
             if (spot.id === "sam-mbakwe") return Math.abs(x - spot.x) < 100 && Math.abs(z - spot.z) < 72;
+            if (spot.id === "cartel-lounge") return dist < 36;
+            if (clubs.has(spot.id)) return dist < 16;
             if (schools.has(spot.id)) return Math.abs(x - spot.x) < 54 && Math.abs(z - spot.z) < 42;
             if (markets.has(spot.id)) return dist < 34;
             if (restaurants.has(spot.id)) return dist < 18;
@@ -934,6 +972,27 @@ export function CityWorld({
       return group;
     }
 
+    function clubYard(x: number, z: number, scale: number) {
+      const group = new THREE.Group();
+      group.add(block(18, 0.12, 14, 0x2a221c, 0, 0.1, 0));
+      group.add(block(11, 6.4, 7, 0x1a1412, 0, 3.3, -1));
+      group.add(block(11.6, 0.4, 7.4, 0xc4552a, 0, 6.6, -1));
+      group.add(block(7, 1.2, 0.12, 0xf2c14e, 0, 4.6, 2.56));
+      group.add(block(1.8, 2.4, 0.14, 0xe0b15a, 0, 1.3, 2.52));
+      const park = [0x17241e, 0xf2c14e, 0xc4552a, 0x245c78];
+      park.forEach((color, index) => {
+        const car = carMesh(color);
+        car.position.set(-6 + index * 3.6, 0, 5.2);
+        car.rotation.y = Math.PI;
+        group.add(car);
+      });
+      group.scale.setScalar(scale);
+      group.position.set(x, 0, z);
+      scene.add(group);
+      return group;
+    }
+
+    const beachWalkers: Array<{ mesh: THREE.Group; base: number; span: number; speed: number; phase: number }> = [];
     function confluenceBank(x: number, z: number) {
       const group = new THREE.Group();
       group.add(block(72, 0.1, 36, 0xb7a37a, 0, 0.03, 6));
@@ -955,6 +1014,22 @@ export function CityWorld({
         group.add(block(2.4, 0.08, 2.4, 0xf2c14e, -12 + i * 8, 1.4, 16));
         group.add(block(0.08, 1.3, 0.08, 0x6a4630, -12 + i * 8, 0.75, 16));
       }
+      for (let i = 0; i < 6; i += 1) {
+        const sx = -18 + i * 7;
+        group.add(block(1.8, 0.14, 0.75, 0xf7f1e6, sx, 0.38, 11));
+        group.add(block(1.8, 0.55, 0.12, 0xe7dcc8, sx, 0.62, 10.6));
+        group.add(block(0.08, 0.28, 0.08, 0x6a4630, sx - 0.7, 0.22, 11.3));
+        group.add(block(0.08, 0.28, 0.08, 0x6a4630, sx + 0.7, 0.22, 11.3));
+      }
+      [0x1d4a30, 0xc4552a, 0x17241e, 0x3d7ea6, 0xf2c14e].forEach((color, index) => {
+        const walker = new THREE.Group();
+        const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.28, 0.7, 4, 6), new THREE.MeshLambertMaterial({ color }));
+        body.position.y = 0.9;
+        walker.add(body);
+        walker.position.set(-16 + index * 7, 0, 6);
+        group.add(walker);
+        beachWalkers.push({ mesh: walker, base: -18, span: 36, speed: 0.35 + index * 0.08, phase: index * 1.4 });
+      });
       const dx = x - mouth.x;
       const dz = z - mouth.z;
       group.rotation.y = Math.atan2(dx, dz);
@@ -1012,6 +1087,10 @@ export function CityWorld({
       } else if (restaurants.has(place.id)) {
         group = restaurantHall(at.x, at.z);
         labelY = 11.2;
+      } else if (place.kind === "nightlife") {
+        const scale = place.id === "cartel-lounge" ? 4 : 2;
+        group = clubYard(at.x, at.z, scale);
+        labelY = 7.4 * scale;
       } else if (roadside.has(place.id)) {
         group = shopfront(at.x, at.z);
         labelY = 3.2;
@@ -1022,8 +1101,8 @@ export function CityWorld({
         group = tower(at.x, at.z, mine ? 0xfffaf2 : 0xf3efe4);
         labelY = 10.4;
       } else {
-        const height = mine ? 2.8 : place.kind === "nightlife" ? 2.6 : 1.7;
-        const roof = mine ? 0xc4552a : place.kind === "nightlife" ? 0x7a2e1e : 0x245c3a;
+        const height = mine ? 2.8 : 1.7;
+        const roof = mine ? 0xc4552a : 0x245c3a;
         group = house(at.x, at.z, mine ? 0xfffaf2 : 0xf7f1e8, height, roof);
         labelY = height + 1.4;
       }
@@ -1171,7 +1250,13 @@ export function CityWorld({
     let frame = 0;
     const clock = new THREE.Clock();
     const loop = () => {
-      const pulse = 1 + Math.sin(clock.getElapsedTime() * 3) * 0.16;
+      const elapsed = clock.getElapsedTime();
+      const pulse = 1 + Math.sin(elapsed * 3) * 0.16;
+      for (const walker of beachWalkers) {
+        const swing = Math.sin(elapsed * walker.speed + walker.phase);
+        walker.mesh.position.x = walker.base + ((swing + 1) / 2) * walker.span;
+        walker.mesh.rotation.y = Math.cos(elapsed * walker.speed + walker.phase) >= 0 ? Math.PI / 2 : -Math.PI / 2;
+      }
       for (const home of homes) home.scale.setScalar(pulse);
       for (const car of traffic) {
         car.along += car.speed;
