@@ -140,8 +140,8 @@ export function GameShell({ view }: { view: GameView }) {
   const [phone, setPhone] = useState<HTMLDivElement | null>(null);
 
   return (
-    <div className="min-h-dvh bg-[#0c1a14] text-[#17241e] md:py-6">
-      <div ref={setPhone} className="relative mx-auto flex h-dvh max-w-md flex-col overflow-hidden bg-[#f4efe4] md:h-[calc(100dvh-3rem)] md:rounded-[2rem] md:shadow-2xl">
+    <div className="min-h-dvh bg-[#0c1a14] text-[#17241e] md:py-6 xl:p-0">
+      <div ref={setPhone} className="relative mx-auto flex h-dvh w-full max-w-md flex-col overflow-hidden bg-[#f4efe4] md:h-[calc(100dvh-3rem)] md:rounded-[2rem] md:shadow-2xl xl:h-dvh xl:max-w-none xl:rounded-none">
         <header className="bg-[#143d2c] px-4 py-3 text-[#f6f1e6]">
           <div className="flex items-center justify-between gap-3">
             <button type="button" className="flex min-w-0 items-center gap-3 text-left" aria-label="Your account" onClick={() => setAccount(true)}>
@@ -1941,7 +1941,7 @@ function PersonSheet({
   const socialHere = ["nworie-park", "cartel-lounge", "mama-nkechi", "eke-ukwu", "cartel-beach", "heartland-resort"].includes(view.me.locationId);
 
   return (
-    <div className="absolute inset-x-0 bottom-0 top-16 z-10 mx-auto flex w-full max-w-md flex-col rounded-t-[1.8rem] bg-[#fffaf2] shadow-2xl md:top-24">
+    <div className="absolute inset-x-0 bottom-0 top-16 z-10 mx-auto flex w-full flex-col rounded-t-[1.8rem] bg-[#fffaf2] shadow-2xl md:top-24 xl:top-16">
       <div className="flex items-start justify-between gap-3 px-4 pt-4">
         <div className="flex items-center gap-3">
           <Avatar look={person.look} name={person.name} size={52} />

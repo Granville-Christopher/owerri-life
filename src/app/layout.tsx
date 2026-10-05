@@ -56,15 +56,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${outfit.variable} ${fraunces.variable} h-full antialiased`}>
       <body className="min-h-full">
-        <div className="ol-wide min-h-dvh items-center justify-center bg-[#0c1a14] px-6 text-center text-[#f6f1e6]">
-          <div className="max-w-sm">
-            <p className="font-display text-4xl">Owerri Life</p>
-            <p className="mt-4 text-sm leading-6 text-[#d5e4d8]">This app runs on a phone or a tablet. A bigger screen is not supported. Open it on a smaller device, or shrink the window.</p>
-          </div>
-        </div>
-        <div className="ol-fit">
-          <InstallProvider>{children}</InstallProvider>
-        </div>
+        <InstallProvider>{children}</InstallProvider>
       </body>
     </html>
   );
