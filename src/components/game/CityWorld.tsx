@@ -407,11 +407,13 @@ export function CityWorld({
     for (let pass = 0; pass < 36; pass += 1) {
       for (let i = 0; i < laidSpots.length; i += 1) {
         for (let j = i + 1; j < laidSpots.length; j += 1) {
+          const pair = new Set([laidSpots[i].id, laidSpots[j].id]);
+          const shellyMangrove = pair.has("shelly-hospital") && pair.has("mangrove-grill");
           const airportPair = laidSpots[i].id === "sam-mbakwe" || laidSpots[j].id === "sam-mbakwe";
           const schoolPair = schools.has(laidSpots[i].id) || schools.has(laidSpots[j].id);
           const marketPair = markets.has(laidSpots[i].id) || markets.has(laidSpots[j].id);
           const bigPair = landmark.has(laidSpots[i].id) || landmark.has(laidSpots[j].id) || restaurants.has(laidSpots[i].id) || restaurants.has(laidSpots[j].id);
-          const gap = airportPair ? 130 : schoolPair ? 110 : marketPair ? 64 : bigPair ? 42 : 24;
+          const gap = airportPair ? 130 : schoolPair ? 110 : shellyMangrove ? 78 : marketPair ? 64 : bigPair ? 42 : 24;
           let dx = laidSpots[j].x - laidSpots[i].x;
           let dz = laidSpots[j].z - laidSpots[i].z;
           const dist = Math.hypot(dx, dz) || 0.01;
@@ -998,6 +1000,14 @@ export function CityWorld({
         labelY = 8.6;
       } else if (place.kind === "health") {
         group = hospitalYard(at.x, at.z);
+        if (place.id === "shelly-hospital") {
+          const grill = laid.get("mangrove-grill");
+          if (grill) {
+            const dx = grill.x - at.x;
+            const dz = grill.z - at.z;
+            group.rotation.y = Math.atan2(dz, -dx);
+          }
+        }
         labelY = 6.4;
       } else if (restaurants.has(place.id)) {
         group = restaurantHall(at.x, at.z);
