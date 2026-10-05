@@ -1319,16 +1319,175 @@ export function ArrivalScene({
   );
 }
 
-function HotelRoom({ look, lying, onDone }: { look: LookId; lying: boolean; onDone: () => void }) {
+function HotelSuite({ look, pose, onLieDone }: { look: LookId; pose: "stand" | "sit" | "lie"; onLieDone?: () => void }) {
+  const host = useRef<HTMLDivElement>(null);
+  const rig = useRef({ yaw: 0.35, zoom: 1.05 });
+  const done = useRef(onLieDone);
+  done.current = onLieDone;
+
+  useEffect(() => {
+    if (pose !== "lie") return;
+    const id = window.setTimeout(() => done.current?.(), 900);
+    return () => window.clearTimeout(id);
+  }, [pose]);
+
+  useEffect(() => {
+    const root = host.current;
+    if (!root) return;
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(root.clientWidth, root.clientHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    root.appendChild(renderer.domElement);
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color("#efe4d4");
+    scene.add(new THREE.HemisphereLight(0xfff6ea, 0xc4a574, 0.85));
+    const sun = new THREE.DirectionalLight(0xfff1d8, 1.05);
+    sun.position.set(4, 8, 6);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(1024, 1024);
+    scene.add(sun);
+    const lamp = new THREE.PointLight(0xffe0a0, 4, 8);
+    lamp.position.set(-2.6, 1.6, -1.8);
+    scene.add(lamp);
+
+    const room = new THREE.Group();
+    scene.add(room);
+    const add = (mesh: THREE.Object3D) => room.add(mesh);
+    add(piece(0xc4a574, 9.2, 0.12, 7.2, 0, 0.06, 0));
+    add(piece(0x8c3d4a, 4.2, 0.02, 2.6, 1.4, 0.14, 0.8));
+    add(piece(0xf6f1e6, 9.4, 2.7, 0.16, 0, 1.4, -3.5));
+    add(piece(0xf3e6d4, 0.16, 2.7, 7.2, -4.6, 1.4, 0));
+    add(piece(0xf3e6d4, 0.16, 2.7, 7.2, 4.6, 1.4, 0));
+    add(piece(0x9fd0ea, 1.8, 1.15, 0.06, -1.6, 1.7, -3.4));
+    add(piece(0xe7d3c4, 0.18, 1.5, 0.08, -2.6, 1.55, -3.38));
+    add(piece(0xe7d3c4, 0.18, 1.5, 0.08, -0.6, 1.55, -3.38));
+    add(piece(0xe0b15a, 1.3, 0.9, 0.06, 2.2, 1.7, -3.4));
+    add(piece(0x6a4630, 1.5, 0.08, 1.1, 2.2, 1.22, -3.36));
+
+    add(piece(0x4a3428, 2.5, 0.9, 0.12, -1.2, 0.7, -2.85));
+    add(piece(0xf7f4ee, 2.35, 0.28, 1.45, -1.2, 0.42, -2.05));
+    add(piece(0xf4efe6, 2.2, 0.12, 1.15, -1.2, 0.58, -1.95));
+    add(piece(0xf6f1e6, 0.55, 0.16, 0.32, -1.7, 0.7, -2.45));
+    add(piece(0xf6f1e6, 0.55, 0.16, 0.32, -0.7, 0.7, -2.45));
+    add(blob(-1.2, -2.1, 2.6, 1.6, 0.35));
+
+    const stand = (x: number) => {
+      add(piece(0x4a3428, 0.42, 0.48, 0.38, x, 0.32, -2.55));
+      add(piece(0xf2c14e, 0.16, 0.28, 0.16, x, 0.68, -2.55));
+      const shade = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.18, 8), new THREE.MeshLambertMaterial({ color: 0xf6e7b8 }));
+      shade.position.set(x, 0.92, -2.55);
+      add(shade);
+    };
+    stand(-2.7);
+    stand(0.35);
+
+    add(piece(0x3d4a66, 2.1, 0.38, 0.78, 1.5, 0.4, 1.15));
+    add(piece(0x2c3850, 2.1, 0.42, 0.12, 1.5, 0.72, 1.5));
+    add(piece(0x2c3850, 0.12, 0.42, 0.78, 0.48, 0.55, 1.15));
+    add(piece(0x2c3850, 0.12, 0.42, 0.78, 2.52, 0.55, 1.15));
+    add(blob(1.5, 1.25, 2.3, 1, 0.32));
+    add(piece(0x6a4630, 1.15, 0.08, 0.6, 1.5, 0.42, 0.15));
+    add(piece(0x6a4630, 0.08, 0.32, 0.08, 1.1, 0.24, -0.05));
+    add(piece(0x6a4630, 0.08, 0.32, 0.08, 1.9, 0.24, 0.35));
+
+    add(piece(0x8c3d4a, 0.7, 0.36, 0.7, 2.9, 0.4, -0.4));
+    add(piece(0x6d2e3a, 0.7, 0.4, 0.1, 2.9, 0.7, -0.05));
+    add(piece(0x17241e, 1.35, 0.78, 0.08, 4.35, 1.15, 0.2));
+    add(piece(0x1a3350, 1.15, 0.58, 0.04, 4.35, 1.18, 0.26));
+    add(piece(0x4a3428, 0.7, 0.4, 0.4, 4.2, 0.28, 0.2));
+
+    add(piece(0x5a4030, 1.15, 1.7, 0.45, -4.15, 0.95, -2.2));
+    add(piece(0xc4a574, 0.9, 0.04, 0.04, -3.9, 1.15, -1.95));
+    add(piece(0xf7f4ee, 0.9, 0.7, 0.5, -2.4, 0.45, 1.6));
+    add(piece(0x6a4630, 0.08, 0.4, 0.08, -2.75, 0.25, 1.4));
+    add(piece(0x6a4630, 0.08, 0.4, 0.08, -2.05, 0.25, 1.8));
+    const plant = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.7, 7), new THREE.MeshLambertMaterial({ color: 0x1f6b45 }));
+    plant.position.set(3.6, 0.7, -2.6);
+    add(piece(0x6a4630, 0.28, 0.35, 0.28, 3.6, 0.22, -2.6));
+    add(plant);
+
+    const guest = citizen(look);
+    if (pose === "lie") {
+      guest.rotation.z = -Math.PI / 2;
+      guest.position.set(-2.15, 0.62, -1.9);
+    } else if (pose === "sit") {
+      guest.rotation.y = Math.PI;
+      guest.position.set(1.5, -0.42, 1.18);
+    } else {
+      guest.rotation.y = Math.PI;
+      guest.position.set(0.15, 0, 1.35);
+    }
+    add(guest);
+    add(blob(guest.position.x, guest.position.z, 0.7, 0.45, 0.4));
+
+    const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 80);
+    const aim = new THREE.Vector3(8, 10, 12).normalize();
+    const fit = () => {
+      renderer.setSize(root.clientWidth || 1, root.clientHeight || 1);
+      camera.aspect = (root.clientWidth || 1) / (root.clientHeight || 1);
+      camera.updateProjectionMatrix();
+    };
+    fit();
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const factor = event.deltaY < 0 ? 1.08 : 1 / 1.08;
+      rig.current.zoom = Math.min(2.2, Math.max(0.7, rig.current.zoom * factor));
+    };
+    root.addEventListener("wheel", onWheel, { passive: false });
+    let frame = 0;
+    let alive = true;
+    const loop = () => {
+      if (!alive) return;
+      room.rotation.y = rig.current.yaw;
+      camera.position.copy(aim).multiplyScalar(16 / rig.current.zoom);
+      camera.lookAt(0, 0.8, 0);
+      renderer.render(scene, camera);
+      frame = window.requestAnimationFrame(loop);
+    };
+    loop();
+    const onResize = () => fit();
+    window.addEventListener("resize", onResize);
+    return () => {
+      alive = false;
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", onResize);
+      root.removeEventListener("wheel", onWheel);
+      renderer.dispose();
+      root.removeChild(renderer.domElement);
+    };
+  }, [look, pose]);
+
+  function turn(dir: number) {
+    rig.current.yaw += dir * 0.55;
+  }
+  function dolly(factor: number) {
+    rig.current.zoom = Math.min(2.2, Math.max(0.7, rig.current.zoom * factor));
+  }
+
   return (
-    <div className="relative h-80 overflow-hidden bg-[radial-gradient(circle_at_50%_0%,#6a5344,#14110e_68%)]">
-      <div className="absolute left-1/2 top-5 h-16 w-28 -translate-x-1/2 rounded-b-2xl bg-[#c5e4ef]/35" />
-      <div className="absolute inset-x-8 bottom-6 h-32 rounded-t-[2rem] bg-[#4a3428] shadow-2xl">
-        <div className="absolute left-5 top-4 h-10 w-16 rounded-xl bg-[#f6f1e6]" />
-        <div className="absolute inset-x-3 bottom-3 h-10 rounded-xl bg-[#6a4a38]" />
-      </div>
-      <div className={`absolute bottom-28 left-[34%] ${lying ? "ol-lie" : ""}`} onAnimationEnd={() => { if (lying) onDone(); }}>
-        <Human look={look} className="h-24 w-12" />
+    <div className="absolute inset-0 bg-[#efe4d4]">
+      <div
+        ref={host}
+        className="absolute inset-0 touch-none"
+        onPointerDown={(event) => {
+          const surface = event.currentTarget;
+          surface.setPointerCapture(event.pointerId);
+          surface.dataset.x = String(event.clientX);
+        }}
+        onPointerMove={(event) => {
+          if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+          const last = Number(event.currentTarget.dataset.x ?? event.clientX);
+          rig.current.yaw += (event.clientX - last) * 0.008;
+          event.currentTarget.dataset.x = String(event.clientX);
+        }}
+      />
+      <div className="absolute right-3 top-24 z-30 flex flex-col gap-1">
+        <button type="button" aria-label="Zoom in" onClick={() => dolly(1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">+</button>
+        <button type="button" aria-label="Zoom out" onClick={() => dolly(1 / 1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">−</button>
+        <button type="button" aria-label="Rotate left" onClick={() => turn(1)} className="mt-2 grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">↺</button>
+        <button type="button" aria-label="Rotate right" onClick={() => turn(-1)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">↻</button>
       </div>
     </div>
   );
@@ -1453,9 +1612,11 @@ export function VenueInterior({
   const [service, setService] = useState(0);
   const [dancing, setDancing] = useState(false);
   const [lying, setLying] = useState(false);
+  const [sitting, setSitting] = useState(false);
   const slept = useRef(false);
   const club = acts.dance;
   const inRoom = Boolean(room);
+  const suite = inRoom || (place.kind === "hotel" && !club);
   const listed = npcsAt(place.id).filter((npc) => npc.asking);
   const ward = npcsAt(place.id);
   const clinician = ward.find((npc) => npc.role === "Doctor") ?? ward.find((npc) => npc.role === "Nurse" || npc.role === "Chemist");
@@ -1487,11 +1648,11 @@ export function VenueInterior({
         </div>
       ) : null}
       <div className="relative h-full min-h-[70vh]">
-        {inRoom ? (
-          <HotelRoom
+        {suite ? (
+          <HotelSuite
             look={look}
-            lying={lying}
-            onDone={() => {
+            pose={lying ? "lie" : sitting ? "sit" : "stand"}
+            onLieDone={() => {
               if (slept.current) return;
               slept.current = true;
               onSleep();
@@ -1537,7 +1698,7 @@ export function VenueInterior({
           </span>
         ))}
       </div>
-      <div className={`grid gap-1 ${fill ? `absolute bottom-24 left-1/2 z-30 max-h-[28%] -translate-x-1/2 overflow-y-auto rounded-2xl bg-white/95 text-[#17241e] shadow-2xl ${club ? "w-[min(16rem,calc(100%-5rem))] p-2" : "w-[min(28rem,calc(100%-1.5rem))] gap-2 p-3"}` : "p-3"}`}>
+      <div className={`grid gap-1 ${fill ? `absolute bottom-24 left-1/2 z-30 max-h-[28%] -translate-x-1/2 overflow-y-auto rounded-2xl bg-white/95 text-[#17241e] shadow-2xl ${club || suite ? "w-[min(16rem,calc(100%-5rem))] p-2" : "w-[min(28rem,calc(100%-1.5rem))] gap-2 p-3"}` : "p-3"}`}>
         {!inRoom && club ? (
           <div className="grid grid-cols-4 gap-1">
             {DORIME_AMOUNTS.map((amount) => (
@@ -1604,34 +1765,57 @@ export function VenueInterior({
             </button>
           </form>
         ) : null}
-        {inRoom ? (
-          <div className="grid gap-2">
-            <button
-              type="button"
-              disabled={pending || lying}
-              onClick={() => {
-                if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-                  if (slept.current) return;
-                  slept.current = true;
-                  onSleep();
-                  return;
-                }
-                setLying(true);
-              }}
-              className="rounded-full bg-[#e0b15a] py-2 text-sm font-semibold text-[#1a140c] disabled:opacity-40"
-            >
-              Lie down and sleep
-            </button>
-            <button type="button" disabled={pending} onClick={onLeaveRoom} className="text-xs text-[#d5e4d8]">
-              Leave the room
-            </button>
+        {suite ? (
+          <div className="grid gap-1">
+            <div className="grid grid-cols-2 gap-1">
+              <button
+                type="button"
+                disabled={pending || lying}
+                onClick={() => setSitting((value) => !value)}
+                className="rounded-full border border-[#e4d8c4] py-1.5 text-xs font-semibold disabled:opacity-40"
+              >
+                {sitting && !lying ? "Stand" : "Sit"}
+              </button>
+              <button
+                type="button"
+                disabled={pending || lying || !inRoom}
+                onClick={() => {
+                  setSitting(false);
+                  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+                    if (slept.current) return;
+                    slept.current = true;
+                    onSleep();
+                    return;
+                  }
+                  setLying(true);
+                }}
+                className="rounded-full bg-[#e0b15a] py-1.5 text-xs font-semibold text-[#1a140c] disabled:opacity-40"
+              >
+                {lying ? "Sleeping" : "Sleep"}
+              </button>
+            </div>
+            {!inRoom && acts.hotel ? (
+              <div className="grid grid-cols-2 gap-1">
+                <button disabled={pending} onClick={() => onBook("hour")} className="rounded-full border border-[#e4d8c4] py-1 text-[10px] font-semibold disabled:opacity-40">
+                  Hour · {naira(acts.hotel.hour)}
+                </button>
+                <button disabled={pending} onClick={() => onBook("night")} className="rounded-full border border-[#e4d8c4] py-1 text-[10px] font-semibold disabled:opacity-40">
+                  Night · {naira(acts.hotel.night)}
+                </button>
+              </div>
+            ) : null}
+            {inRoom ? (
+              <button type="button" disabled={pending} onClick={onLeaveRoom} className="text-[10px] text-[#5d6b62]">
+                Leave the room
+              </button>
+            ) : null}
           </div>
         ) : acts.hotel ? (
           <div className="grid grid-cols-2 gap-2">
-            <button disabled={pending} onClick={() => onBook("hour")} className="rounded-full bg-white/10 py-2 text-xs font-semibold disabled:opacity-40">
+            <button disabled={pending} onClick={() => onBook("hour")} className="rounded-full border border-[#e4d8c4] py-2 text-xs font-semibold disabled:opacity-40">
               Hour · {naira(acts.hotel.hour)}
             </button>
-            <button disabled={pending} onClick={() => onBook("night")} className="rounded-full bg-white/10 py-2 text-xs font-semibold disabled:opacity-40">
+            <button disabled={pending} onClick={() => onBook("night")} className="rounded-full border border-[#e4d8c4] py-2 text-xs font-semibold disabled:opacity-40">
               Night · {naira(acts.hotel.night)}
             </button>
           </div>
