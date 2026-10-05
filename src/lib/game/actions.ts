@@ -60,19 +60,56 @@ import type { BetPick, ChatQuote, CreateInput, LookId, NetWorthVisibility, Revea
 export type ActionResult = { ok: true; notice?: string } | { ok: false; error: string };
 export type CreateResult =
   | { ok: true; reveal: { lottery: string; title: string; cash: number; home: string; perk: string } }
-  | { ok: false; error: string };
+  | { ok: false; error: string; suggestions?: string[] };
 
 function cleanUsername(value: string) {
   return value.trim();
 }
 
-function validAccount(username: string, email: string, password: string) {
+function usernameProblem(username: string) {
   if (!/^[a-zA-Z0-9_]{3,16}$/.test(username)) {
-    return "Username needs 3 to 16 letters, numbers, or underscores.";
+    return "Username needs 3 to 16 characters. Letters, numbers, and underscores are allowed.";
   }
+  if (/^\d+$/.test(username)) return "A username cannot be only numbers. Add a letter or an underscore.";
+  if (/^_+$/.test(username)) return "A username cannot be only underscores. Add a letter or a number.";
+  return null;
+}
+
+function suggestUsernames(username: string, used: Set<string>) {
+  const stem = username.replace(/[^\w]/g, "").slice(0, 12) || "owerri";
+  const found: string[] = [];
+  for (let n = 1; found.length < 3 && n < 80; n += 1) {
+    for (const candidate of [`${stem}_${n}`, `${stem}${n}`]) {
+      const name = candidate.slice(0, 16);
+      if (usernameProblem(name) || used.has(name.toLowerCase())) continue;
+      if (found.some((item) => item.toLowerCase() === name.toLowerCase())) continue;
+      found.push(name);
+      if (found.length === 3) break;
+    }
+  }
+  return found;
+}
+
+function validAccount(username: string, email: string, password: string) {
+  const nameError = usernameProblem(username);
+  if (nameError) return nameError;
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "Enter a real email.";
   if (password.length < 8) return "Password needs at least 8 characters.";
   return null;
+}
+
+export async function checkUsername(raw: string): Promise<{ ok: true } | { ok: false; error: string; suggestions: string[] }> {
+  const username = cleanUsername(raw);
+  const problem = usernameProblem(username);
+  if (problem) return { ok: false, error: problem, suggestions: [] };
+  const db = await readDb();
+  const used = new Set(db.players.map((player) => player.username.toLowerCase()));
+  if (!used.has(username.toLowerCase())) return { ok: true };
+  return {
+    ok: false,
+    error: "That username is taken. Change it.",
+    suggestions: suggestUsernames(username, used),
+  };
 }
 
 async function withPlayer(run: (playerId: string) => Promise<ActionResult>): Promise<ActionResult> {
@@ -100,8 +137,12 @@ export async function createAccount(input: {
     return { ok: false, error: "Finish look, two traits, and a dream." };
   }
   const created = await mutate<{ ok: true; reveal: Reveal; id: string } | { ok: false; error: string }>((db) => {
-    if (db.players.some((player) => player.username.toLowerCase() === username.toLowerCase())) {
-      return { save: false, value: { ok: false as const, error: "That username is taken." } };
+    const used = new Set(db.players.map((player) => player.username.toLowerCase()));
+    if (used.has(username.toLowerCase())) {
+      return {
+        save: false,
+        value: { ok: false as const, error: "That username is taken. Change it.", suggestions: suggestUsernames(username, used) },
+      };
     }
     if (db.players.some((player) => player.email === email)) {
       return { save: false, value: { ok: false as const, error: "That email is already in the city." } };

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createAccount } from "@/lib/game/actions";
+import { checkUsername, createAccount } from "@/lib/game/actions";
 import { CAREERS, DREAMS, LOOKS, TRAITS } from "@/lib/game/content";
 import { naira } from "@/lib/game/format";
 import { Avatar } from "./Avatar";
@@ -16,6 +16,7 @@ export function JoinWizard() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [username, setUsername] = useState("");
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [age, setAge] = useState(false);
@@ -56,6 +57,8 @@ export function JoinWizard() {
     setPending(false);
     if (!result.ok) {
       setError(result.error);
+      setSuggestions(result.suggestions ?? []);
+      if (result.suggestions?.length) setStep(0);
       return;
     }
     setReveal(result.reveal);
@@ -102,8 +105,35 @@ export function JoinWizard() {
         <div className="mt-5 space-y-3">
           <label className="block text-sm font-semibold">
             Username
-            <input className="mt-1 w-full rounded-2xl border border-[#e4d8c4] bg-white px-3 py-3" value={username} onChange={(event) => setUsername(event.target.value)} />
+            <input
+              className="mt-1 w-full rounded-2xl border border-[#e4d8c4] bg-white px-3 py-3"
+              value={username}
+              autoComplete="username"
+              onChange={(event) => {
+                setUsername(event.target.value);
+                setSuggestions([]);
+              }}
+            />
           </label>
+          <p className="text-xs leading-5 text-[#5d6b62]">Letters, numbers, and underscores. Not numbers on their own, and not underscores on their own.</p>
+          {suggestions.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {suggestions.map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  className="rounded-full bg-white px-3 py-1 text-xs font-semibold"
+                  onClick={() => {
+                    setUsername(name);
+                    setSuggestions([]);
+                    setError(null);
+                  }}
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+          ) : null}
           <label className="block text-sm font-semibold">
             Email
             <input type="email" className="mt-1 w-full rounded-2xl border border-[#e4d8c4] bg-white px-3 py-3" value={email} onChange={(event) => setEmail(event.target.value)} />
@@ -201,9 +231,25 @@ export function JoinWizard() {
         {step < 4 ? (
           <button
             type="button"
-            disabled={!canNext}
+            disabled={!canNext || pending}
             className="flex-1 rounded-full bg-[#1f6b45] px-4 py-3 font-semibold text-[#f6f1e6] disabled:opacity-40"
-            onClick={() => setStep((value) => value + 1)}
+            onClick={async () => {
+              if (step !== 0) {
+                setStep((value) => value + 1);
+                return;
+              }
+              setPending(true);
+              setError(null);
+              const result = await checkUsername(username);
+              setPending(false);
+              if (!result.ok) {
+                setError(result.error);
+                setSuggestions(result.suggestions);
+                return;
+              }
+              setSuggestions([]);
+              setStep(1);
+            }}
           >
             Next
           </button>
