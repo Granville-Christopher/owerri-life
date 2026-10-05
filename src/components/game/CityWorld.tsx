@@ -454,13 +454,12 @@ export function CityWorld({
           const pair = new Set([laidSpots[i].id, laidSpots[j].id]);
           const shellyMangrove = pair.has("shelly-hospital") && pair.has("mangrove-grill");
           const bankKitchen = pair.has("city-bank") && pair.has("november-5");
-          const cartelPair = laidSpots[i].id === "cartel-lounge" || laidSpots[j].id === "cartel-lounge";
           const clubPair = clubs.has(laidSpots[i].id) || clubs.has(laidSpots[j].id);
           const airportPair = laidSpots[i].id === "sam-mbakwe" || laidSpots[j].id === "sam-mbakwe";
           const schoolPair = (schools.has(laidSpots[i].id) || schools.has(laidSpots[j].id)) && !pair.has("campus-gate");
           const marketPair = markets.has(laidSpots[i].id) || markets.has(laidSpots[j].id);
           const bigPair = landmark.has(laidSpots[i].id) || landmark.has(laidSpots[j].id) || restaurants.has(laidSpots[i].id) || restaurants.has(laidSpots[j].id);
-          const gap = airportPair ? 130 : bankKitchen ? 160 : schoolPair ? 120 : cartelPair ? 78 : shellyMangrove ? 78 : clubPair ? 44 : marketPair ? 64 : bigPair ? 56 : 24;
+          const gap = airportPair ? 130 : bankKitchen ? 80 : schoolPair ? 120 : shellyMangrove ? 78 : clubPair ? 44 : marketPair ? 64 : bigPair ? 56 : 24;
           let dx = laidSpots[j].x - laidSpots[i].x;
           let dz = laidSpots[j].z - laidSpots[i].z;
           const dist = Math.hypot(dx, dz) || 0.01;
@@ -475,7 +474,7 @@ export function CityWorld({
         }
       }
       for (const spot of laidSpots) {
-        const pad = spot.id === "sam-mbakwe" ? 100 : spot.id === "cartel-lounge" ? 40 : schools.has(spot.id) ? 56 : clubs.has(spot.id) ? 16 : markets.has(spot.id) ? 30 : restaurants.has(spot.id) ? 16 : landmark.has(spot.id) ? 16 : roadside.has(spot.id) ? 6 : 4;
+        const pad = spot.id === "sam-mbakwe" ? 100 : schools.has(spot.id) ? 56 : clubs.has(spot.id) ? 16 : markets.has(spot.id) ? 30 : restaurants.has(spot.id) ? 16 : landmark.has(spot.id) ? 16 : roadside.has(spot.id) ? 6 : 4;
         shoveOut(spot, pad);
       }
     }
@@ -619,7 +618,6 @@ export function CityWorld({
           const crowded = laidSpots.some((spot) => {
             const dist = Math.hypot(x - spot.x, z - spot.z);
             if (spot.id === "sam-mbakwe") return Math.abs(x - spot.x) < 100 && Math.abs(z - spot.z) < 72;
-            if (spot.id === "cartel-lounge") return dist < 36;
             if (clubs.has(spot.id)) return dist < 16;
             if (schools.has(spot.id)) return Math.abs(x - spot.x) < 54 && Math.abs(z - spot.z) < 42;
             if (markets.has(spot.id)) return dist < 34;
@@ -1042,7 +1040,49 @@ export function CityWorld({
       return group;
     }
 
-    const beachWalkers: Array<{ mesh: THREE.Group; base: number; span: number; speed: number; phase: number }> = [];
+    const beachWalkers: Array<{
+      mesh: THREE.Group;
+      leftLeg: THREE.Group;
+      rightLeg: THREE.Group;
+      leftArm: THREE.Group;
+      rightArm: THREE.Group;
+      base: number;
+      span: number;
+      speed: number;
+      phase: number;
+    }> = [];
+    function beachPerson(shirt: number, skin: number, trousers: number, hair: number) {
+      const person = new THREE.Group();
+      const skinMat = new THREE.MeshLambertMaterial({ color: skin });
+      const shirtMat = new THREE.MeshLambertMaterial({ color: shirt });
+      const trouserMat = new THREE.MeshLambertMaterial({ color: trousers });
+      const hairMat = new THREE.MeshLambertMaterial({ color: hair });
+      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.52, 0.24), shirtMat);
+      torso.position.y = 1.05;
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), skinMat);
+      head.position.y = 1.48;
+      const hairMesh = new THREE.Mesh(new THREE.SphereGeometry(0.19, 8, 6), hairMat);
+      hairMesh.scale.set(1, 0.65, 1);
+      hairMesh.position.y = 1.58;
+      function limb(color: THREE.MeshLambertMaterial, w: number, h: number) {
+        const pivot = new THREE.Group();
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, w), color);
+        mesh.position.y = -h / 2;
+        pivot.add(mesh);
+        return pivot;
+      }
+      const leftLeg = limb(trouserMat, 0.12, 0.58);
+      leftLeg.position.set(-0.12, 0.78, 0);
+      const rightLeg = limb(trouserMat, 0.12, 0.58);
+      rightLeg.position.set(0.12, 0.78, 0);
+      const leftArm = limb(skinMat, 0.09, 0.46);
+      leftArm.position.set(-0.3, 1.22, 0);
+      const rightArm = limb(skinMat, 0.09, 0.46);
+      rightArm.position.set(0.3, 1.22, 0);
+      person.add(torso, head, hairMesh, leftLeg, rightLeg, leftArm, rightArm);
+      person.scale.setScalar(1.45);
+      return { person, leftLeg, rightLeg, leftArm, rightArm };
+    }
     function confluenceBank(x: number, z: number) {
       const group = new THREE.Group();
       group.add(block(72, 0.1, 36, 0xb7a37a, 0, 0.03, 6));
@@ -1071,14 +1111,28 @@ export function CityWorld({
         group.add(block(0.08, 0.28, 0.08, 0x6a4630, sx - 0.7, 0.22, 11.3));
         group.add(block(0.08, 0.28, 0.08, 0x6a4630, sx + 0.7, 0.22, 11.3));
       }
-      [0x1d4a30, 0xc4552a, 0x17241e, 0x3d7ea6, 0xf2c14e].forEach((color, index) => {
-        const walker = new THREE.Group();
-        const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.28, 0.7, 4, 6), new THREE.MeshLambertMaterial({ color }));
-        body.position.y = 0.9;
-        walker.add(body);
-        walker.position.set(-16 + index * 7, 0, 6);
-        group.add(walker);
-        beachWalkers.push({ mesh: walker, base: -18, span: 36, speed: 0.35 + index * 0.08, phase: index * 1.4 });
+      [
+        [0x1f6b45, 0xc98862, 0x243028, 0x1a1a1a],
+        [0xc4552a, 0xf0c7a4, 0x17241e, 0x2a211c],
+        [0x245c78, 0xe0b08a, 0x1d4a30, 0x3a2418],
+        [0xf2c14e, 0x8d552f, 0x143d2c, 0x111111],
+        [0x7a3e6d, 0xf3d0b5, 0x245c3a, 0x4a2c22],
+      ].forEach((colors, index) => {
+        const [shirt, skin, trousers, hair] = colors;
+        const made = beachPerson(shirt, skin, trousers, hair);
+        made.person.position.set(-16 + index * 8, 0, index % 2 === 0 ? 8 : 14);
+        group.add(made.person);
+        beachWalkers.push({
+          mesh: made.person,
+          leftLeg: made.leftLeg,
+          rightLeg: made.rightLeg,
+          leftArm: made.leftArm,
+          rightArm: made.rightArm,
+          base: -20,
+          span: 40,
+          speed: 0.28 + index * 0.05,
+          phase: index * 1.3,
+        });
       });
       const dx = x - mouth.x;
       const dz = z - mouth.z;
@@ -1146,7 +1200,7 @@ export function CityWorld({
         group = restaurantHall(at.x, at.z);
         labelY = 11.2;
       } else if (place.kind === "nightlife") {
-        const scale = place.id === "cartel-lounge" ? 4 : 2;
+        const scale = 2;
         group = clubYard(at.x, at.z, scale);
         labelY = 7.4 * scale;
       } else if (roadside.has(place.id)) {
@@ -1311,9 +1365,15 @@ export function CityWorld({
       const elapsed = clock.getElapsedTime();
       const pulse = 1 + Math.sin(elapsed * 3) * 0.16;
       for (const walker of beachWalkers) {
-        const swing = Math.sin(elapsed * walker.speed + walker.phase);
+        const along = elapsed * walker.speed + walker.phase;
+        const swing = Math.sin(along);
+        const step = Math.sin(along * 6);
         walker.mesh.position.x = walker.base + ((swing + 1) / 2) * walker.span;
-        walker.mesh.rotation.y = Math.cos(elapsed * walker.speed + walker.phase) >= 0 ? Math.PI / 2 : -Math.PI / 2;
+        walker.mesh.rotation.y = Math.cos(along) >= 0 ? Math.PI / 2 : -Math.PI / 2;
+        walker.leftLeg.rotation.x = step * 0.85;
+        walker.rightLeg.rotation.x = -step * 0.85;
+        walker.leftArm.rotation.x = -step * 0.6;
+        walker.rightArm.rotation.x = step * 0.6;
       }
       for (const home of homes) home.scale.setScalar(pulse);
       for (const car of traffic) {
