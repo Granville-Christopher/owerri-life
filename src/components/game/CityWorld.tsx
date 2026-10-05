@@ -289,7 +289,8 @@ export function CityWorld({
     for (let pass = 0; pass < 36; pass += 1) {
       for (let i = 0; i < laidSpots.length; i += 1) {
         for (let j = i + 1; j < laidSpots.length; j += 1) {
-          const gap = landmark.has(laidSpots[i].id) || landmark.has(laidSpots[j].id) ? 40 : 24;
+          const airportPair = laidSpots[i].id === "sam-mbakwe" || laidSpots[j].id === "sam-mbakwe";
+          const gap = airportPair ? 100 : landmark.has(laidSpots[i].id) || landmark.has(laidSpots[j].id) ? 40 : 24;
           let dx = laidSpots[j].x - laidSpots[i].x;
           let dz = laidSpots[j].z - laidSpots[i].z;
           const dist = Math.hypot(dx, dz) || 0.01;
@@ -304,11 +305,35 @@ export function CityWorld({
         }
       }
       for (const spot of laidSpots) {
-        const pad = spot.id === "sam-mbakwe" ? 18 : landmark.has(spot.id) ? 16 : 4;
+        const pad = spot.id === "sam-mbakwe" ? 70 : landmark.has(spot.id) ? 16 : 4;
         shoveOut(spot, pad);
       }
     }
     const laid = new Map(laidSpots.map((item) => [item.id, item]));
+    const airportAt = laid.get("sam-mbakwe");
+    function nearAirport(x: number, z: number) {
+      if (!airportAt) return false;
+      return Math.abs(x - airportAt.x) < 72 && Math.abs(z - airportAt.z) < 48;
+    }
+    function avenue(axis: "x" | "z", fixed: number, from: number, to: number, step: number, side: number) {
+      for (let along = from; along <= to; along += step) {
+        const x = axis === "x" ? along : fixed + side;
+        const z = axis === "z" ? along : fixed + side;
+        if (onStrip(x, z, 0.2) || nearAirport(x, z)) continue;
+        tree(x, z);
+      }
+    }
+    for (const side of [9, -9]) {
+      avenue("x", 0, -300, 300, 11, side);
+      avenue("x", -90, -250, 250, 12, side);
+      avenue("x", 90, -190, 270, 12, side);
+      avenue("x", 200, -200, 200, 12, side);
+      avenue("z", -50, -250, 250, 12, side);
+      avenue("z", 80, -200, 240, 12, side);
+      avenue("z", 150, -190, 150, 12, side);
+    }
+    for (const bank of [22, -22]) avenue("z", bank, -300, 300, 13, 0);
+    for (const bank of [146, 196]) avenue("x", bank, -300, 300, 13, 0);
 
     function estate(cx: number, cz: number, rows: number, cols: number) {
       for (let row = 0; row < rows; row += 1) {
@@ -316,7 +341,7 @@ export function CityWorld({
           if (row === Math.floor(rows / 2) && col === Math.floor(cols / 2)) continue;
           const x = cx + (col - cols / 2) * 3.15;
           const z = cz + (row - rows / 2) * 3.15;
-          if (onStrip(x, z, 2)) continue;
+          if (onStrip(x, z, 2) || nearAirport(x, z)) continue;
           house(x, z, 0xf4efe4, 1.15, 0x2f6b45);
         }
       }
@@ -347,6 +372,16 @@ export function CityWorld({
     billboard(40, 120, 0.15, "Airport road", "Seen by every flight", "#143d2c");
     billboard(-40, -120, 1.1, "State CID", "A big compound", "#1d4a66");
     billboard(70, -130, -0.8, "Campus life", "IMSU · FUTO · Nekede", "#1f6b45");
+    billboard(-160, 16, 0.2, "Egbu farms", "Cassava every Saturday", "#3d6b4f");
+    billboard(190, 16, -0.3, "Ikenegbu rooms", "The cheap side of town", "#8a5a2a");
+    billboard(-200, -76, 0.5, "Ad board", "This face is for sale", "#a9782a");
+    billboard(210, 104, -0.2, "Heroes Square", "Open ground, every day", "#1d4a66");
+    billboard(-120, 104, 0.7, "Heartland", "Beach, games, and grill", "#7a2e1e");
+    billboard(30, 214, 0.1, "Nekede rice", "Opens with your level", "#143d2c");
+    billboard(-170, -104, 1, "City bank", "Shifts on the centre road", "#245c78");
+    billboard(160, -104, -0.6, "Aladinma", "Flats on this side", "#1f6b45");
+    billboard(-230, 40, 0.9, "Bus stop", "Campus and the markets", "#143d2c");
+    billboard(230, -50, -0.4, "Otamiri", "Cross on the bridge", "#245c78");
 
     function block(w: number, h: number, d: number, color: number, x: number, y: number, z: number) {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ color }));
@@ -425,6 +460,7 @@ export function CityWorld({
       }
       airliner(4, 2.2, 0.2);
       airliner(10, -3.2, -0.25);
+      group.scale.setScalar(4);
       group.position.set(x, 0, z);
       scene.add(group);
       return group;
@@ -557,7 +593,7 @@ export function CityWorld({
       let labelY = 2.6;
       if (place.id === "sam-mbakwe") {
         group = airportYard(at.x, at.z);
-        labelY = 9.4;
+        labelY = 36;
       } else if (place.id === "state-cid") {
         group = policeYard(at.x, at.z);
         labelY = 6.4;
