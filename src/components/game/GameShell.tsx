@@ -34,6 +34,7 @@ import {
   leaveSchool,
   letTimePass,
   addTopUp,
+  buyCar,
   buyFurniture,
   buyPlot,
   goMeet,
@@ -827,6 +828,8 @@ function MapPanel({
           onLeaveRoom={() => run(checkoutRoom)}
           onTreat={() => run(getTreatment)}
           sick={view.me.sick}
+          hasCar={view.me.hasCar}
+          onBuyCar={() => run(buyCar)}
           house={
             place.kind === "home" && place.id === homeById(view.me.homeId).areaId
               ? { name: homeById(view.me.homeId).name, owned: view.me.furniture }
@@ -912,6 +915,8 @@ function MapPanel({
           onLeaveRoom={() => run(checkoutRoom)}
           onTreat={() => run(getTreatment)}
           sick={view.me.sick}
+          hasCar={view.me.hasCar}
+          onBuyCar={() => run(buyCar)}
           house={
             place.kind === "home" && place.id === homeById(view.me.homeId).areaId
               ? { name: homeById(view.me.homeId).name, owned: view.me.furniture }

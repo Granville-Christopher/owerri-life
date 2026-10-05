@@ -8,6 +8,7 @@ import {
   createNewPlayer,
   buildSlate,
   bookRoom,
+  buyCar as buyCarFromStand,
   buyDrink,
   dance,
   dorime,
@@ -433,6 +434,9 @@ export async function spray(amount: number) {
 }
 export async function orderFood() {
   return withPlayer((id) => simple(id, orderPlate));
+}
+export async function buyCar() {
+  return withPlayer((id) => simple(id, buyCarFromStand));
 }
 export async function takeRoom(stay: "night" | "hour") {
   return withPlayer((id) => simple(id, (player, ledger) => bookRoom(player, ledger, stay)));

@@ -3,7 +3,7 @@
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import * as THREE from "three";
-import { DORIME_AMOUNTS, FURNITURE, LOOKS, TREATMENT_FEE, npcsAt, placeActs, placeById, sprayFloor } from "@/lib/game/content";
+import { CAR_PRICE, DORIME_AMOUNTS, FURNITURE, LOOKS, TREATMENT_FEE, npcsAt, placeActs, placeById, sprayFloor } from "@/lib/game/content";
 import type { Place } from "@/lib/game/content";
 import { naira } from "@/lib/game/format";
 import type { LookId } from "@/lib/game/types";
@@ -1032,7 +1032,19 @@ function BuildingFront({ placeId, look }: { placeId: string; look: LookId }) {
     const me = citizen(look);
     me.rotation.y = Math.PI;
 
-    if (place.kind === "school") {
+    if (place.id === "car-stand") {
+      add(piece(0xd7d3cc, 28, 0.12, 20, 0, 0.06, 0));
+      add(piece(0xf7f1e6, 8, 3.2, 4, 0, 1.7, -6));
+      add(piece(0x1f6b45, 8.4, 0.24, 4.4, 0, 3.4, -6));
+      sign(place.name, "CARS", 0, 2.6, -3.9, 4.4, 1.2, "#143d2c", "#f6f1e6");
+      const paints = [0x111111, 0xf7fbfc, 0xc4552a, 0x245c78, 0xf2c14e, 0x1f6b45, 0x8c2438, 0xe7eef2];
+      paints.forEach((color, index) => {
+        const col = index % 4;
+        const row = Math.floor(index / 4);
+        add(parkedCar(color, -6 + col * 4, -1 + row * 3.2, row % 2 === 0 ? 0 : Math.PI));
+      });
+      me.position.set(0.4, 0, 4.2);
+    } else if (place.kind === "school") {
       add(piece(0xc5d6a4, 32, 0.12, 26, 0, 0.06, -1));
       add(piece(0x3a3f46, 32, 0.08, 5, 0, 0.1, 10));
       add(piece(0xe7dcc8, 32, 0.08, 2.4, 0, 0.16, 6.6));
@@ -1573,6 +1585,8 @@ export function VenueInterior({
   onApply,
   chat = [],
   onSay,
+  hasCar = false,
+  onBuyCar,
 }: {
   place: Place;
   look: LookId;
@@ -1603,6 +1617,8 @@ export function VenueInterior({
   onApply?: () => void;
   chat?: Array<{ id: string; fromName: string; text: string }>;
   onSay?: (text: string) => void;
+  hasCar?: boolean;
+  onBuyCar?: () => void;
 }) {
   const acts = placeActs(place);
   const [notes, setNotes] = useState<Array<{ id: number; count: number }>>([]);
@@ -1824,6 +1840,11 @@ export function VenueInterior({
         {fill && clinic && treatPrice != null ? (
           <button type="button" disabled={pending || sick === "none"} onClick={onTreat} className="rounded-full bg-[#143d2c] py-2 text-sm font-semibold text-white disabled:opacity-40">
             {sick === "none" ? "You are not sick" : `Get treatment · ${naira(treatPrice)}`}
+          </button>
+        ) : null}
+        {place.id === "car-stand" ? (
+          <button type="button" disabled={pending || hasCar || !onBuyCar} onClick={onBuyCar} className="rounded-full bg-[#143d2c] py-2 text-xs font-semibold text-white disabled:opacity-40">
+            {hasCar ? "You have a car" : `Buy a car · ${naira(CAR_PRICE)}`}
           </button>
         ) : null}
         {extra}

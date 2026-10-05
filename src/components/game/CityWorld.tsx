@@ -476,14 +476,16 @@ export function CityWorld({
     const clubs = new Set(["wetheral-strip", "cartel-lounge", "orange-room", "channel-garden", "zuma-grill", "ibari-village"]);
     const schools = new Set(["imsu", "futo", "fedpoly-nekede"]);
     const markets = new Set(["eke-ukwu", "relief-market", "ikenegbu-market", "owerri-mall"]);
-    const restaurants = new Set(["donalds", "kilimanjaro", "november-5", "mangrove-grill"]);
+    const restaurants = new Set(["donalds", "dominos", "cold-stone", "kilimanjaro", "november-5", "mangrove-grill", "josephs-pot", "the-warehouse"]);
     const landmark = new Set(["sam-mbakwe", "state-cid", "imsu", "futo", "fedpoly-nekede", "eke-ukwu", "relief-market", "ikenegbu-market", "owerri-mall", "heroes-square", "cartel-beach", "heartland-resort", "nworie-park", "amusement-park", "city-bank", "teaching-hospital", "general-hospital", "umezuruike-hospital", "st-davids", "shelly-hospital", "imo-specialist"]);
-    const roadside = new Set(["mama-nkechi", "josephs-pot", "feedwell", "crunchies"]);
+    const roadside = new Set(["mama-nkechi", "feedwell", "crunchies"]);
     const hotels = new Set(PLACES.filter((place) => place.kind === "hotel").map((place) => place.id));
     for (let pass = 0; pass < 36; pass += 1) {
       for (let i = 0; i < laidSpots.length; i += 1) {
         for (let j = i + 1; j < laidSpots.length; j += 1) {
+          if (laidSpots[i].id === "car-stand" || laidSpots[j].id === "car-stand") continue;
           const pair = new Set([laidSpots[i].id, laidSpots[j].id]);
+          const besideFood = (pair.has("donalds") && (pair.has("dominos") || pair.has("cold-stone"))) || (pair.has("dominos") && pair.has("cold-stone"));
           const shellyMangrove = pair.has("shelly-hospital") && pair.has("mangrove-grill");
           const bankKitchen = pair.has("city-bank") && pair.has("november-5");
           const clubPair = clubs.has(laidSpots[i].id) || clubs.has(laidSpots[j].id);
@@ -491,7 +493,7 @@ export function CityWorld({
           const schoolPair = (schools.has(laidSpots[i].id) || schools.has(laidSpots[j].id)) && !pair.has("campus-gate");
           const marketPair = markets.has(laidSpots[i].id) || markets.has(laidSpots[j].id);
           const bigPair = landmark.has(laidSpots[i].id) || landmark.has(laidSpots[j].id) || restaurants.has(laidSpots[i].id) || restaurants.has(laidSpots[j].id);
-          const gap = airportPair ? 130 : bankKitchen ? 80 : schoolPair ? 120 : shellyMangrove ? 78 : clubPair ? 44 : marketPair ? 64 : bigPair ? 56 : 24;
+          const gap = besideFood ? 38 : airportPair ? 130 : bankKitchen ? 80 : schoolPair ? 120 : shellyMangrove ? 78 : clubPair ? 44 : marketPair ? 64 : bigPair ? 56 : 24;
           let dx = laidSpots[j].x - laidSpots[i].x;
           let dz = laidSpots[j].z - laidSpots[i].z;
           const dist = Math.hypot(dx, dz) || 0.01;
@@ -506,6 +508,7 @@ export function CityWorld({
         }
       }
       for (const spot of laidSpots) {
+        if (spot.id === "car-stand") continue;
         const pad = spot.id === "sam-mbakwe" ? 100 : schools.has(spot.id) ? 56 : clubs.has(spot.id) ? 16 : markets.has(spot.id) ? 30 : restaurants.has(spot.id) ? 16 : landmark.has(spot.id) ? 16 : hotels.has(spot.id) ? 12 : roadside.has(spot.id) ? 6 : 4;
         shoveOut(spot, pad);
       }
@@ -1077,6 +1080,82 @@ export function CityWorld({
       return group;
     }
 
+    function pizzaShop(x: number, z: number) {
+      const group = new THREE.Group();
+      group.add(block(16, 0.12, 14, 0xe7dcc8, 0, 0.1, 0));
+      group.add(block(10, 4.2, 6, 0xc4552a, 0, 2.2, -1));
+      group.add(block(10.4, 0.28, 6.4, 0x1d4a8a, 0, 4.4, -1));
+      group.add(block(6, 1.6, 0.1, 0xf7f1e6, 0, 2.4, 2.06));
+      group.add(block(3.2, 0.12, 2, 0xc4552a, -4.2, 1.1, 3.4));
+      group.add(block(3.2, 0.12, 2, 0x1d4a8a, 4.2, 1.1, 3.4));
+      const one = carMesh(0xc4552a);
+      one.position.set(-5, 0, 5.4);
+      const two = carMesh(0x1d4a8a);
+      two.position.set(5, 0, 5.4);
+      group.add(one, two);
+      group.position.set(x, 0, z);
+      scene.add(group);
+      return group;
+    }
+
+    function creamShop(x: number, z: number) {
+      const group = new THREE.Group();
+      group.add(block(14, 0.12, 12, 0xf4efe4, 0, 0.1, 0));
+      group.add(block(8, 3.6, 5, 0xf7fbfc, 0, 1.9, -1));
+      group.add(block(8.4, 0.24, 5.4, 0x3d7ea6, 0, 3.8, -1));
+      group.add(block(4.2, 1.2, 0.1, 0xe07a9a, 0, 2.2, 1.56));
+      const scoop = new THREE.Mesh(new THREE.SphereGeometry(0.7, 10, 8), new THREE.MeshLambertMaterial({ color: 0xf2c14e }));
+      scoop.position.set(0, 4.5, -1);
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.8, 8), new THREE.MeshLambertMaterial({ color: 0xc4a574 }));
+      cone.position.set(0, 3.7, -1);
+      cone.rotation.x = Math.PI;
+      group.add(scoop, cone);
+      group.position.set(x, 0, z);
+      scene.add(group);
+      return group;
+    }
+
+    function warehouseHall(x: number, z: number) {
+      const group = new THREE.Group();
+      group.add(block(22, 0.12, 16, 0xd9d3c4, 0, 0.1, 0));
+      group.add(block(16, 5.2, 8, 0x3a342c, 0, 2.7, -1));
+      group.add(block(16.4, 0.3, 8.4, 0xc4552a, 0, 5.4, -1));
+      for (let lane = 0; lane < 3; lane += 1) {
+        group.add(block(7, 0.06, 0.7, 0xf4efe4, 2, 0.16, 1.2 + lane * 1.1));
+      }
+      const park = [0x17241e, 0xf2c14e, 0x245c78, 0xf7fbfc];
+      park.forEach((color, index) => {
+        const car = carMesh(color);
+        car.position.set(-7 + index * 3.4, 0, 6);
+        group.add(car);
+      });
+      group.position.set(x, 0, z);
+      scene.add(group);
+      return group;
+    }
+
+    function carLot(x: number, z: number) {
+      const group = new THREE.Group();
+      group.add(block(40, 0.1, 30, 0xd7d3cc, 0, 0.08, 0));
+      group.add(block(12, 3.4, 5, 0xf7f1e6, 0, 1.8, -11));
+      group.add(block(12.4, 0.28, 5.4, 0x1f6b45, 0, 3.6, -11));
+      group.add(block(2.2, 2.4, 0.12, 0xe0b15a, 0, 1.3, -8.4));
+      const paints = [0x111111, 0xf7fbfc, 0xc4552a, 0x245c78, 0xf2c14e, 0x1f6b45, 0x8c2438, 0x3a3f46, 0xe7eef2, 0x6a3d2f];
+      let parked = 0;
+      for (let row = 0; row < 4; row += 1) {
+        for (let col = 0; col < 8; col += 1) {
+          const car = carMesh(paints[parked % paints.length]);
+          car.position.set(-14 + col * 4, 0, -4 + row * 3.4);
+          car.rotation.y = row % 2 === 0 ? Math.PI / 2 : -Math.PI / 2;
+          group.add(car);
+          parked += 1;
+        }
+      }
+      group.position.set(x, 0, z);
+      scene.add(group);
+      return group;
+    }
+
     function restaurantHall(x: number, z: number) {
       const group = new THREE.Group();
       group.add(block(28, 0.12, 22, 0xe7dcc8, 0, 0.1, 0));
@@ -1223,6 +1302,24 @@ export function CityWorld({
     }
     confluenceBank(bankSpot.x, bankSpot.z);
 
+    const carSpot = laid.get("car-stand");
+    if (carSpot) {
+      const awayX = bankSpot.x - mouth.x;
+      const awayZ = bankSpot.z - mouth.z;
+      const away = Math.hypot(awayX, awayZ) || 1;
+      const ux = awayX / away;
+      const uz = awayZ / away;
+      let reach = 96;
+      for (let guard = 0; guard < 10; guard += 1) {
+        carSpot.x = Math.min(LIMIT, Math.max(-LIMIT, bankSpot.x + ux * reach));
+        carSpot.z = Math.min(LIMIT, Math.max(-LIMIT, bankSpot.z + uz * reach));
+        const blocked = riverPoint(carSpot.x, carSpot.z, 24) !== null || onStrip(carSpot.x, carSpot.z, 22);
+        const crowded = laidSpots.some((other) => other.id !== "car-stand" && Math.hypot(other.x - carSpot.x, other.z - carSpot.z) < 52);
+        if (!blocked && !crowded) break;
+        reach += 18;
+      }
+    }
+
     function shopfront(x: number, z: number) {
       const group = new THREE.Group();
       group.add(block(3.6, 1.7, 2.8, 0xf3d27a, 0, 0.95, 0));
@@ -1231,6 +1328,29 @@ export function CityWorld({
       group.position.set(x, 0, z);
       scene.add(group);
       return group;
+    }
+
+    const donaldAt = laid.get("donalds");
+    const dominosAt = laid.get("dominos");
+    const coldAt = laid.get("cold-stone");
+    if (donaldAt && dominosAt && coldAt) {
+      const options = [
+        { x: donaldAt.x + 30, z: donaldAt.z },
+        { x: donaldAt.x - 30, z: donaldAt.z },
+        { x: donaldAt.x, z: donaldAt.z + 30 },
+        { x: donaldAt.x, z: donaldAt.z - 30 },
+      ];
+      const dry = options.find((item) => riverPoint(item.x, item.z, 12) === null && !onStrip(item.x, item.z, 8)) ?? options[0];
+      dominosAt.x = dry.x;
+      dominosAt.z = dry.z;
+      const stepX = dry.x - donaldAt.x;
+      const stepZ = dry.z - donaldAt.z;
+      coldAt.x = dry.x + (stepX === 0 ? 22 : 0);
+      coldAt.z = dry.z + (stepZ === 0 ? 22 : 0);
+      if (riverPoint(coldAt.x, coldAt.z, 10) || onStrip(coldAt.x, coldAt.z, 8)) {
+        coldAt.x = dry.x - (stepX === 0 ? 22 : 0);
+        coldAt.z = dry.z - (stepZ === 0 ? 22 : 0);
+      }
     }
 
     for (const place of PLACES) {
@@ -1276,6 +1396,18 @@ export function CityWorld({
           }
         }
         labelY = 6.4;
+      } else if (place.id === "car-stand") {
+        group = carLot(at.x, at.z);
+        labelY = 6.2;
+      } else if (place.id === "dominos") {
+        group = pizzaShop(at.x, at.z);
+        labelY = 6.2;
+      } else if (place.id === "cold-stone") {
+        group = creamShop(at.x, at.z);
+        labelY = 6.4;
+      } else if (place.id === "the-warehouse") {
+        group = warehouseHall(at.x, at.z);
+        labelY = 7.2;
       } else if (restaurants.has(place.id)) {
         group = restaurantHall(at.x, at.z);
         labelY = 11.2;
