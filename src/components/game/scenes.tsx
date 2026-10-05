@@ -1209,7 +1209,20 @@ export function VenueInterior({
 function piece(color: number, w: number, h: number, d: number, x: number, y: number, z: number) {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ color }));
   mesh.position.set(x, y, z);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
   return mesh;
+}
+
+function blob(x: number, z: number, wide: number, deep: number, dark = 0.5) {
+  const shadow = new THREE.Mesh(
+    new THREE.CircleGeometry(0.5, 28),
+    new THREE.MeshBasicMaterial({ color: 0x140e0a, transparent: true, opacity: dark, depthWrite: false }),
+  );
+  shadow.rotation.x = -Math.PI / 2;
+  shadow.position.set(x, 0.135, z);
+  shadow.scale.set(wide, deep, 1);
+  return shadow;
 }
 
 function citizen(lookId: LookId) {
@@ -1218,35 +1231,43 @@ function citizen(lookId: LookId) {
   const skin = new THREE.MeshLambertMaterial({ color: palette.skin });
   const cloth = new THREE.MeshLambertMaterial({ color: palette.shirt });
   const hairM = new THREE.MeshLambertMaterial({ color: palette.hair });
-  const pants = new THREE.MeshLambertMaterial({ color: 0x243044 });
-  const shoe = new THREE.MeshLambertMaterial({ color: 0x2a211c });
-  const white = new THREE.MeshBasicMaterial({ color: 0xfff7f2 });
-  const pupil = new THREE.MeshBasicMaterial({ color: 0x1a1412 });
-  const mouth = new THREE.MeshBasicMaterial({ color: 0xc86b6b });
+  const pants = new THREE.MeshLambertMaterial({ color: 0x1c2430 });
+  const shoe = new THREE.MeshLambertMaterial({ color: 0x16120f });
+  const eye = new THREE.MeshBasicMaterial({ color: 0x1a1410 });
+  const mouth = new THREE.MeshBasicMaterial({ color: 0x8d4d48 });
   const put = (mesh: THREE.Mesh, x: number, y: number, z: number) => {
+    mesh.castShadow = true;
     mesh.position.set(x, y, z);
     person.add(mesh);
     return mesh;
   };
-  put(new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.62, 0.18), pants), -0.12, 0.42, 0);
-  put(new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.62, 0.18), pants), 0.12, 0.42, 0);
-  put(new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.09, 0.32), shoe), -0.12, 0.08, 0.05);
-  put(new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.09, 0.32), shoe), 0.12, 0.08, 0.05);
-  put(new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.52, 0.28), cloth), 0, 1.02, 0);
-  put(new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.46, 0.13), cloth), -0.36, 1.04, 0);
-  put(new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.46, 0.13), cloth), 0.36, 1.04, 0);
-  put(new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.14, 0.11), skin), -0.36, 0.74, 0.04);
-  put(new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.14, 0.11), skin), 0.36, 0.74, 0.04);
-  put(new THREE.Mesh(new THREE.SphereGeometry(0.28, 24, 18), skin), 0, 1.58, 0.02);
-  const hair = put(new THREE.Mesh(new THREE.SphereGeometry(0.29, 20, 14), hairM), 0, 1.72, -0.08);
-  hair.scale.set(1.05, 0.42, 0.72);
-  put(new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 8), white), -0.1, 1.6, 0.24);
-  put(new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 8), white), 0.1, 1.6, 0.24);
-  put(new THREE.Mesh(new THREE.SphereGeometry(0.036, 10, 8), pupil), -0.1, 1.6, 0.3);
-  put(new THREE.Mesh(new THREE.SphereGeometry(0.036, 10, 8), pupil), 0.1, 1.6, 0.3);
-  put(new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8), skin), 0, 1.52, 0.28);
-  const lips = put(new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 8), mouth), 0, 1.42, 0.26);
-  lips.scale.set(1.4, 0.38, 0.4);
+  const limb = (radius: number, length: number, material: THREE.Material) =>
+    new THREE.Mesh(new THREE.CapsuleGeometry(radius, length, 6, 10), material);
+  put(limb(0.075, 0.58, pants), -0.1, 0.46, 0);
+  put(limb(0.075, 0.58, pants), 0.1, 0.46, 0);
+  const leftShoe = put(limb(0.08, 0.06, shoe), -0.1, 0.1, 0.05);
+  const rightShoe = put(limb(0.08, 0.06, shoe), 0.1, 0.1, 0.05);
+  leftShoe.rotation.x = Math.PI / 2;
+  rightShoe.rotation.x = Math.PI / 2;
+  leftShoe.scale.z = 1.35;
+  rightShoe.scale.z = 1.35;
+  put(limb(0.16, 0.38, cloth), 0, 1.12, 0);
+  const shoulders = put(limb(0.07, 0.32, cloth), 0, 1.32, 0);
+  shoulders.rotation.z = Math.PI / 2;
+  const leftArm = put(limb(0.05, 0.42, cloth), -0.28, 1.02, 0);
+  const rightArm = put(limb(0.05, 0.42, cloth), 0.28, 1.02, 0);
+  leftArm.rotation.z = 0.12;
+  rightArm.rotation.z = -0.12;
+  put(new THREE.Mesh(new THREE.SphereGeometry(0.055, 12, 10), skin), -0.3, 0.74, 0.02);
+  put(new THREE.Mesh(new THREE.SphereGeometry(0.055, 12, 10), skin), 0.3, 0.74, 0.02);
+  put(limb(0.05, 0.06, skin), 0, 1.42, 0);
+  put(new THREE.Mesh(new THREE.SphereGeometry(0.17, 24, 18), skin), 0, 1.64, 0);
+  const hair = put(new THREE.Mesh(new THREE.SphereGeometry(0.175, 20, 14), hairM), 0, 1.74, -0.03);
+  hair.scale.set(1.04, 0.55, 0.92);
+  put(new THREE.Mesh(new THREE.SphereGeometry(0.02, 10, 8), eye), -0.05, 1.66, 0.162);
+  put(new THREE.Mesh(new THREE.SphereGeometry(0.02, 10, 8), eye), 0.05, 1.66, 0.162);
+  const lips = put(new THREE.Mesh(new THREE.SphereGeometry(0.024, 8, 6), mouth), 0, 1.55, 0.162);
+  lips.scale.set(1.5, 0.4, 0.35);
   person.position.set(0, 0.12, 0.15);
   return person;
 }
@@ -1262,14 +1283,26 @@ function RoomView({ owned, look }: { owned: string[]; look: LookId }) {
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(root.clientWidth, root.clientHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     root.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color("#cfe0c2");
-    scene.add(new THREE.HemisphereLight(0xfff6e8, 0x8fbf98, 1.2));
-    const sun = new THREE.DirectionalLight(0xfff3dd, 1.25);
-    sun.position.set(6, 18, 8);
+    scene.add(new THREE.HemisphereLight(0xfff6e8, 0x8fbf98, 0.72));
+    const sun = new THREE.DirectionalLight(0xfff3dd, 1.35);
+    sun.position.set(4, 12, 6);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.near = 1;
+    sun.shadow.camera.far = 32;
+    sun.shadow.camera.left = -8;
+    sun.shadow.camera.right = 8;
+    sun.shadow.camera.top = 8;
+    sun.shadow.camera.bottom = -8;
+    sun.shadow.bias = -0.0012;
     scene.add(sun);
+    scene.add(sun.target);
 
     const spin = new THREE.Group();
     scene.add(spin);
@@ -1321,14 +1354,13 @@ function RoomView({ owned, look }: { owned: string[]; look: LookId }) {
       add(piece(0x17241e, 1.15, 0.7, 0.08, -3.35, 0.95, 1.7));
       add(piece(0x9fd0ea, 0.95, 0.5, 0.02, -3.35, 0.98, 1.75));
     }
+    if (has("bed")) add(blob(-2.1, -1.7, 2.5, 1.6, 0.38));
+    if (has("table")) add(blob(0.2, 0.2, 1.7, 1.1, 0.34));
+    if (has("sofa")) add(blob(1.5, 1.7, 2.4, 1.15, 0.38));
+    if (has("fridge")) add(blob(3.35, -2.4, 0.9, 0.8, 0.4));
+    if (has("television")) add(blob(-3.35, 1.7, 1.3, 0.7, 0.36));
 
-    const shadow = new THREE.Mesh(
-      new THREE.CircleGeometry(0.32, 20),
-      new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.16 }),
-    );
-    shadow.rotation.x = -Math.PI / 2;
-    shadow.position.set(0, 0.13, 0.15);
-    spin.add(shadow);
+    add(blob(0, 0.15, 0.95, 0.62, 0.62));
     spin.add(citizen(look));
 
     const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 80);
