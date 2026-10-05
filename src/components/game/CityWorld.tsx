@@ -82,10 +82,48 @@ export function CityWorld({
     road(0, 0, 620, true);
     road(0, -90, 520, true);
     road(40, 90, 480, true);
-    road(0, 170, 420, true);
+    road(0, 200, 420, true);
     road(-50, 0, 520, false);
     road(80, 20, 460, false);
     road(150, -20, 360, false);
+
+    const halfRoad = 2.6;
+    const zones = [
+      { minX: -16, maxX: 16, minZ: -380, maxZ: 380 },
+      { minX: -380, maxX: 400, minZ: 158, maxZ: 182 },
+      { minX: -310, maxX: 310, minZ: -halfRoad, maxZ: halfRoad },
+      { minX: -260, maxX: 260, minZ: -90 - halfRoad, maxZ: -90 + halfRoad },
+      { minX: 40 - 240, maxX: 40 + 240, minZ: 90 - halfRoad, maxZ: 90 + halfRoad },
+      { minX: -210, maxX: 210, minZ: 200 - halfRoad, maxZ: 200 + halfRoad },
+      { minX: -50 - halfRoad, maxX: -50 + halfRoad, minZ: -260, maxZ: 260 },
+      { minX: 80 - halfRoad, maxX: 80 + halfRoad, minZ: 20 - 230, maxZ: 20 + 230 },
+      { minX: 150 - halfRoad, maxX: 150 + halfRoad, minZ: -20 - 180, maxZ: -20 + 180 },
+    ];
+    function onStrip(x: number, z: number, pad: number) {
+      return zones.some((zone) => x > zone.minX - pad && x < zone.maxX + pad && z > zone.minZ - pad && z < zone.maxZ + pad);
+    }
+    function shoveOut(spot: { x: number; z: number }, pad: number) {
+      for (let step = 0; step < 4; step += 1) {
+        for (const zone of zones) {
+          const minX = zone.minX - pad;
+          const maxX = zone.maxX + pad;
+          const minZ = zone.minZ - pad;
+          const maxZ = zone.maxZ + pad;
+          if (spot.x <= minX || spot.x >= maxX || spot.z <= minZ || spot.z >= maxZ) continue;
+          const left = spot.x - minX;
+          const right = maxX - spot.x;
+          const down = spot.z - minZ;
+          const up = maxZ - spot.z;
+          const nearest = Math.min(left, right, down, up);
+          if (nearest === left) spot.x = minX;
+          else if (nearest === right) spot.x = maxX;
+          else if (nearest === down) spot.z = minZ;
+          else spot.z = maxZ;
+          spot.x = Math.min(280, Math.max(-280, spot.x));
+          spot.z = Math.min(280, Math.max(-280, spot.z));
+        }
+      }
+    }
 
     function tree(x: number, z: number) {
       const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 0.7, 5), new THREE.MeshLambertMaterial({ color: 0x6a4630 }));
@@ -99,7 +137,12 @@ export function CityWorld({
       seed = (seed * 16807) % 2147483647;
       return seed / 2147483647;
     };
-    for (let i = 0; i < 120; i += 1) tree((rnd() - 0.5) * 620, (rnd() - 0.5) * 620);
+    for (let i = 0; i < 160; i += 1) {
+      const x = (rnd() - 0.5) * 620;
+      const z = (rnd() - 0.5) * 620;
+      if (onStrip(x, z, 1)) continue;
+      tree(x, z);
+    }
 
     function house(x: number, z: number, tint: number, tall = 1.35, roof = 0x3d6b4f) {
       const group = new THREE.Group();
@@ -140,38 +183,49 @@ export function CityWorld({
     }
 
     const traffic: Array<{ mesh: THREE.Group; along: number; axis: "x" | "z"; fixed: number; speed: number; min: number; max: number }> = [];
-    function addTraffic(axis: "x" | "z", fixed: number, min: number, max: number, count: number, color: number) {
+    function addTraffic(axis: "x" | "z", fixed: number, min: number, max: number, count: number, color: number, direction: 1 | -1) {
+      const span = max - min;
       for (let i = 0; i < count; i += 1) {
         const mesh = carMesh(color);
-        const along = min + ((i + 0.3) / count) * (max - min);
+        const along = min + ((i + 0.5) / count) * span;
         mesh.position.set(axis === "x" ? along : fixed, 0, axis === "z" ? along : fixed);
-        if (axis === "z") mesh.rotation.y = Math.PI / 2;
+        mesh.rotation.y = axis === "x" ? (direction > 0 ? 0 : Math.PI) : direction > 0 ? Math.PI / 2 : -Math.PI / 2;
         scene.add(mesh);
-        traffic.push({ mesh, along, axis, fixed, speed: 0.12 + (i % 3) * 0.04, min, max });
+        traffic.push({ mesh, along, axis, fixed, speed: 0.16 * direction, min, max });
       }
     }
-    addTraffic("x", 1.5, -260, 260, 10, 0xc4552a);
-    addTraffic("x", -88.5, -220, 220, 8, 0xf2c14e);
-    addTraffic("x", 91.5, -200, 200, 7, 0x1f6b45);
-    addTraffic("x", 171.5, -160, 160, 5, 0x245c78);
-    addTraffic("z", -48.4, -220, 220, 8, 0x245c78);
-    addTraffic("z", 81.6, -180, 180, 7, 0x17241e);
-    addTraffic("z", 151.6, -140, 140, 5, 0xc4552a);
+    addTraffic("x", 1.35, -280, 280, 7, 0xc4552a, 1);
+    addTraffic("x", -1.35, -280, 280, 7, 0x245c78, -1);
+    addTraffic("x", -88.65, -240, 240, 6, 0xf2c14e, 1);
+    addTraffic("x", -91.35, -240, 240, 6, 0x1f6b45, -1);
+    addTraffic("x", 91.35, -180, 260, 5, 0xc4552a, 1);
+    addTraffic("x", 88.65, -180, 260, 5, 0x17241e, -1);
+    addTraffic("x", 201.35, -180, 180, 4, 0xf2c14e, 1);
+    addTraffic("x", 198.65, -180, 180, 4, 0x245c78, -1);
+    addTraffic("z", -48.65, -240, 240, 6, 0x245c78, 1);
+    addTraffic("z", -51.35, -240, 240, 6, 0xc4552a, -1);
+    addTraffic("z", 81.35, -190, 230, 5, 0x17241e, 1);
+    addTraffic("z", 78.65, -190, 230, 5, 0xf2c14e, -1);
+    addTraffic("z", 151.35, -180, 150, 4, 0x1f6b45, 1);
+    addTraffic("z", 148.65, -180, 150, 4, 0x6a4630, -1);
 
     function parkAlong(axis: "x" | "z", fixed: number, from: number, to: number, step: number, color: number) {
       for (let along = from; along <= to; along += step) {
-        if (Math.abs(along) < 12) continue;
+        const x = axis === "x" ? along : fixed;
+        const z = axis === "z" ? along : fixed;
+        if (onStrip(x, z, 0)) continue;
         const mesh = carMesh(color);
-        mesh.position.set(axis === "x" ? along : fixed, 0, axis === "z" ? along : fixed);
+        mesh.position.set(x, 0, z);
         if (axis === "z") mesh.rotation.y = Math.PI / 2;
         scene.add(mesh);
       }
     }
-    parkAlong("x", 4.6, -240, 240, 16, 0x6a4630);
-    parkAlong("x", -4.6, -220, 220, 22, 0x245c78);
-    parkAlong("x", -94, -180, 180, 20, 0xf2c14e);
-    parkAlong("z", -56, -180, 180, 18, 0x17241e);
-    parkAlong("z", 88, -150, 150, 20, 0xc4552a);
+    parkAlong("x", 5.6, -240, 240, 22, 0x6a4630);
+    parkAlong("x", -5.6, -220, 220, 26, 0x245c78);
+    parkAlong("x", -95.6, -180, 180, 24, 0xf2c14e);
+    parkAlong("x", -84.4, -160, 160, 28, 0x17241e);
+    parkAlong("z", -55.6, -180, 180, 24, 0xc4552a);
+    parkAlong("z", -44.4, -160, 160, 28, 0x1f6b45);
 
     const posters: THREE.Texture[] = [];
     function billboard(x: number, z: number, turn: number, title: string, line: string, paint: string) {
@@ -249,6 +303,10 @@ export function CityWorld({
           laidSpots[j].z = Math.min(280, Math.max(-280, laidSpots[j].z + dz * push));
         }
       }
+      for (const spot of laidSpots) {
+        const pad = spot.id === "sam-mbakwe" ? 18 : landmark.has(spot.id) ? 16 : 4;
+        shoveOut(spot, pad);
+      }
     }
     const laid = new Map(laidSpots.map((item) => [item.id, item]));
 
@@ -256,7 +314,10 @@ export function CityWorld({
       for (let row = 0; row < rows; row += 1) {
         for (let col = 0; col < cols; col += 1) {
           if (row === Math.floor(rows / 2) && col === Math.floor(cols / 2)) continue;
-          house(cx + (col - cols / 2) * 3.15, cz + (row - rows / 2) * 3.15, 0xf4efe4, 1.15, 0x2f6b45);
+          const x = cx + (col - cols / 2) * 3.15;
+          const z = cz + (row - rows / 2) * 3.15;
+          if (onStrip(x, z, 2)) continue;
+          house(x, z, 0xf4efe4, 1.15, 0x2f6b45);
         }
       }
     }
@@ -283,8 +344,8 @@ export function CityWorld({
     billboard(110, 78, -0.3, "Sam Mbakwe", "Flights out of Imo", "#245c78");
     billboard(-110, -40, 0.6, "Ad board", "Buy this slot", "#a9782a");
     billboard(140, -30, -0.4, "Port Harcourt Rd", "Your brand here", "#7a2e1e");
-    billboard(20, 120, 0.15, "Airport road", "Seen by every flight", "#143d2c");
-    billboard(-20, -120, 1.1, "State CID", "A big compound", "#1d4a66");
+    billboard(40, 120, 0.15, "Airport road", "Seen by every flight", "#143d2c");
+    billboard(-40, -120, 1.1, "State CID", "A big compound", "#1d4a66");
     billboard(70, -130, -0.8, "Campus life", "IMSU · FUTO · Nekede", "#1f6b45");
 
     function block(w: number, h: number, d: number, color: number, x: number, y: number, z: number) {
@@ -407,7 +468,7 @@ export function CityWorld({
       scene.add(group);
       pill(label, new THREE.Vector3(x, 2.2, z));
     }
-    field(-220, 180, "Egbu farmland · level 3");
+    field(-220, 210, "Egbu farmland · level 3");
     field(210, 200, "Nekede rice · level 4");
     field(-200, -190, "Owerri West palms · level 5");
 
@@ -661,6 +722,7 @@ export function CityWorld({
       for (const car of traffic) {
         car.along += car.speed;
         if (car.along > car.max) car.along = car.min;
+        if (car.along < car.min) car.along = car.max;
         if (car.axis === "x") car.mesh.position.x = car.along;
         else car.mesh.position.z = car.along;
       }
