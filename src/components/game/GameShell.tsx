@@ -474,7 +474,7 @@ function PlaceTrip({
                 disabled={pending || !option.available || !option.affordable}
                 onClick={() => {
                   run(() => go(place.id, option.mode)).then((result) => {
-                    if (result.ok) onClose();
+                    if (!result.ok) return;
                   });
                 }}
                 className="flex items-center justify-between rounded-2xl bg-white px-3 py-3 text-left text-sm shadow-sm disabled:opacity-40"
@@ -817,7 +817,10 @@ function MapPanel({
           onSpray={(amount) => run(() => spray(amount))}
           onBook={(stay) => run(() => takeRoom(stay))}
           onOffer={(npcId) => run(() => makeOffer(npcId))}
-          onOutside={() => run(goOutside)}
+          onOutside={() => {
+            setLeftAt(null);
+            run(goOutside);
+          }}
           spendable={view.pools.earned + view.pools.gifted}
           room={view.me.room?.placeId === place.id ? view.me.room.stay : null}
           onSleep={() => run(sleepAtHotel)}
@@ -833,6 +836,8 @@ function MapPanel({
           fill
           extra={place.id === "sam-mbakwe" ? <AirportDesk run={run} pending={pending} /> : null}
           onApply={place.kind === "school" && !view.me.school ? () => setVisit((value) => value + 1) : undefined}
+          chat={view.chat}
+          onSay={(text) => run(() => sayInVenue(text))}
         />
       ) : showDoor ? (
         <div className="flex h-full items-end bg-[#d7ebdd] px-4 pb-28">
@@ -902,7 +907,10 @@ function MapPanel({
           onSpray={(amount) => run(() => spray(amount))}
           onBook={(stay) => run(() => takeRoom(stay))}
           onOffer={(npcId) => run(() => makeOffer(npcId))}
-          onOutside={() => run(goOutside)}
+          onOutside={() => {
+            setLeftAt(null);
+            run(goOutside);
+          }}
           spendable={view.pools.earned + view.pools.gifted}
           room={view.me.room?.placeId === place.id ? view.me.room.stay : null}
           onSleep={() => run(sleepAtHotel)}

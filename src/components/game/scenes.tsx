@@ -1,7 +1,7 @@
 "use client";
 
 import { createPortal } from "react-dom";
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import * as THREE from "three";
 import { DORIME_AMOUNTS, FURNITURE, LOOKS, TREATMENT_FEE, npcsAt, placeActs, placeById, sprayFloor } from "@/lib/game/content";
 import type { Place } from "@/lib/game/content";
@@ -1067,7 +1067,7 @@ export function ArrivalScene({
           onClick={onEnter}
           className="flex-1 rounded-full bg-[#e0b15a] py-3 text-sm font-semibold text-[#1a140c] disabled:opacity-40"
         >
-          Enter
+          Go inside
         </button>
         <button
           type="button"
@@ -1094,6 +1094,56 @@ function HotelRoom({ look, lying, onDone }: { look: LookId; lying: boolean; onDo
         <Human look={look} className="h-24 w-12" />
       </div>
     </div>
+  );
+}
+
+function ClubChat({
+  lines,
+  pending,
+  onSend,
+}: {
+  lines: Array<{ id: string; fromName: string; text: string }>;
+  pending: boolean;
+  onSend: (text: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const recent = lines.slice(-5);
+  function send(event: FormEvent) {
+    event.preventDefault();
+    const next = text.trim();
+    if (!next) return;
+    setText("");
+    onSend(next);
+  }
+  const bubbles = recent.map((line) => (
+    <p key={line.id} className="w-fit max-w-[14rem] rounded-2xl bg-white px-2.5 py-1 text-xs text-[#17241e] shadow">
+      <span className="font-semibold">{line.fromName}</span> {line.text}
+    </p>
+  ));
+  const field = (
+    <form className="flex gap-1" onSubmit={send}>
+      <input
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+        placeholder="Message the club"
+        className="min-w-0 flex-1 rounded-full border border-white/50 bg-transparent px-3 py-1.5 text-sm text-white placeholder:text-white/70"
+      />
+      <button disabled={pending} className="rounded-full bg-white px-3 text-xs font-semibold text-[#17241e] disabled:opacity-40">Send</button>
+    </form>
+  );
+  return (
+    <>
+      <div className="absolute bottom-40 left-3 z-30 hidden w-64 md:block">
+        <div className="mb-1 flex max-h-36 flex-col justify-end gap-1 overflow-y-auto bg-transparent">{bubbles}</div>
+        {field}
+      </div>
+      <div className="absolute bottom-40 left-3 z-30 flex flex-col items-start gap-1 md:hidden">
+        <div className="flex flex-col gap-1">{bubbles}</div>
+        {open ? <div className="w-56">{field}</div> : null}
+        <button type="button" aria-label="Club chat" onClick={() => setOpen((value) => !value)} className="grid h-11 w-11 place-items-center rounded-full bg-white text-lg shadow">💬</button>
+      </div>
+    </>
   );
 }
 
@@ -1125,6 +1175,8 @@ export function VenueInterior({
   fill = false,
   extra = null,
   onApply,
+  chat = [],
+  onSay,
 }: {
   place: Place;
   look: LookId;
@@ -1153,6 +1205,8 @@ export function VenueInterior({
   fill?: boolean;
   extra?: ReactNode;
   onApply?: () => void;
+  chat?: Array<{ id: string; fromName: string; text: string }>;
+  onSay?: (text: string) => void;
 }) {
   const acts = placeActs(place);
   const [notes, setNotes] = useState<Array<{ id: number; count: number }>>([]);
@@ -1246,9 +1300,9 @@ export function VenueInterior({
           </span>
         ))}
       </div>
-      <div className={`grid gap-2 ${fill ? "absolute bottom-24 left-1/2 z-30 max-h-[34%] w-[min(28rem,calc(100%-1.5rem))] -translate-x-1/2 overflow-y-auto rounded-[1.6rem] bg-white/95 p-3 text-[#17241e] shadow-2xl" : "p-3"}`}>
+      <div className={`grid gap-1 ${fill ? `absolute bottom-24 left-1/2 z-30 max-h-[28%] -translate-x-1/2 overflow-y-auto rounded-2xl bg-white/95 text-[#17241e] shadow-2xl ${club ? "w-[min(16rem,calc(100%-5rem))] p-2" : "w-[min(28rem,calc(100%-1.5rem))] gap-2 p-3"}` : "p-3"}`}>
         {!inRoom && club ? (
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-4 gap-1">
             {DORIME_AMOUNTS.map((amount) => (
               <button
                 key={amount}
@@ -1259,9 +1313,9 @@ export function VenueInterior({
                   setShout(username);
                   setService(Date.now());
                 }}
-                className="rounded-full bg-[#e0b15a] py-2 text-xs font-semibold text-[#1a140c] disabled:opacity-40"
+                className="rounded-full bg-[#e0b15a] px-1 py-1 text-[10px] font-semibold leading-tight text-[#1a140c] disabled:opacity-40"
               >
-                Do dorime · {naira(amount)}
+                {naira(amount)}
               </button>
             ))}
           </div>
@@ -1282,14 +1336,14 @@ export function VenueInterior({
               const result = await onDance();
               if (result.ok) setDancing(true);
             }}
-            className="rounded-full border border-white/20 py-2 text-sm font-semibold disabled:opacity-40"
+            className="rounded-full border border-[#e4d8c4] py-1 text-xs font-semibold disabled:opacity-40"
           >
             {dancing ? "Still dancing" : "Dance"}
           </button>
         ) : null}
         {!inRoom && acts.spray ? (
           <form
-            className="grid grid-cols-[1fr_auto] gap-2"
+            className="grid grid-cols-[1fr_auto] gap-1"
             onSubmit={async (event) => {
               event.preventDefault();
               const amount = Math.round(Number(sprayText.replace(/[^\d]/g, "")));
@@ -1306,9 +1360,9 @@ export function VenueInterior({
               value={sprayText}
               onChange={(event) => setSprayText(event.target.value.replace(/[^\d]/g, ""))}
               placeholder={`From ${naira(sprayFloor(place.id))}`}
-              className="rounded-full border border-[#e4d8c4] bg-white px-3 py-2 text-sm text-[#17241e] placeholder:text-[#8a8175]"
+              className="min-w-0 rounded-full border border-[#e4d8c4] bg-white px-2 py-1 text-xs text-[#17241e] placeholder:text-[#8a8175]"
             />
-            <button disabled={pending} className="rounded-full border border-[#e0b15a]/50 px-4 text-xs font-semibold text-[#e0b15a] disabled:opacity-40">
+            <button disabled={pending} className="rounded-full border border-[#e0b15a]/50 px-2 text-[10px] font-semibold text-[#e0b15a] disabled:opacity-40">
               Spray
             </button>
           </form>
@@ -1373,6 +1427,7 @@ export function VenueInterior({
           <p className="font-display text-3xl">Two hours later…</p>
         </div>
       ) : null}
+      {club && onSay ? <ClubChat lines={chat} pending={pending} onSend={onSay} /> : null}
     </section>
   );
 }
