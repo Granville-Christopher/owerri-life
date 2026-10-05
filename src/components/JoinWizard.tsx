@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { checkUsername, createAccount } from "@/lib/game/actions";
+import { passwordProblem } from "@/lib/game/password";
 import { CAREERS, DREAMS, LOOKS, TRAITS } from "@/lib/game/content";
 import { naira } from "@/lib/game/format";
 import { Avatar } from "./Avatar";
@@ -36,7 +37,7 @@ export function JoinWizard() {
   }
 
   const canNext =
-    (step === 0 && age && (gender === "male" || gender === "female") && username.trim().length >= 3 && email.includes("@") && password.length >= 8) ||
+    (step === 0 && age && (gender === "male" || gender === "female") && username.trim().length >= 3 && email.includes("@") && !passwordProblem(password)) ||
     (step === 1) ||
     (step === 2 && traits.length === 2) ||
     (step === 3) ||
@@ -144,6 +145,7 @@ export function JoinWizard() {
             Password
             <input type="password" className="mt-1 w-full rounded-2xl border border-[#e4d8c4] bg-white px-3 py-3" value={password} onChange={(event) => setPassword(event.target.value)} />
           </label>
+          <p className="text-xs leading-5 text-[#5d6b62]">At least 8 characters, with an uppercase letter, a lowercase letter, a number, and a special character. A full stop counts.</p>
           <div>
             <p className="text-sm font-semibold">Gender</p>
             <div className="mt-1 grid grid-cols-2 gap-2">
@@ -151,7 +153,11 @@ export function JoinWizard() {
                 <button
                   key={option}
                   type="button"
-                  onClick={() => setGender(option)}
+                  onClick={() => {
+                    setGender(option);
+                    const face = LOOKS.find((item) => item.gender === option);
+                    if (face) setLook(face.id);
+                  }}
                   className={`rounded-2xl border px-3 py-3 text-sm font-semibold ${gender === option ? "border-[#1f6b45] bg-white" : "border-[#e4d8c4] bg-white/70"}`}
                 >
                   {option === "male" ? "Male" : "Female"}
@@ -168,7 +174,7 @@ export function JoinWizard() {
 
       {step === 1 ? (
         <div className="mt-5 grid grid-cols-3 gap-3">
-          {LOOKS.map((item) => (
+          {LOOKS.filter((item) => item.gender === gender).map((item) => (
             <button
               key={item.id}
               type="button"

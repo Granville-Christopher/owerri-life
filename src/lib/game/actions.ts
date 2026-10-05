@@ -1,6 +1,6 @@
 "use server";
 
-import { npcsAt, npcById, placeById } from "./content";
+import { LOOKS, npcsAt, npcById, placeById } from "./content";
 import {
   applyCourse,
   applyForJob,
@@ -54,6 +54,7 @@ import {
 } from "./engine";
 import { stamp } from "./format";
 import { authBlocked, authCleared, authFailed, burnPasswordCheck, clearSession, hashPassword, needsUpgrade, sessionPlayerId, setSession, verifyPassword } from "./auth";
+import { passwordProblem } from "./password";
 import { mutate, readDb } from "./store";
 import type { BetPick, ChatQuote, CreateInput, Gender, LookId, NetWorthVisibility, Reveal, TraitId, TravelMode, WorkStyle } from "./types";
 
@@ -94,8 +95,7 @@ function validAccount(username: string, email: string, password: string) {
   const nameError = usernameProblem(username);
   if (nameError) return nameError;
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "Enter a real email.";
-  if (password.length < 8) return "Password needs at least 8 characters.";
-  return null;
+  return passwordProblem(password);
 }
 
 export async function checkUsername(raw: string): Promise<{ ok: true } | { ok: false; error: string; suggestions: string[] }> {
@@ -137,6 +137,8 @@ export async function createAccount(input: {
   const accountError = validAccount(username, email, input.password);
   if (accountError) return { ok: false, error: accountError };
   if (input.gender !== "male" && input.gender !== "female") return { ok: false, error: "Choose male or female." };
+  const face = LOOKS.find((item) => item.id === input.look);
+  if (!face || face.gender !== input.gender) return { ok: false, error: "Pick a look that matches your gender." };
   if (!validateLook(input.look) || !validateTraits(input.traits) || !validateDream(input.dream)) {
     return { ok: false, error: "Finish look, two traits, and a dream." };
   }

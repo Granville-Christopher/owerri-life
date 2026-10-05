@@ -3,18 +3,19 @@ import type { DreamId, LookId, SkillKey, TraitId } from "./types";
 export interface Look {
   id: LookId;
   name: string;
+  gender: "male" | "female";
   shirt: string;
   skin: string;
   hair: string;
 }
 
 export const LOOKS: Look[] = [
-  { id: "ada", name: "Ada", shirt: "#1f6b45", skin: "#f0c7a4", hair: "#2a211c" },
-  { id: "chidi", name: "Chidi", shirt: "#245c78", skin: "#e0b08a", hair: "#1a1a1a" },
-  { id: "ngozi", name: "Ngozi", shirt: "#7a3e6d", skin: "#f3d0b5", hair: "#4a2c22" },
-  { id: "emeka", name: "Emeka", shirt: "#3d4f2f", skin: "#c98862", hair: "#241c16" },
-  { id: "zara", name: "Zara", shirt: "#8c3d2f", skin: "#f6d7c3", hair: "#111111" },
-  { id: "ibe", name: "Ibe", shirt: "#1d4e4a", skin: "#efd0b0", hair: "#3a2418" },
+  { id: "ada", name: "Ada", gender: "female", shirt: "#1f6b45", skin: "#f0c7a4", hair: "#2a211c" },
+  { id: "chidi", name: "Chidi", gender: "male", shirt: "#245c78", skin: "#e0b08a", hair: "#1a1a1a" },
+  { id: "ngozi", name: "Ngozi", gender: "female", shirt: "#7a3e6d", skin: "#f3d0b5", hair: "#4a2c22" },
+  { id: "emeka", name: "Emeka", gender: "male", shirt: "#3d4f2f", skin: "#c98862", hair: "#241c16" },
+  { id: "zara", name: "Zara", gender: "female", shirt: "#8c3d2f", skin: "#f6d7c3", hair: "#111111" },
+  { id: "ibe", name: "Ibe", gender: "male", shirt: "#1d4e4a", skin: "#efd0b0", hair: "#3a2418" },
 ];
 
 export interface Trait {
