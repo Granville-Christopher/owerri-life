@@ -1044,6 +1044,35 @@ function BuildingFront({ placeId, look }: { placeId: string; look: LookId }) {
         add(parkedCar(color, -6 + col * 4, -1 + row * 3.2, row % 2 === 0 ? 0 : Math.PI));
       });
       me.position.set(0.4, 0, 4.2);
+    } else if (place.id === "assumpta-cathedral") {
+      add(piece(0xc5d6a4, 28, 0.12, 22, 0, 0.06, 0));
+      add(piece(0xf7f1e6, 14, 6.2, 8, 0, 3.2, -1));
+      add(piece(0xc4552a, 14.6, 0.3, 8.5, 0, 6.4, -1));
+      const dome = new THREE.Mesh(new THREE.SphereGeometry(2.6, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0xe0b15a }));
+      dome.position.set(0, 6.6, -1);
+      add(dome);
+      add(piece(0xf2c14e, 0.2, 1.6, 0.2, 0, 9.4, -1));
+      add(piece(0xf2c14e, 0.9, 0.16, 0.16, 0, 9.8, -1));
+      add(piece(0xf4efe4, 2.4, 7.2, 2.4, -6.6, 3.6, -1));
+      add(piece(0xf4efe4, 2.4, 7.2, 2.4, 6.6, 3.6, -1));
+      add(piece(0x1f6b45, 2.8, 0.28, 2.8, -6.6, 7.3, -1));
+      add(piece(0x1f6b45, 2.8, 0.28, 2.8, 6.6, 7.3, -1));
+      add(piece(0x143d2c, 1.8, 2.6, 0.12, 0, 1.4, 3.1));
+      add(piece(0x3d7ea6, 0.16, 2.6, 1.4, -7.1, 3.4, -1));
+      add(piece(0xc4552a, 0.16, 2.6, 1.4, 7.1, 3.4, -1));
+      sign("Assumpta", "CATHEDRAL", 0, 5.2, 3.2, 5.2, 1.3, "#143d2c", "#f6f1e6");
+      tree(-11, 4);
+      tree(11, 4);
+      me.position.set(0.4, 0, 6);
+    } else if (place.id === "everyday") {
+      add(piece(0xd7d3cc, 22, 0.12, 16, 0, 0.06, 0));
+      add(piece(0xf7fbfc, 16, 4.6, 7, 0, 2.4, -1));
+      add(piece(0x1f6b45, 16.4, 0.9, 0.5, 0, 5.1, 2.6));
+      add(piece(0x9fd0ea, 12, 2.2, 0.08, 0, 2.4, 2.55));
+      add(piece(0x143d2c, 2.6, 2.6, 0.1, 0, 1.4, 2.6));
+      sign("EVERYDAY", "SUPERMARKET", 0, 4.4, 2.7, 7.4, 1.4, "#1f6b45", "#f6f1e6");
+      for (let i = 0; i < 4; i += 1) add(parkedCar(i % 2 === 0 ? 0xf7fbfc : 0x245c78, -6 + i * 4, 5.2, 0));
+      me.position.set(0.2, 0, 2.2);
     } else if (place.kind === "school") {
       add(piece(0xc5d6a4, 32, 0.12, 26, 0, 0.06, -1));
       add(piece(0x3a3f46, 32, 0.08, 5, 0, 0.1, 10));
@@ -1720,6 +1749,144 @@ function BeachHouse({ look }: { look: LookId }) {
   );
 }
 
+function OrbitRoom({
+  look,
+  build,
+}: {
+  look: LookId;
+  build: (add: (mesh: THREE.Object3D) => void) => void;
+}) {
+  const host = useRef<HTMLDivElement>(null);
+  const rig = useRef({ yaw: 0.4, zoom: 1 });
+  useEffect(() => {
+    const root = host.current;
+    if (!root) return;
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(root.clientWidth, root.clientHeight);
+    root.appendChild(renderer.domElement);
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color("#efe4d4");
+    scene.add(new THREE.HemisphereLight(0xfff6e4, 0x7d8f68, 1));
+    const sun = new THREE.DirectionalLight(0xfff3dd, 1.1);
+    sun.position.set(8, 14, 10);
+    scene.add(sun);
+    const yard = new THREE.Group();
+    scene.add(yard);
+    build((mesh) => yard.add(mesh));
+    const me = citizen(look);
+    me.position.set(0, 0, 3.2);
+    me.rotation.y = Math.PI;
+    yard.add(me);
+    const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 80);
+    const aim = new THREE.Vector3(10, 7, 14).normalize();
+    const fit = () => {
+      renderer.setSize(root.clientWidth || 1, root.clientHeight || 1);
+      camera.aspect = (root.clientWidth || 1) / (root.clientHeight || 1);
+      camera.updateProjectionMatrix();
+    };
+    fit();
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      rig.current.zoom = Math.min(2.1, Math.max(0.7, rig.current.zoom * (event.deltaY < 0 ? 1.08 : 1 / 1.08)));
+    };
+    root.addEventListener("wheel", onWheel, { passive: false });
+    let frame = 0;
+    let alive = true;
+    const loop = () => {
+      if (!alive) return;
+      yard.rotation.y = rig.current.yaw;
+      camera.position.copy(aim).multiplyScalar(18 / rig.current.zoom);
+      camera.lookAt(0, 1.2, 0);
+      renderer.render(scene, camera);
+      frame = window.requestAnimationFrame(loop);
+    };
+    loop();
+    const onResize = () => fit();
+    window.addEventListener("resize", onResize);
+    return () => {
+      alive = false;
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", onResize);
+      root.removeEventListener("wheel", onWheel);
+      renderer.dispose();
+      root.removeChild(renderer.domElement);
+    };
+  }, [look, build]);
+  function turn(dir: number) {
+    rig.current.yaw += dir * 0.55;
+  }
+  function dolly(factor: number) {
+    rig.current.zoom = Math.min(2.1, Math.max(0.7, rig.current.zoom * factor));
+  }
+  return (
+    <div className="absolute inset-0 bg-[#efe4d4]">
+      <div
+        ref={host}
+        className="absolute inset-0 touch-none"
+        onPointerDown={(event) => {
+          const surface = event.currentTarget;
+          surface.setPointerCapture(event.pointerId);
+          surface.dataset.x = String(event.clientX);
+        }}
+        onPointerMove={(event) => {
+          if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+          const last = Number(event.currentTarget.dataset.x ?? event.clientX);
+          rig.current.yaw += (event.clientX - last) * 0.008;
+          event.currentTarget.dataset.x = String(event.clientX);
+        }}
+      />
+      <div className="absolute right-3 top-24 z-30 flex flex-col gap-1">
+        <button type="button" aria-label="Zoom in" onClick={() => dolly(1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">+</button>
+        <button type="button" aria-label="Zoom out" onClick={() => dolly(1 / 1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">−</button>
+        <button type="button" aria-label="Rotate left" onClick={() => turn(1)} className="mt-2 grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">↺</button>
+        <button type="button" aria-label="Rotate right" onClick={() => turn(-1)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">↻</button>
+      </div>
+    </div>
+  );
+}
+
+function CathedralNave({ look }: { look: LookId }) {
+  const build = useRef((add: (mesh: THREE.Object3D) => void) => {
+    add(piece(0xf4efe4, 16, 0.12, 18, 0, 0.06, -1));
+    add(piece(0xf7f1e6, 0.4, 6, 16, -6, 3, -1));
+    add(piece(0xf7f1e6, 0.4, 6, 16, 6, 3, -1));
+    add(piece(0xe7dcc8, 12, 0.2, 16, 0, 6.1, -1));
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(2.2, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0xe0b15a }));
+    dome.position.set(0, 6.1, -4);
+    add(dome);
+    add(piece(0xf2c14e, 0.16, 1.2, 0.16, 0, 8.6, -4));
+    add(piece(0xf2c14e, 0.7, 0.14, 0.14, 0, 8.9, -4));
+    for (let row = 0; row < 5; row += 1) {
+      add(piece(0x6a4630, 3.2, 0.7, 0.7, -3.2, 0.5, 2.4 - row * 1.6));
+      add(piece(0x6a4630, 3.2, 0.7, 0.7, 3.2, 0.5, 2.4 - row * 1.6));
+    }
+    add(piece(0xf7fbfc, 3.4, 1.1, 1.2, 0, 0.7, -6.2));
+    add(piece(0xe0b15a, 0.12, 1.1, 0.12, 0, 1.8, -6.2));
+    add(piece(0xe0b15a, 0.5, 0.1, 0.1, 0, 2.1, -6.2));
+    add(piece(0x3d7ea6, 0.08, 2.4, 1.4, -5.9, 3.2, -2));
+    add(piece(0xc4552a, 0.08, 2.4, 1.4, 5.9, 3.2, 1));
+  }).current;
+  return <OrbitRoom look={look} build={build} />;
+}
+
+function EverydayAisle({ look }: { look: LookId }) {
+  const build = useRef((add: (mesh: THREE.Object3D) => void) => {
+    add(piece(0xf7fbfc, 16, 0.12, 14, 0, 0.06, 0));
+    add(piece(0x1f6b45, 16, 0.5, 0.3, 0, 4.2, -6.6));
+    for (let lane = 0; lane < 3; lane += 1) {
+      const x = -4 + lane * 4;
+      add(piece(0xe7dcc8, 1.4, 2.2, 6, x, 1.2, -1));
+      add(piece(0xc4552a, 1.2, 0.28, 1.4, x, 1.6, -2.4));
+      add(piece(0xf2c14e, 1.2, 0.28, 1.4, x, 2.1, -0.4));
+      add(piece(0x1f6b45, 1.2, 0.28, 1.4, x, 1.6, 1.4));
+    }
+    add(piece(0x143d2c, 4.2, 1.1, 0.8, 0, 0.7, 4.2));
+    add(piece(0xf2c14e, 0.8, 0.2, 0.5, 0, 1.35, 4.2));
+  }).current;
+  return <OrbitRoom look={look} build={build} />;
+}
+
 export function VenueInterior({
   place,
   look,
@@ -1860,6 +2027,10 @@ export function VenueInterior({
           <HouseRoom name={house.name} owned={house.owned} pending={pending} onBuy={onBuyFurniture ?? (() => undefined)} />
         ) : beach ? (
           <BeachHouse look={look} />
+        ) : place.id === "assumpta-cathedral" ? (
+          <CathedralNave look={look} />
+        ) : place.id === "everyday" ? (
+          <EverydayAisle look={look} />
         ) : (
           <>
             <RoomScene look={look} kind={place.kind} people={people} besideId={besideId} selfId={selfId} onPick={onPickPerson} walkers={walkers} />
