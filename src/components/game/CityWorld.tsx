@@ -52,13 +52,13 @@ export function CityWorld({
     root.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color("#d7e4c8");
+    scene.background = new THREE.Color("#cfe0c2");
     scene.add(new THREE.HemisphereLight(0xfff6e8, 0x8fbf98, 1.2));
     const sun = new THREE.DirectionalLight(0xfff3dd, 1.45);
     sun.position.set(40, 70, 18);
     scene.add(sun);
 
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(980, 980), new THREE.MeshLambertMaterial({ color: 0xcfe0c2 }));
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(8000, 8000), new THREE.MeshLambertMaterial({ color: 0xcfe0c2 }));
     ground.rotation.x = -Math.PI / 2;
     scene.add(ground);
 
@@ -847,13 +847,23 @@ export function CityWorld({
     let zoom = 54;
 
     function frameCamera() {
-      const aspect = Math.max(0.5, root.clientWidth / Math.max(1, root.clientHeight));
+      const width = Math.max(1, root.clientWidth);
+      const height = Math.max(1, root.clientHeight);
+      const aspect = width / height;
       camera.left = -zoom * aspect;
       camera.right = zoom * aspect;
       camera.top = zoom;
       camera.bottom = -zoom;
       camera.position.set(target.x + 58, 52, target.z + 58);
       camera.lookAt(target);
+      camera.updateMatrixWorld();
+      const upY = camera.matrixWorld.elements[5];
+      const ndcCut = -camera.position.y / Math.max(0.2, upY * zoom);
+      camera.clearViewOffset();
+      if (ndcCut > -0.98) {
+        const visible = Math.min(0.98, Math.max(0.4, (1 - ndcCut) / 2));
+        camera.setViewOffset(width, height / visible, 0, 0, width, height);
+      }
       camera.updateProjectionMatrix();
     }
     frameCamera();
