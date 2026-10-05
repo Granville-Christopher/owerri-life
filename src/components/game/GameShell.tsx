@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useTransition, type ReactNode } from "reac
 import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/Avatar";
 import { InstallButton } from "@/components/InstallApp";
+import { CityWorld } from "@/components/game/CityWorld";
 import { ArrivalScene, HouseRoom, PersonFigure, VenueInterior } from "@/components/game/scenes";
 import {
   acceptFriendRequest,
@@ -373,35 +374,69 @@ function AccountPage({
   );
 }
 
-function HomeMap({ view }: { view: GameView }) {
-  const homeArea = homeById(view.me.homeId).areaId;
-  const laid = layoutPins(PLACES);
-  return (
-    <div className="absolute inset-0">
-      <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full" aria-hidden>
-        <rect width="100" height="100" fill="#d7ebdd" />
-        <path d="M8 8 C 28 18, 18 36, 34 52 C 48 66, 28 78, 42 98" fill="none" stroke="#8ec4d4" strokeWidth="6" />
-        <path d="M6 62 H 94 M 18 20 H 88 M 30 8 V 92 M 55 12 V 90" fill="none" stroke="#c9b48a" strokeWidth="1.1" />
-      </svg>
-      {PLACES.map((item) => {
-        const spot = laid.get(item.id) ?? item;
-        const mine = item.id === homeArea;
-        const here = item.id === view.me.locationId;
-        return (
-          <div
-            key={item.id}
-            className="absolute grid h-8 w-8 -translate-x-1/2 -translate-y-1/2 place-items-center"
-            style={{ left: `${spot.x}%`, top: `${spot.y}%` }}
-          >
-            <span className={`ol-block ${mine ? "ol-home-pulse" : ""} ${item.kind === "home" ? "ol-block-home" : ""}`} />
-            <span className={`pointer-events-none absolute top-full mt-1 max-w-24 truncate rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold shadow ${mine ? "text-[#1f6b45]" : "text-[#17241e]"}`}>
-              {mine ? "Home" : item.name}
-            </span>
-            {here ? <PersonFigure look={view.me.look} className="pointer-events-none absolute -top-8 h-10 w-5" /> : null}
+function PlaceTrip({
+  placeId,
+  view,
+  pending,
+  run,
+  onClose,
+}: {
+  placeId: string;
+  view: GameView;
+  pending: boolean;
+  run: Run;
+  onClose: () => void;
+}) {
+  const place = placeById(placeId);
+  const here = place.id === view.me.locationId;
+  const rides = here ? [] : travelOptions(view.me.locationId, place.id, view.me.hasCar, view.balance);
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div className="fixed inset-0 z-[220] flex items-end justify-center bg-black/35 p-3 sm:items-center" onClick={onClose}>
+      <div className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-[1.6rem] bg-[#fffaf2] p-4 text-[#17241e] shadow-2xl" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#a9782a]">{place.area}</p>
+            <h2 className="font-display text-3xl leading-none">{place.name}</h2>
+            <p className="mt-1 text-sm text-[#5d6b62]">{place.hours}</p>
           </div>
-        );
-      })}
-    </div>
+          <button type="button" onClick={onClose} className="rounded-full bg-white px-3 py-1 text-sm font-semibold">Close</button>
+        </div>
+        <p className="mt-3 text-sm leading-6">{place.summary}</p>
+        {place.activities.length > 0 ? (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {place.activities.map((activity) => (
+              <span key={activity} className="rounded-full bg-[#efe4d2] px-2 py-1 text-[11px] font-semibold text-[#5d6b62]">{activity}</span>
+            ))}
+          </div>
+        ) : null}
+        {here ? <p className="mt-4 text-sm font-semibold text-[#1f6b45]">You are here. Go inside from the city when this is your stop.</p> : (
+          <div className="mt-4 grid gap-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#a9782a]">Go there</p>
+            {rides.map((option) => (
+              <button
+                key={option.mode}
+                type="button"
+                disabled={pending || !option.available || !option.affordable}
+                onClick={() => {
+                  run(() => go(place.id, option.mode)).then((result) => {
+                    if (result.ok) onClose();
+                  });
+                }}
+                className="flex items-center justify-between rounded-2xl border border-[#e4d8c4] bg-white px-3 py-3 text-left text-sm disabled:opacity-40"
+              >
+                <span>
+                  <span className="block font-semibold">{option.label}</span>
+                  <span className="text-[#5d6b62]">{option.hours}h{option.reason ? ` · ${option.reason}` : ""}</span>
+                </span>
+                <span className="font-semibold">{option.cost === 0 ? "Free" : naira(option.cost)}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -421,6 +456,7 @@ function HomePanel({ view, run, pending }: { view: GameView; run: Run; pending: 
   const career = me.job ? careerById(me.job.careerId) : null;
 
   const [lifeOpen, setLifeOpen] = useState(false);
+  const [pickedPlace, setPickedPlace] = useState<string | null>(null);
 
   return (
     <div className="relative h-full">
@@ -434,7 +470,7 @@ function HomePanel({ view, run, pending }: { view: GameView; run: Run; pending: 
           </div>
         ) : (
           <>
-            <HomeMap view={view} />
+            <CityWorld homeAreaId={home.areaId} locationId={me.locationId} onSelect={setPickedPlace} />
             {atHome ? (
               <button
                 type="button"
@@ -459,6 +495,7 @@ function HomePanel({ view, run, pending }: { view: GameView; run: Run; pending: 
           </>
         )}
       </section>
+      {pickedPlace ? <PlaceTrip placeId={pickedPlace} view={view} pending={pending} run={run} onClose={() => setPickedPlace(null)} /> : null}
       {lifeOpen ? <div className="absolute bottom-24 left-3 top-32 z-20 w-[min(24rem,calc(100%-1.5rem))] space-y-4 overflow-y-auto">
       <section className="rounded-[1.6rem] bg-[#143d2c] p-5 text-[#f6f1e6]">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#e0b15a]">{moodLabel(me.needs, me.sick)}</p>
