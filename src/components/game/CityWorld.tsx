@@ -480,7 +480,7 @@ export function CityWorld({
     const landmark = new Set(["sam-mbakwe", "state-cid", "imsu", "futo", "fedpoly-nekede", "eke-ukwu", "relief-market", "ikenegbu-market", "owerri-mall", "heroes-square", "cartel-beach", "heartland-resort", "nworie-park", "amusement-park", "city-bank", "teaching-hospital", "general-hospital", "umezuruike-hospital", "st-davids", "shelly-hospital", "imo-specialist"]);
     const roadside = new Set(["mama-nkechi", "feedwell", "crunchies"]);
     const phoneShops = new Set(["anonymous-gadgets", "sugar-gadgets", "buc-phones", "elion-phones", "ocha-gadgets", "maxii-gadgets", "easy-life", "gadgets-plug"]);
-    const pinned = new Set(["car-stand", "assumpta-cathedral", "everyday", ...phoneShops]);
+    const pinned = new Set(["car-stand", "assumpta-cathedral", "everyday", "wetheral-strip", ...phoneShops]);
     const hotels = new Set(PLACES.filter((place) => place.kind === "hotel").map((place) => place.id));
     for (let pass = 0; pass < 36; pass += 1) {
       for (let i = 0; i < laidSpots.length; i += 1) {
@@ -600,20 +600,61 @@ export function CityWorld({
     }
     const church = laid.get("assumpta-cathedral");
     const mart = laid.get("everyday");
-    if (church) {
+    const ibis = laid.get("ibis-royale");
+    function onIbisLand(x: number, z: number, hx: number, hz: number, self: string) {
+      if (hitsRoad(x, z, hx, hz)) return false;
+      return !laidSpots.some((other) => {
+        if (other.id === self || other.id === "assumpta-cathedral" || other.id === "everyday") return false;
+        const gap = other.id === "ibis-royale" ? 36 : other.id === "world-bank" ? 16 : 20;
+        return Math.hypot(other.x - x, other.z - z) < gap;
+      });
+    }
+    if (church && ibis) {
+      let best: { x: number; z: number; score: number } | null = null;
+      for (let dx = -72; dx <= 72; dx += 12) {
+        for (let dz = -72; dz <= 72; dz += 12) {
+          const x = ibis.x + dx;
+          const z = ibis.z + dz;
+          if (!onIbisLand(x, z, 26, 20, "assumpta-cathedral")) continue;
+          const score = Math.hypot(dx, dz);
+          if (score < 32 || score > 78) continue;
+          if (!best || score < best.score) best = { x, z, score };
+        }
+      }
+      if (best) {
+        church.x = best.x;
+        church.z = best.z;
+      } else {
+        church.x = ibis.x;
+        church.z = ibis.z - 52;
+        parkOffRoad(church, 26, 20);
+      }
+      keepClear.push({ x: church.x, z: church.z, hx: 26, hz: 20 });
+    } else if (church) {
       parkOffRoad(church, 26, 20);
       keepClear.push({ x: church.x, z: church.z, hx: 26, hz: 20 });
     }
-    if (church && mart) {
-      const seats = [
-        { x: church.x + 44, z: church.z },
-        { x: church.x - 44, z: church.z },
-        { x: church.x, z: church.z + 38 },
-        { x: church.x, z: church.z - 38 },
-      ];
-      const seat = seats.find((item) => !hitsRoad(item.x, item.z, 12, 10)) ?? seats[0];
-      mart.x = seat.x;
-      mart.z = seat.z;
+    if (church && mart && ibis) {
+      let best: { x: number; z: number; score: number } | null = null;
+      for (let dx = -56; dx <= 56; dx += 10) {
+        for (let dz = -56; dz <= 56; dz += 10) {
+          const x = church.x + dx;
+          const z = church.z + dz;
+          if (Math.hypot(dx, dz) < 40) continue;
+          if (!onIbisLand(x, z, 12, 10, "everyday")) continue;
+          const score = Math.hypot(x - ibis.x, z - ibis.z);
+          if (score > 90) continue;
+          if (!best || score < best.score) best = { x, z, score };
+        }
+      }
+      if (best) {
+        mart.x = best.x;
+        mart.z = best.z;
+      } else {
+        mart.x = church.x + 44;
+        mart.z = church.z;
+        parkOffRoad(mart, 12, 10);
+      }
       keepClear.push({ x: mart.x, z: mart.z, hx: 12, hz: 10 });
     }
     function roadSpan(axis: "x" | "z", fixed: number, from: number, to: number) {
@@ -666,6 +707,29 @@ export function CityWorld({
     for (const id of schools) {
       const at = laid.get(id);
       if (at) schoolApproach(at.x, at.z);
+    }
+    const strip = laid.get("wetheral-strip");
+    const campus = laid.get("imsu");
+    if (strip && campus) {
+      const seats = [
+        { x: campus.x - 74, z: campus.z },
+        { x: campus.x + 74, z: campus.z },
+        { x: campus.x, z: campus.z + 58 },
+        { x: campus.x, z: campus.z - 58 },
+        { x: campus.x - 62, z: campus.z + 46 },
+        { x: campus.x + 62, z: campus.z + 46 },
+        { x: campus.x - 62, z: campus.z - 46 },
+        { x: campus.x + 62, z: campus.z - 46 },
+      ];
+      const seat = seats.find((item) => !hitsRoad(item.x, item.z, 20, 16));
+      if (seat) {
+        strip.x = seat.x;
+        strip.z = seat.z;
+      } else {
+        strip.x = campus.x - 74;
+        strip.z = campus.z;
+        parkOffRoad(strip, 20, 16);
+      }
     }
     const airportAt = laid.get("sam-mbakwe");
     function nearAirport(x: number, z: number) {
@@ -1536,7 +1600,9 @@ export function CityWorld({
           const z = alongZ ? along : tetlowFixed + side * 14;
           const onHotel = Math.hypot(x - hotelAt.x, z - hotelAt.z) < 18;
           const onCampus = Math.abs(x - campusAt.x) < 54 && Math.abs(z - campusAt.z) < 40;
-          if (onHotel || onCampus || footHits(x, z, 4, 3)) continue;
+          const stripAt = laid.get("wetheral-strip");
+          const onStripClub = stripAt ? Math.hypot(x - stripAt.x, z - stripAt.z) < 24 : false;
+          if (onHotel || onCampus || onStripClub || footHits(x, z, 4, 3)) continue;
           if (named < names.length) {
             const shop = laid.get(names[named]);
             if (shop) {
