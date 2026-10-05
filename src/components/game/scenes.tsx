@@ -354,7 +354,153 @@ function arrangeClub(
   return placed;
 }
 
+function clubSign(title: string, color: string) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 640;
+  canvas.height = 280;
+  const pen = canvas.getContext("2d");
+  if (!pen) return new THREE.Mesh();
+  pen.fillStyle = "#120c18";
+  pen.fillRect(0, 0, 640, 280);
+  pen.fillStyle = color;
+  pen.font = "700 68px sans-serif";
+  pen.textAlign = "center";
+  pen.fillText(title.slice(0, 16).toUpperCase(), 320, 125);
+  pen.fillStyle = "#f4efe6";
+  pen.font = "600 32px sans-serif";
+  pen.fillText("OPEN TILL 5", 320, 190);
+  const board = new THREE.Mesh(
+    new THREE.PlaneGeometry(4.4, 1.9),
+    new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(canvas) }),
+  );
+  board.position.set(3.1, 2.15, -5.05);
+  return board;
+}
+
+function ClubHall({ name }: { name: string }) {
+  const host = useRef<HTMLDivElement>(null);
+  const lower = name.toLowerCase();
+  const neon = lower.includes("orange") ? "#ff8a2a" : lower.includes("channel") ? "#7dffb2" : "#f2c14e";
+
+  useEffect(() => {
+    const root = host.current;
+    if (!root) return;
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(root.clientWidth, root.clientHeight);
+    root.appendChild(renderer.domElement);
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color("#07060c");
+    scene.add(new THREE.HemisphereLight(0x3a2a4a, 0x0c0a10, 0.7));
+    const spot = new THREE.DirectionalLight(0xfff1d0, 0.85);
+    spot.position.set(2, 12, 6);
+    scene.add(spot);
+    const wash = new THREE.PointLight(lower.includes("orange") ? 0xff7a2a : 0xc4558a, 8, 16);
+    wash.position.set(0, 3.2, 0);
+    scene.add(wash);
+
+    const hall = new THREE.Group();
+    scene.add(hall);
+    const add = (mesh: THREE.Object3D) => hall.add(mesh);
+    add(piece(0x241c2e, 16, 0.12, 11, 0, 0.06, 0));
+    add(piece(0x16121c, 16.2, 3.2, 0.18, 0, 1.6, -5.4));
+    add(piece(0x16121c, 0.18, 3.2, 11, -8, 1.6, 0));
+    add(piece(0x16121c, 0.18, 3.2, 11, 8, 1.6, 0));
+    add(piece(0x2a2034, 4.2, 0.04, 4.2, 0.4, 0.14, 0.2));
+    add(piece(0x3a2848, 3.6, 0.02, 3.6, 0.4, 0.16, 0.2));
+
+    add(piece(0x1a1422, 1.3, 1.05, 7.2, -6.5, 0.55, 0.2));
+    add(piece(0xf4efe6, 1.15, 0.08, 7, -6.35, 1.1, 0.2));
+    add(piece(0x2a1c18, 0.16, 1.6, 6.4, -7.7, 1.7, -0.4));
+    for (let i = 0; i < 9; i += 1) {
+      const bottle = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.06, 0.07, 0.32, 8),
+        new THREE.MeshLambertMaterial({ color: [0xf2c14e, 0x1f6b45, 0xc4552a, 0xf6f1e6, 0x7a3e6d][i % 5] }),
+      );
+      bottle.position.set(-7.55, 2.15, -2.6 + i * 0.7);
+      add(bottle);
+    }
+    for (let i = 0; i < 4; i += 1) {
+      add(piece(0x2c241c, 0.38, 0.7, 0.38, -5.7, 0.4, -2.2 + i * 1.6));
+      add(piece(0xc4552a, 0.42, 0.08, 0.42, -5.7, 0.78, -2.2 + i * 1.6));
+    }
+
+    add(piece(0x120e16, 3.2, 0.45, 1.3, 0.2, 0.35, -4.15));
+    add(piece(0x2a241c, 1.1, 0.12, 0.55, -0.35, 0.62, -4.05));
+    add(piece(0x2a241c, 1.1, 0.12, 0.55, 0.85, 0.62, -4.05));
+    add(piece(0x101014, 0.55, 1.5, 0.45, -1.7, 0.85, -4.3));
+    add(piece(0x101014, 0.55, 1.5, 0.45, 2.15, 0.85, -4.3));
+    add(clubSign(name, neon));
+
+    const chair = (x: number, z: number, turn: number) => {
+      const group = new THREE.Group();
+      group.add(piece(0x8c2438, 0.42, 0.1, 0.42, 0, 0.48, 0));
+      group.add(piece(0x8c2438, 0.42, 0.45, 0.08, 0, 0.72, -0.18));
+      group.position.set(x, 0, z);
+      group.rotation.y = turn;
+      add(group);
+    };
+    const table = (x: number, z: number) => {
+      add(piece(0xe8e2d8, 1.35, 0.08, 1.35, x, 0.72, z));
+      add(piece(0x3a3040, 0.12, 0.6, 0.12, x, 0.38, z));
+      const candle = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffe08a }));
+      candle.position.set(x, 0.84, z);
+      add(candle);
+      add(blob(x, z, 1.7, 1.35, 0.55));
+    };
+    table(-2.3, -1.3);
+    chair(-3.15, -1.3, Math.PI / 2);
+    chair(-1.45, -1.3, -Math.PI / 2);
+    chair(-2.3, -2.15, 0);
+    table(3.4, -0.6);
+    chair(3.4, -1.5, 0);
+    chair(4.25, -0.6, -Math.PI / 2);
+    chair(2.55, -0.6, Math.PI / 2);
+    table(3.2, 2.4);
+    chair(3.2, 1.55, Math.PI);
+    chair(4.05, 2.4, -Math.PI / 2);
+
+    const plant = (x: number, z: number) => {
+      add(piece(0x3a2a22, 0.28, 0.32, 0.28, x, 0.22, z));
+      const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.7, 6), new THREE.MeshLambertMaterial({ color: 0x1f6b45 }));
+      leaf.position.set(x, 0.7, z);
+      add(leaf);
+    };
+    plant(-7.2, -4.4);
+    plant(7.2, 3.6);
+    add(piece(0xe8e2d8, 0.08, 1.5, 0.08, 5.6, 0.85, -3.4));
+    add(piece(0xf4efe6, 0.35, 0.28, 0.35, 5.6, 1.7, -3.4));
+    add(blob(-6.4, 0.2, 1.6, 6.2, 0.45));
+    add(blob(0.2, -4.15, 3.4, 1.5, 0.4));
+
+    const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 80);
+    const aim = new THREE.Vector3(8, 11, 12).normalize();
+    const fit = () => {
+      renderer.setSize(root.clientWidth || 1, root.clientHeight || 1);
+      camera.aspect = (root.clientWidth || 1) / (root.clientHeight || 1);
+      camera.updateProjectionMatrix();
+    };
+    fit();
+    camera.position.copy(aim).multiplyScalar(20);
+    camera.lookAt(0, 0.6, 0);
+    renderer.render(scene, camera);
+    const onResize = () => {
+      fit();
+      renderer.render(scene, camera);
+    };
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      renderer.dispose();
+      root.removeChild(renderer.domElement);
+    };
+  }, [name, neon, lower]);
+
+  return <div ref={host} className="absolute inset-0" />;
+}
+
 function ClubFloor({
+  name,
   username,
   people,
   shout,
@@ -364,6 +510,7 @@ function ClubFloor({
   dancing,
   onPick,
 }: {
+  name: string;
   username: string;
   people: Array<{ id: string; name: string; look: LookId | null }>;
   shout: string;
@@ -379,7 +526,8 @@ function ClubFloor({
   const buyer = spots.get(people.find((person) => person.name === (shout || username))?.id ?? "") ?? spotFor(shout || username);
 
   return (
-    <div className="ol-stage relative h-full min-h-[70vh] overflow-hidden bg-[radial-gradient(circle_at_50%_8%,#6a3478,#120810_55%)]">
+    <div className="relative h-full min-h-[70vh] overflow-hidden bg-[#07060c]">
+      <ClubHall name={name} />
       <div className="absolute inset-x-3 top-3 z-20">
         <button
           type="button"
@@ -405,32 +553,10 @@ function ClubFloor({
           </ul>
         ) : null}
       </div>
-      <ZoomStage>
-      <div className="ol-spot left-4 top-0" />
-      <div className="ol-spot right-6 top-0" style={{ animationDelay: "1.1s", background: "linear-gradient(rgba(80,140,255,.4), transparent 80%)" }} />
-      <div className="ol-world">
-        <div className="absolute left-1/2 top-16 w-40 -translate-x-1/2">
-          <div className="ol-booth mx-auto" />
-          <div className="absolute -left-6 -top-10 text-center">
-            <Human look="ada" className="mx-auto h-9 w-5" />
-            <span className="text-[9px] font-semibold">DJ</span>
-          </div>
-          <div className="group absolute -right-8 -top-10 text-center">
-            <Human look="ibe" className="mx-auto h-9 w-5" />
-            <span className="text-[9px] font-semibold">Hypeman</span>
-            <span className={`ol-tip ${service ? "ol-tip-on" : ""}`}>Make some noise for {shout}</span>
-          </div>
-        </div>
-        <div className="ol-floor">
-          <div className="ol-pad left-[28%] top-[46%]" />
-        </div>
+      <div className="pointer-events-none absolute left-1/2 top-16 z-10 -translate-x-1/2 text-center text-[10px] font-semibold text-white">
+        <span className={`ol-tip ${service ? "ol-tip-on" : ""}`}>Make some noise for {shout}</span>
       </div>
-      <Roamer className="ol-roam-1" look="emeka" name="Guest" />
-      <Roamer className="ol-roam-2" look="ngozi" name="Regular" />
-      <div className="absolute inset-0">
-        {CLUB_TABLES.map((table) => (
-          <div key={`${table.x}-${table.y}`} className="ol-table" style={{ left: `${table.x}%`, top: `${table.y}%` }} />
-        ))}
+      <div className="absolute inset-0 z-10">
         {service ? (
           <>
             <div key={`${service}-a`} className="ol-carry" style={{ "--to-x": buyer.left, "--to-y": buyer.top } as CSSProperties}>
@@ -471,7 +597,6 @@ function ClubFloor({
           />
         ))}
       </div>
-      </ZoomStage>
     </div>
   );
 }
@@ -1036,7 +1161,7 @@ export function VenueInterior({
             }}
           />
         ) : club ? (
-          <ClubFloor username={username} people={people} shout={shout} service={service} besideId={besideId} selfId={selfId} dancing={dancing} onPick={onPickPerson} />
+          <ClubFloor name={place.name} username={username} people={people} shout={shout} service={service} besideId={besideId} selfId={selfId} dancing={dancing} onPick={onPickPerson} />
         ) : acts.pickup ? (
           <PickupStreet
             people={listed.map((npc) => ({ id: npc.id, name: npc.name, asking: npc.asking ?? 0 }))}
