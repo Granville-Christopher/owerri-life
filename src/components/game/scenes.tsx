@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { DORIME_AMOUNTS, HOTEL_RATE, LOOKS, SPRAY_AMOUNTS, TREATMENT_FEE, npcsAt, placeActs, placeById } from "@/lib/game/content";
+import { DORIME_AMOUNTS, HOTEL_RATE, LOOKS, TREATMENT_FEE, npcsAt, placeActs, placeById, sprayFloor } from "@/lib/game/content";
 import type { Place } from "@/lib/game/content";
 import { naira } from "@/lib/game/format";
 import type { LookId, TravelMode } from "@/lib/game/types";
@@ -244,6 +244,7 @@ function PersonPin({
   style,
   dim,
   price,
+  dance,
   onClick,
 }: {
   name: string;
@@ -251,6 +252,7 @@ function PersonPin({
   style: CSSProperties;
   dim?: boolean;
   price?: string;
+  dance?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -262,7 +264,9 @@ function PersonPin({
       aria-label={name}
     >
       {price ? <span className="ol-price">{price}</span> : null}
-      <Human look={look} className="h-7 w-3.5" />
+      <span className={dance ? "ol-pose-dance inline-block" : "inline-block"}>
+        <Human look={look} className="h-7 w-3.5" />
+      </span>
       <NameTag name={name} />
     </button>
   );
@@ -355,6 +359,7 @@ function ClubFloor({
   service,
   besideId,
   selfId,
+  dancing,
   onPick,
 }: {
   username: string;
@@ -363,6 +368,7 @@ function ClubFloor({
   service: number;
   besideId: string | null;
   selfId: string;
+  dancing: boolean;
   onPick: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -456,6 +462,7 @@ function ClubFloor({
             name={person.name}
             look={lookFrom(person.id, person.look)}
             style={spots.get(person.id) ?? spotFor(person.name)}
+            dance={dancing && person.id === selfId}
             onClick={() => onPick(person.id)}
           />
         ))}
@@ -904,8 +911,8 @@ export function VenueInterior({
   onPickPerson: (id: string) => void;
   onDorime: (amount: number) => Promise<{ ok: boolean }>;
   onDrink: () => void;
-  onSpray: (amount: number) => void;
-  onDance: () => void;
+  onSpray: (amount: number) => Promise<{ ok: boolean }>;
+  onDance: () => Promise<{ ok: boolean }>;
   onFood: () => void;
   onBook: (stay: "night" | "hour") => void;
   onOffer: (npcId: string, offer: number, hotelId: string) => Promise<{ ok: boolean }>;
@@ -918,10 +925,12 @@ export function VenueInterior({
   sick: "none" | "mild" | "severe";
 }) {
   const acts = placeActs(place);
-  const [notes, setNotes] = useState<number[]>([]);
+  const [notes, setNotes] = useState<Array<{ id: number; count: number }>>([]);
+  const [sprayText, setSprayText] = useState("");
   const [dark, setDark] = useState(false);
   const [shout, setShout] = useState(username);
   const [service, setService] = useState(0);
+  const [dancing, setDancing] = useState(false);
   const [lying, setLying] = useState(false);
   const slept = useRef(false);
   const club = acts.dance;
@@ -964,7 +973,7 @@ export function VenueInterior({
             }}
           />
         ) : club ? (
-          <ClubFloor username={username} people={people} shout={shout} service={service} besideId={besideId} selfId={selfId} onPick={onPickPerson} />
+          <ClubFloor username={username} people={people} shout={shout} service={service} besideId={besideId} selfId={selfId} dancing={dancing} onPick={onPickPerson} />
         ) : acts.pickup ? (
           <PickupStreet
             people={listed.map((npc) => ({ id: npc.id, name: npc.name, asking: npc.asking ?? 0 }))}
@@ -984,14 +993,18 @@ export function VenueInterior({
             <RoomScene look={look} kind={place.kind} people={people} besideId={besideId} selfId={selfId} onPick={onPickPerson} />
           </>
         )}
-        {notes.map((id) => (
-          <span key={id} className="pointer-events-none absolute inset-x-6 bottom-8 top-6">
-            {Array.from({ length: 9 }, (_, index) => (
+        {notes.map((burst) => (
+          <span key={burst.id} className="pointer-events-none absolute inset-x-4 bottom-6 top-4">
+            {Array.from({ length: burst.count }, (_, index) => (
               <span
                 key={index}
                 className="ol-cash"
-                style={{ left: `${6 + index * 10}%`, animationDelay: `${index * 0.08}s`, animationDuration: `${2.2 + (index % 3) * 0.35}s` }}
-                onAnimationEnd={index === 8 ? () => setNotes((current) => current.filter((item) => item !== id)) : undefined}
+                style={{
+                  left: `${(index * 37) % 92}%`,
+                  animationDelay: `${(index % 12) * 0.06}s`,
+                  animationDuration: `${1.8 + (index % 5) * 0.28}s`,
+                }}
+                onAnimationEnd={index === burst.count - 1 ? () => setNotes((current) => current.filter((item) => item.id !== burst.id)) : undefined}
               />
             ))}
           </span>
@@ -1027,28 +1040,42 @@ export function VenueInterior({
           </button>
         ) : null}
         {!inRoom && acts.dance ? (
-          <button disabled={pending} onClick={onDance} className="rounded-full border border-white/20 py-2 text-sm font-semibold disabled:opacity-40">
-            Dance
+          <button
+            disabled={pending}
+            onClick={async () => {
+              const result = await onDance();
+              if (result.ok) setDancing(true);
+            }}
+            className="rounded-full border border-white/20 py-2 text-sm font-semibold disabled:opacity-40"
+          >
+            {dancing ? "Still dancing" : "Dance"}
           </button>
         ) : null}
         {!inRoom && acts.spray ? (
-          <div className="flex gap-2">
-            {SPRAY_AMOUNTS.map((amount) => (
-              <button
-                key={amount}
-                disabled={pending}
-                onClick={() => {
-                  const id = Date.now();
-                  setNotes((current) => [...current, id]);
-                  window.setTimeout(() => setNotes((current) => current.filter((item) => item !== id)), 3400);
-                  onSpray(amount);
-                }}
-                className="flex-1 rounded-full border border-[#e0b15a]/50 py-2 text-xs font-semibold text-[#e0b15a] disabled:opacity-40"
-              >
-                Spray {naira(amount)}
-              </button>
-            ))}
-          </div>
+          <form
+            className="grid grid-cols-[1fr_auto] gap-2"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              const amount = Math.round(Number(sprayText.replace(/[^\d]/g, "")));
+              const result = await onSpray(amount);
+              if (!result.ok) return;
+              const id = Date.now();
+              const count = Math.min(72, Math.max(8, Math.round(Math.sqrt(amount / 1000) * 4)));
+              setNotes((current) => [...current, { id, count }]);
+              window.setTimeout(() => setNotes((current) => current.filter((item) => item.id !== id)), 3200 + count * 40);
+            }}
+          >
+            <input
+              inputMode="numeric"
+              value={sprayText}
+              onChange={(event) => setSprayText(event.target.value.replace(/[^\d]/g, ""))}
+              placeholder={`From ${naira(sprayFloor(place.id))}`}
+              className="rounded-full border border-[#e0b15a]/50 bg-transparent px-3 py-2 text-sm text-[#f6f1e6]"
+            />
+            <button disabled={pending} className="rounded-full border border-[#e0b15a]/50 px-4 text-xs font-semibold text-[#e0b15a] disabled:opacity-40">
+              Spray
+            </button>
+          </form>
         ) : null}
         {inRoom ? (
           <div className="grid gap-2">
@@ -1083,7 +1110,14 @@ export function VenueInterior({
           </div>
         ) : null}
         {acts.pickup ? <p className="text-xs text-[#d5e4d8]">The price sits on her head. If you can meet it, she goes with you and you pick the hotel. If you cannot, check the others.</p> : null}
-        <button type="button" onClick={onOutside} className="text-xs text-[#d5e4d8]">
+        <button
+          type="button"
+          onClick={() => {
+            setDancing(false);
+            onOutside();
+          }}
+          className="text-xs text-[#d5e4d8]"
+        >
           Step outside
         </button>
       </div>

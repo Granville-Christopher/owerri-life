@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { InstallButton } from "@/components/InstallApp";
 import { currentPlayer } from "@/lib/game/auth";
 
 export const dynamic = "force-dynamic";
@@ -46,7 +47,7 @@ const districts = [
   },
   {
     title: "Schools",
-    detail: "Apply, get admitted in the morning, sit the lecture, or drop out.",
+    detail: "Apply and you are admitted. Pay the fees, sit the lecture, or drop out.",
     places: ["IMSU", "FUTO", "Federal Polytechnic Nekede"],
   },
   {
@@ -76,6 +77,8 @@ export default async function HomePage() {
       <div className="mx-auto max-w-6xl px-5 py-8 md:py-12">
         <header className="flex items-center justify-between gap-4">
           <p className="font-display text-xl tracking-tight">Owerri Life</p>
+          <div className="flex items-center gap-2">
+            <InstallButton />
           {player ? (
             <Link href="/play" className="rounded-full bg-[#f6f1e8] px-4 py-2 text-sm font-semibold text-[#09090b]">
               Back to the city
@@ -85,6 +88,7 @@ export default async function HomePage() {
               Sign in
             </Link>
           )}
+          </div>
         </header>
 
         <section className="relative mt-10 overflow-hidden rounded-[2rem] bg-[#f6f1e8] text-[#09090b] md:mt-14">

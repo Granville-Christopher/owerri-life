@@ -17,6 +17,7 @@ import {
   npcsAt,
   placeById,
   plotById,
+  sprayFloor,
 } from "./content";
 import { averageNeeds, clamp, levelPay, naira, skillNeeded, stamp, weekday } from "./format";
 import {
@@ -372,7 +373,7 @@ export function dorime(player: Player, ledger: LedgerEntry[], amount: number): S
     next.needs.fun = clamp(next.needs.fun + lift);
     next.needs.social = clamp(next.needs.social + lift);
     next.needs.bladder = clamp(next.needs.bladder - 8);
-  }, `Dorime for ${naira(cost)}. The waiters are carrying it to ${player.username}.`);
+  }, `${player.username} did dorime · ${naira(cost)}.`);
 }
 
 export function buyDrink(player: Player, ledger: LedgerEntry[]): Step {
@@ -392,11 +393,13 @@ export function sprayMoney(player: Player, ledger: LedgerEntry[], amount: number
   if (!club) return fail(player, ledger, "Spraying money is for the club floor.");
   if (!player.indoors) return fail(player, ledger, "Enter the club first.");
   const cost = Math.round(amount);
-  if (![2000, 5000, 20000].includes(cost)) return fail(player, ledger, "Pick ₦2,000, ₦5,000, or ₦20,000.");
+  const floor = sprayFloor(player.locationId);
+  if (!Number.isFinite(cost) || cost < floor) return fail(player, ledger, `${place.name} starts at ${naira(floor)}.`);
+  if (cost > 20_000_000) return fail(player, ledger, "That spray is too large for one shout.");
   return spendTime(player, ledger, 1, cost, `Spray · ${place.name}`, (next) => {
     next.needs.fun = clamp(next.needs.fun + 18);
     next.needs.social = clamp(next.needs.social + 22);
-  }, `You sprayed ${naira(cost)} on the floor.`);
+  }, `${player.username} sprayed ${naira(cost)}.`);
 }
 
 export function dance(player: Player, ledger: LedgerEntry[]): Step {
@@ -463,19 +466,28 @@ export function leaveRoom(player: Player, ledger: LedgerEntry[]): Step {
 export function applyCourse(player: Player, ledger: LedgerEntry[], courseId: string): Step {
   const course = COURSES.find((item) => item.id === courseId);
   if (!course) return fail(player, ledger, "That course is not offered.");
+  if (player.school) {
+    const held = courseById(player.school.courseId);
+    const heldSchool = placeById(player.school.schoolId).name;
+    const reason =
+      player.school.status === "admitted"
+        ? `You are already admitted to ${heldSchool} to study ${held.name}. Drop out of your current school if you want another one.`
+        : `You already applied to study ${held.name} at ${heldSchool}. Drop out if you want another school.`;
+    return fail(player, ledger, reason);
+  }
   if (player.locationId !== course.schoolId || !player.indoors) return fail(player, ledger, "Apply inside the school.");
-  if (player.school) return fail(player, ledger, "Drop out before you apply somewhere else.");
   const appliedOnDay = player.day;
+  const schoolName = placeById(course.schoolId).name;
   return spendTime(player, ledger, 1, course.applyFee, `Application · ${course.name}`, (next) => {
     next.school = {
       schoolId: course.schoolId,
       courseId: course.id,
-      status: "applied",
+      status: "admitted",
       appliedOnDay,
       attendedOnDay: null,
       feesPaid: false,
     };
-  }, `Application in for ${course.name} at ${placeById(course.schoolId).name}. Admission comes after midnight.`);
+  }, `Congratulations. You have been admitted to ${schoolName} to study ${course.name}.`);
 }
 
 export function paySchoolFees(player: Player, ledger: LedgerEntry[]): Step {

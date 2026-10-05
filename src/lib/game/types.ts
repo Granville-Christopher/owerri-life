@@ -174,6 +174,16 @@ export interface Bet {
   legs: SlipLeg[];
 }
 
+export interface FloorCall {
+  id: string;
+  venueId: string;
+  fromId: string;
+  fromName: string;
+  kind: "spray" | "dorime";
+  amount: number;
+  at: number;
+}
+
 export interface FriendRequest {
   id: string;
   fromId: string;
@@ -189,6 +199,7 @@ export interface DB {
   fixtures: Fixture[];
   bets: Bet[];
   requests: FriendRequest[];
+  calls: FloorCall[];
 }
 
 export interface CreateInput {

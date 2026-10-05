@@ -513,7 +513,7 @@ export const PLACES: Place[] = [
     y: 14,
     hours: "08:00 – 16:00",
     tier: "University",
-    summary: "Imo State University, Owerri campus. Apply for a course, get admitted in the morning, then sit your lectures.",
+    summary: "Imo State University, Owerri campus. Apply for a course and you are admitted. Pay the fees, then sit your lectures.",
     activities: ["Apply", "Lectures", "Drop out"],
   },
   {
@@ -525,7 +525,7 @@ export const PLACES: Place[] = [
     y: 74,
     hours: "08:00 – 16:00",
     tier: "University",
-    summary: "Federal University of Technology, Owerri. The campus is in Ihiagwa. Apply, attend, or drop out.",
+    summary: "Federal University of Technology, Owerri. The campus is in Ihiagwa. Apply and you are admitted, or visit and meet people.",
     activities: ["Apply", "Lectures", "Drop out"],
   },
   {
@@ -537,7 +537,7 @@ export const PLACES: Place[] = [
     y: 88,
     hours: "08:00 – 16:00",
     tier: "Polytechnic",
-    summary: "Federal Polytechnic, Nekede. Courses, lecture times, and a registrar's desk.",
+    summary: "Federal Polytechnic, Nekede. Apply and you are admitted. You can also visit to meet people.",
     activities: ["Apply", "Lectures", "Drop out"],
   },
   {
@@ -1012,26 +1012,26 @@ export const DRINK_PRICE: Record<string, number> = {
 };
 
 export const PLATE: Record<string, { cost: number; hunger: number; name: string }> = {
-  "mama-nkechi": { cost: 800, hunger: 50, name: "Buka plate" },
-  "mangrove-grill": { cost: 4500, hunger: 65, name: "Mangrove plate" },
-  donalds: { cost: 2200, hunger: 55, name: "Donald's plate" },
-  kilimanjaro: { cost: 2500, hunger: 55, name: "Kilimanjaro plate" },
-  "november-5": { cost: 2800, hunger: 58, name: "November 5 plate" },
-  "zuma-grill": { cost: 6000, hunger: 60, name: "Zuma plate" },
-  "ibari-village": { cost: 1800, hunger: 48, name: "Local plate" },
-  "oguta-lake": { cost: 3000, hunger: 50, name: "Pepper soup" },
-  "relief-market": { cost: 700, hunger: 40, name: "Street food" },
-  "owerri-mall": { cost: 2500, hunger: 45, name: "Food court" },
-  "cartel-beach": { cost: 3500, hunger: 52, name: "Beach grill" },
-  "heartland-resort": { cost: 2500, hunger: 48, name: "Vendor plate" },
-  "all-seasons": { cost: 6500, hunger: 62, name: "Hotel plate" },
-  "oxygen-resort": { cost: 5000, hunger: 58, name: "Grill plate" },
-  "ibis-royale": { cost: 4500, hunger: 55, name: "Hotel plate" },
-  "josephs-pot": { cost: 5500, hunger: 70, name: "Ofe Owerri" },
-  feedwell: { cost: 3800, hunger: 62, name: "Ikenegbu plate" },
-  crunchies: { cost: 2500, hunger: 50, name: "Fried chicken" },
-  "de-bernards": { cost: 4500, hunger: 58, name: "Hotel plate" },
-  "kavana-hotel": { cost: 3500, hunger: 55, name: "Food court plate" },
+  "mama-nkechi": { cost: 5000, hunger: 50, name: "Buka plate" },
+  "relief-market": { cost: 5000, hunger: 40, name: "Street food" },
+  "heartland-resort": { cost: 5000, hunger: 48, name: "Vendor plate" },
+  "ibari-village": { cost: 10000, hunger: 48, name: "Local plate" },
+  crunchies: { cost: 10000, hunger: 50, name: "Fried chicken" },
+  "cartel-beach": { cost: 10000, hunger: 52, name: "Beach grill" },
+  "oguta-lake": { cost: 10000, hunger: 50, name: "Pepper soup" },
+  "kavana-hotel": { cost: 10000, hunger: 55, name: "Food court plate" },
+  "owerri-mall": { cost: 10000, hunger: 45, name: "Food court" },
+  donalds: { cost: 20000, hunger: 55, name: "Donald's plate" },
+  kilimanjaro: { cost: 20000, hunger: 55, name: "Kilimanjaro plate" },
+  "november-5": { cost: 20000, hunger: 58, name: "November 5 plate" },
+  feedwell: { cost: 20000, hunger: 62, name: "Ikenegbu plate" },
+  "ibis-royale": { cost: 20000, hunger: 55, name: "Hotel plate" },
+  "de-bernards": { cost: 20000, hunger: 58, name: "Hotel plate" },
+  "mangrove-grill": { cost: 30000, hunger: 65, name: "Mangrove plate" },
+  "josephs-pot": { cost: 30000, hunger: 70, name: "Ofe Owerri" },
+  "zuma-grill": { cost: 30000, hunger: 60, name: "Zuma plate" },
+  "all-seasons": { cost: 30000, hunger: 62, name: "Hotel plate" },
+  "oxygen-resort": { cost: 30000, hunger: 58, name: "Grill plate" },
 };
 
 export const HOTEL_RATE: Record<string, { night: number; hour: number }> = {
@@ -1063,7 +1063,14 @@ export const HOTEL_RATE: Record<string, { night: number; hour: number }> = {
   "diamond-cruz": { night: 24000, hour: 5500 },
 };
 
-export const SPRAY_AMOUNTS = [2000, 5000, 20000] as const;
+export const SPRAY_FLOOR: Record<string, number> = {
+  "wetheral-strip": 100_000,
+  "cartel-lounge": 200_000,
+};
+
+export function sprayFloor(placeId: string) {
+  return SPRAY_FLOOR[placeId] ?? 150_000;
+}
 
 export const DORIME_AMOUNTS = [2000, 5000, 10000, 20000] as const;
 

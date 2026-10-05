@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/Avatar";
+import { InstallButton } from "@/components/InstallApp";
 import { ArrivalScene, VenueInterior } from "@/components/game/scenes";
 import {
   acceptFriendRequest,
@@ -60,7 +61,7 @@ import {
   useRestroom,
   go,
 } from "@/lib/game/actions";
-import { BET_STAKES, CAREERS, DREAMS, HOMES, LANDS, NPCS, PLACES, TOP_UPS, TRAITS, TREATMENT_FEE, TRIPS, careerById, coursesAt, homeById, lectureLabel, placeById } from "@/lib/game/content";
+import { BET_STAKES, CAREERS, DREAMS, HOMES, LANDS, NPCS, PLACES, TOP_UPS, TRAITS, TREATMENT_FEE, TRIPS, careerById, coursesAt, homeById, lectureLabel, placeById, type Course } from "@/lib/game/content";
 import { POLICE_ID, multiplyOdds, travelOptions } from "@/lib/game/engine";
 import { clockLabel, dreamProgress, jobTitle, levelPay, moodLabel, naira, skillLabel, skillNeeded, weekday } from "@/lib/game/format";
 import type { GameView, PersonCard } from "@/lib/game/queries";
@@ -119,8 +120,22 @@ export function GameShell({ view }: { view: GameView }) {
     }, 4800);
   }
 
+  useEffect(() => {
+    const place = placeById(view.me.locationId);
+    const club = view.me.indoors && (place.kind === "nightlife" || place.id === "concord-hotel");
+    if (!club) return;
+    const timer = window.setInterval(() => router.refresh(), 5000);
+    return () => window.clearInterval(timer);
+  }, [router, view.me.indoors, view.me.locationId]);
+
   const person = [...view.nearby, ...view.known, ...view.city].find((item) => item.id === personId) ?? null;
   const me = view.me;
+  const crowd = [...view.calls].reverse().find((call) => call.fromId !== me.id);
+  const crowdText = crowd
+    ? crowd.kind === "spray"
+      ? `${crowd.fromName} sprayed ${naira(crowd.amount)}`
+      : `${crowd.fromName} did dorime · ${naira(crowd.amount)}`
+    : null;
   const [phone, setPhone] = useState<HTMLDivElement | null>(null);
 
   return (
@@ -137,6 +152,7 @@ export function GameShell({ view }: { view: GameView }) {
             </button>
             <div className="shrink-0 text-right">
               <div className="flex items-center justify-end gap-2">
+                <InstallButton />
                 <button type="button" className="font-semibold" aria-label="Your balance" onClick={() => setTopUpOpen(true)}>
                   {naira(view.balance)}
                 </button>
@@ -155,6 +171,10 @@ export function GameShell({ view }: { view: GameView }) {
             onAnimationEnd={() => setToast(null)}
           >
             {toast.text}
+          </p>
+        ) : crowdText ? (
+          <p className="pointer-events-none absolute inset-x-3 top-[4.5rem] z-30 rounded-2xl bg-[#e5f2df] px-3 py-2 text-sm text-[#143d2c] shadow-lg">
+            {crowdText}
           </p>
         ) : null}
         <main className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
@@ -535,11 +555,15 @@ function MapPanel({
 }) {
   const [picked, setPicked] = useState<string | null>(null);
   const [chat, setChat] = useState("");
+  const [groupOpen, setGroupOpen] = useState(false);
   const [groupReply, setGroupReply] = useState<{ id: string; fromName: string; text: string } | null>(null);
   const [filter, setFilter] = useState<"all" | "nightlife" | "food" | "hotel" | "pickup" | "market" | "school" | "airport" | "health" | "city">("all");
   const [query, setQuery] = useState("");
   const [leftAt, setLeftAt] = useState<string | null>(null);
   const [sheet, setSheet] = useState<null | "list" | "place" | "courses">(null);
+  const [visit, setVisit] = useState(0);
+  const [closedVisit, setClosedVisit] = useState(-1);
+  const [admission, setAdmission] = useState<null | { school: string; course: string; when: string; fee: number }>(null);
   const [returnToList, setReturnToList] = useState(false);
   const mapFrame = useRef<HTMLDivElement>(null);
   const mapView = useRef({ zoom: 1, x: 0, y: 0 });
@@ -679,7 +703,13 @@ function MapPanel({
           ride={view.me.lastRide}
           look={view.me.look}
           pending={pending}
-          onEnter={() => run(enterDoor)}
+          onEnter={() => {
+            const entering = placeById(view.me.locationId);
+            const already = Boolean(view.me.school);
+            run(enterDoor).then((result) => {
+              if (result.ok && entering.kind === "school" && !already) setVisit((value) => value + 1);
+            });
+          }}
           onLeave={() => setLeftAt(view.me.locationId)}
         />
       ) : null}
@@ -713,68 +743,83 @@ function MapPanel({
         />
       ) : null}
       {here ? (
-        <section className="rounded-[1.6rem] bg-white p-3 shadow-sm">
-          <div className="flex items-baseline justify-between">
-            <h3 className="font-display text-2xl">{place.name}</h3>
+        <section className="flex items-center justify-between gap-3 rounded-[1.6rem] bg-white p-3 shadow-sm">
+          <div className="min-w-0">
+            <h3 className="truncate font-display text-2xl">{place.name}</h3>
             <p className="text-sm font-semibold text-[#1f6b45]">{view.nearby.length} here</p>
           </div>
-          <p className="mt-1 text-xs leading-5 text-[#5d6b62]">Group chat. Everyone at {place.name} sees these messages. Swipe a line left to reply, right to delete yours. Tap a person to tag them.</p>
-          {view.nearby.length === 0 ? <p className="mt-2 text-sm text-[#5d6b62]">Quiet for now.</p> : (
-            <div className="mt-3 flex gap-3 overflow-x-auto pb-1">
-              {view.nearby.map((person) => (
-                <div key={person.id} className="flex w-16 shrink-0 flex-col items-center gap-1 text-center">
-                  <button type="button" className="flex w-full flex-col items-center gap-1" onClick={() => onOpen(person.id)}>
-                    <Avatar look={person.look} name={person.name} size={52} />
-                    <span className="w-full truncate text-xs font-semibold">{person.name}</span>
-                    <span className="w-full truncate text-[10px] text-[#5d6b62]">{person.role}</span>
-                  </button>
-                  <button type="button" className="text-[10px] font-semibold text-[#1f6b45]" onClick={() => setChat((current) => `${current}${current.endsWith(" ") || current.length === 0 ? "" : " "}@${person.name} `)}>Tag</button>
-                </div>
-              ))}
-            </div>
-          )}
-          <div className="mt-3 max-h-64 space-y-2 overflow-y-auto rounded-2xl bg-[#efe4d2] px-2 py-2">
-            {view.chat.length === 0 ? <p className="px-1 py-2 text-sm text-[#5d6b62]">No messages yet. What you send shows up for everyone here.</p> : null}
-            {view.chat.map((line) => (
-              <SwipeMessage
-                key={line.id}
-                mine={line.fromId === view.me.id}
-                onReply={() => setGroupReply({ id: line.id, fromName: line.fromName, text: line.text })}
-                onDelete={() => run(() => deleteVenueLine(line.id))}
-              >
-                <div className={`rounded-2xl px-3 py-2 ${line.fromId === view.me.id ? "bg-[#d8f3dc] text-[#143d2c]" : "bg-white"}`}>
-                  <p className="text-[10px] font-semibold text-[#5d6b62]">{line.fromName}</p>
-                  {line.replyTo ? <Quote from={line.replyTo.fromName} text={line.replyTo.text} /> : null}
-                  <p className="text-sm"><MentionText text={line.text} names={view.nearby.map((person) => person.name)} /></p>
-                  <p className="mt-1 text-[10px] text-[#5d6b62]">{line.at}</p>
-                </div>
-              </SwipeMessage>
-            ))}
-          </div>
-          {groupReply ? <ReplyBar reply={groupReply} onClear={() => setGroupReply(null)} /> : null}
-          {mentionQuery(chat) != null ? (
-            <div className="mt-2 flex gap-2 overflow-x-auto">
-              {view.nearby.filter((person) => person.name.toLowerCase().includes((mentionQuery(chat) ?? "").toLowerCase())).map((person) => (
-                <button key={person.id} type="button" className="shrink-0 rounded-full bg-[#efe4d2] px-3 py-1 text-xs font-semibold" onClick={() => setChat((current) => current.replace(/@[^\s@]*$/, `@${person.name} `))}>@{person.name}</button>
-              ))}
-            </div>
-          ) : null}
-          <form
-            className="mt-3 flex gap-2"
-            onSubmit={(event) => {
-              event.preventDefault();
-              const text = chat;
-              const reply = groupReply;
-              setChat("");
-              setGroupReply(null);
-              run(() => sayInVenue(text, reply));
-            }}
-          >
-            <input value={chat} onChange={(event) => setChat(event.target.value)} className="min-w-0 flex-1 rounded-full border border-[#e4d8c4] bg-[#fffaf2] px-3 py-2 text-sm" placeholder="Message the group" />
-            <button className="rounded-full bg-[#1f6b45] px-3 py-2 text-sm font-semibold text-[#f6f1e6]" disabled={pending}>Send</button>
-          </form>
+          <button type="button" onClick={() => setGroupOpen(true)} className="shrink-0 rounded-full bg-[#1f6b45] px-4 py-2 text-sm font-semibold text-[#f6f1e6]">
+            Open chat
+          </button>
         </section>
       ) : null}
+      {here && groupOpen && sheetRoot
+        ? createPortal(
+            <div className="absolute inset-x-0 bottom-0 top-16 z-20 flex flex-col overflow-hidden bg-[#efe4d2]">
+              <div className="flex items-center gap-3 bg-[#143d2c] px-3 py-3 text-[#f6f1e6]">
+                <button type="button" className="text-sm font-semibold" onClick={() => setGroupOpen(false)}>Back</button>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-semibold">{place.name}</span>
+                  <span className="block text-xs text-[#d5e4d8]">Everyone here</span>
+                </span>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+                <div className="flex min-h-full flex-col justify-end gap-2">
+                  {view.chat.length === 0 ? <p className="text-sm text-[#5d6b62]">No messages yet. What you send shows up for everyone here.</p> : null}
+                  {view.chat.map((line) => (
+                    <div key={line.id} className={`max-w-[80%] ${line.fromId === view.me.id ? "self-end" : "self-start"}`}>
+                      <SwipeMessage
+                        mine={line.fromId === view.me.id}
+                        onReply={() => setGroupReply({ id: line.id, fromName: line.fromName, text: line.text })}
+                        onDelete={() => run(() => deleteVenueLine(line.id))}
+                      >
+                        <div className={`rounded-2xl px-3 py-2 ${line.fromId === view.me.id ? "rounded-br-sm bg-[#d8f3dc] text-[#143d2c]" : "rounded-bl-sm bg-white"}`}>
+                          <p className="text-[10px] font-semibold text-[#5d6b62]">{line.fromName}</p>
+                          {line.replyTo ? <Quote from={line.replyTo.fromName} text={line.replyTo.text} /> : null}
+                          <p className="text-sm"><MentionText text={line.text} names={view.nearby.map((person) => person.name)} /></p>
+                          <p className={`mt-1 text-[10px] text-[#5d6b62] ${line.fromId === view.me.id ? "text-right" : ""}`}>{line.at}</p>
+                        </div>
+                      </SwipeMessage>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-[#fffaf2] p-2">
+                <p className="px-1 pb-2 text-[10px] text-[#5d6b62]">Swipe left to reply. Swipe right to delete a message you sent.</p>
+                {view.nearby.length > 0 ? (
+                  <div className="mb-2 flex gap-2 overflow-x-auto">
+                    {view.nearby.map((person) => (
+                      <button key={person.id} type="button" className="shrink-0 rounded-full bg-[#efe4d2] px-3 py-1 text-xs font-semibold" onClick={() => setChat((current) => `${current}${current.endsWith(" ") || current.length === 0 ? "" : " "}@${person.name} `)}>@{person.name}</button>
+                    ))}
+                  </div>
+                ) : null}
+                {groupReply ? <ReplyBar reply={groupReply} onClear={() => setGroupReply(null)} /> : null}
+                {mentionQuery(chat) != null ? (
+                  <div className="mb-2 flex gap-2 overflow-x-auto">
+                    {view.nearby.filter((person) => person.name.toLowerCase().includes((mentionQuery(chat) ?? "").toLowerCase())).map((person) => (
+                      <button key={person.id} type="button" className="shrink-0 rounded-full bg-[#efe4d2] px-3 py-1 text-xs font-semibold" onClick={() => setChat((current) => current.replace(/@[^\s@]*$/, `@${person.name} `))}>@{person.name}</button>
+                    ))}
+                  </div>
+                ) : null}
+                <form
+                  className="flex gap-2"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    const text = chat;
+                    const reply = groupReply;
+                    setChat("");
+                    setGroupReply(null);
+                    run(() => sayInVenue(text, reply));
+                  }}
+                >
+                  <input value={chat} onChange={(event) => setChat(event.target.value)} className="min-w-0 flex-1 rounded-full border border-[#e4d8c4] bg-white px-3 py-2 text-sm" placeholder="Message the group" />
+                  <button className="rounded-full bg-[#1f6b45] px-4 py-2 text-sm font-semibold text-[#f6f1e6]" disabled={pending}>Send</button>
+                </form>
+              </div>
+            </div>,
+            sheetRoot,
+          )
+        : null}
       <div
         ref={mapFrame}
         className="relative aspect-square touch-none overflow-hidden rounded-[1.6rem] bg-[#cfe4d4]"
@@ -1040,13 +1085,61 @@ function MapPanel({
               ) : null}
             </div>
           )}
-          {coursesAt(place.id).length > 0 ? (
+          {place.kind === "school" && here && view.me.indoors ? (
             <div className="mt-4">
-              <CourseCatalogue view={view} run={run} pending={pending} schoolId={place.id} />
+              {view.me.school?.school === place.name ? (
+                <CourseCatalogue view={view} run={run} pending={pending} schoolId={place.id} enrolledOnly />
+              ) : view.me.school ? (
+                <p className="rounded-2xl bg-white px-3 py-3 text-sm text-[#5d6b62]">
+                  {view.me.school.status === "admitted"
+                    ? `You are already admitted to ${view.me.school.school} to study ${view.me.school.course}. Drop out of that school if you want to apply here. You can still meet people on this campus.`
+                    : `You already applied to study ${view.me.school.course} at ${view.me.school.school}. Drop out if you want another school. You can still meet people on this campus.`}
+                </p>
+              ) : (
+                <Action disabled={pending} onClick={() => setVisit((value) => value + 1)}>Apply for admission</Action>
+              )}
             </div>
           ) : null}
         </SlideSheet>
             ),
+            sheetRoot,
+          )
+        : null}
+      {view.me.indoors && !view.me.school && placeById(view.me.locationId).kind === "school" && visit !== closedVisit && sheetRoot
+        ? createPortal(
+            <SlideSheet label="Admission" title={placeById(view.me.locationId).name} detail="Pick a course. The application fee comes off now, and you are admitted." onClose={() => setClosedVisit(visit)}>
+              <CourseCatalogue
+                view={view}
+                run={run}
+                pending={pending}
+                schoolId={view.me.locationId}
+                onApplied={(course) => {
+                  setClosedVisit(visit);
+                  setAdmission({
+                    school: placeById(view.me.locationId).name,
+                    course: course.name,
+                    when: lectureLabel(course),
+                    fee: course.fee,
+                  });
+                }}
+              />
+            </SlideSheet>,
+            sheetRoot,
+          )
+        : null}
+      {admission && sheetRoot
+        ? createPortal(
+            <SlideSheet label="Admission" title="Congratulations" onClose={() => setAdmission(null)}>
+              <p className="text-sm leading-6">
+                You have been admitted to {admission.school} to study {admission.course}. Lectures hold {admission.when}. Pay the school fees of {naira(admission.fee)} at the school before you sit a class.
+              </p>
+              <p className="mt-3 text-sm leading-6 text-[#5d6b62]">
+                You can visit another campus to meet people. You cannot apply there until you drop out of {admission.school}.
+              </p>
+              <button type="button" onClick={() => setAdmission(null)} className="mt-4 w-full rounded-full bg-[#1f6b45] py-3 text-sm font-semibold text-[#f6f1e6]">
+                Enter the school
+              </button>
+            </SlideSheet>,
             sheetRoot,
           )
         : null}
@@ -1222,11 +1315,15 @@ function CourseCatalogue({
   run,
   pending,
   schoolId,
+  enrolledOnly,
+  onApplied,
 }: {
   view: GameView;
   run: Run;
   pending: boolean;
   schoolId?: string;
+  enrolledOnly?: boolean;
+  onApplied?: (course: Course) => void;
 }) {
   const schools = PLACES.filter((place) => place.kind === "school" && (!schoolId || place.id === schoolId));
   const mine = view.me.school;
@@ -1234,21 +1331,25 @@ function CourseCatalogue({
 
   return (
     <div className="grid gap-4">
-      <div className="rounded-2xl bg-[#143d2c] px-3 py-3 text-[#f6f1e6]">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#d5e4d8]">Bank balance</p>
-        <p className="font-display text-3xl leading-none">{naira(balance)}</p>
-        <p className="mt-1 text-xs text-[#d5e4d8]">Application comes off now. School fees come off after you are admitted.</p>
-      </div>
+      {enrolledOnly ? null : (
+        <div className="rounded-2xl bg-[#143d2c] px-3 py-3 text-[#f6f1e6]">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#d5e4d8]">Bank balance</p>
+          <p className="font-display text-3xl leading-none">{naira(balance)}</p>
+          <p className="mt-1 text-xs text-[#d5e4d8]">The application fee comes off now and you are admitted. School fees come off before lectures.</p>
+        </div>
+      )}
       {schools.map((school) => {
         const offered = coursesAt(school.id);
         const inside = view.me.locationId === school.id && view.me.indoors;
         const enrolledHere = mine?.school === school.name;
         return (
           <section key={school.id} className="grid gap-2">
-            <div className="flex items-baseline justify-between gap-2">
-              <h3 className="font-semibold">{school.name}</h3>
-              <p className="text-xs text-[#5d6b62]">{offered.length} {offered.length === 1 ? "course" : "courses"}</p>
-            </div>
+            {enrolledOnly ? null : (
+              <div className="flex items-baseline justify-between gap-2">
+                <h3 className="font-semibold">{school.name}</h3>
+                <p className="text-xs text-[#5d6b62]">{offered.length} {offered.length === 1 ? "course" : "courses"}</p>
+              </div>
+            )}
             {enrolledHere && mine ? (
               <div className="rounded-2xl bg-white px-3 py-3 text-sm">
                 <p className="font-semibold">{mine.course}</p>
@@ -1267,7 +1368,7 @@ function CourseCatalogue({
                 <button className="mt-2 text-xs font-semibold text-[#b5523a]" disabled={pending} onClick={() => run(leaveSchool)}>Drop out</button>
               </div>
             ) : null}
-            {offered.map((course) => {
+            {enrolledOnly ? null : offered.map((course) => {
               const afterApply = balance - course.applyFee;
               const afterFees = afterApply - course.fee;
               const canApply = inside && !mine && afterApply >= 0;
@@ -1286,11 +1387,15 @@ function CourseCatalogue({
                   </p>
                   <button
                     type="button"
-                    disabled={pending || !canApply}
-                    onClick={() => run(() => applyForCourse(course.id))}
+                    disabled={pending || (!mine && !canApply)}
+                    onClick={() => {
+                      run(() => applyForCourse(course.id)).then((result) => {
+                        if (result.ok) onApplied?.(course);
+                      });
+                    }}
                     className="mt-2 w-full rounded-full bg-[#1f6b45] py-1.5 text-xs font-semibold text-[#f6f1e6] disabled:opacity-40"
                   >
-                    {mine ? "One course at a time" : inside ? `Apply · −${naira(course.applyFee)}` : `Enter ${school.name} to apply`}
+                    {mine ? "Apply" : inside ? `Apply · −${naira(course.applyFee)}` : `Enter ${school.name} to apply`}
                   </button>
                 </article>
               );

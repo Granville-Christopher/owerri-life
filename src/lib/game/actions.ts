@@ -322,14 +322,45 @@ export async function goOutside() {
 export async function takeDrink() {
   return withPlayer((id) => simple(id, buyDrink));
 }
+function announce(db: import("./types").DB, player: import("./types").Player, kind: "spray" | "dorime", amount: number) {
+  const now = Date.now();
+  const calls = db.calls ?? [];
+  calls.push({
+    id: `call-${now}-${player.id}`,
+    venueId: player.locationId,
+    fromId: player.id,
+    fromName: player.username,
+    kind,
+    amount,
+    at: now,
+  });
+  db.calls = calls.filter((call) => now - call.at < 60_000).slice(-40);
+}
+
 export async function doDorime(amount: number) {
-  return withPlayer((id) => simple(id, (player, ledger) => dorime(player, ledger, amount)));
+  return withPlayer((id) =>
+    play(id, (player, db) => {
+      const step = dorime(player, db.ledger, amount);
+      if (!step.ok) return { ok: false, error: step.error };
+      db.ledger = step.ledger;
+      announce(db, step.player, "dorime", Math.round(amount));
+      return { ok: true, player: step.player, notice: step.notice };
+    }),
+  );
 }
 export async function hitDanceFloor() {
   return withPlayer((id) => simple(id, dance));
 }
 export async function spray(amount: number) {
-  return withPlayer((id) => simple(id, (player, ledger) => sprayMoney(player, ledger, amount)));
+  return withPlayer((id) =>
+    play(id, (player, db) => {
+      const step = sprayMoney(player, db.ledger, amount);
+      if (!step.ok) return { ok: false, error: step.error };
+      db.ledger = step.ledger;
+      announce(db, step.player, "spray", Math.round(amount));
+      return { ok: true, player: step.player, notice: step.notice };
+    }),
+  );
 }
 export async function orderFood() {
   return withPlayer((id) => simple(id, orderPlate));

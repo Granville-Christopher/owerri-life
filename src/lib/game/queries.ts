@@ -96,8 +96,9 @@ export interface GameView {
     odds: number;
     status: "open" | "won" | "lost";
     payout: number;
-    legs: Array<{ fixtureId: string; pick: "1" | "X" | "2"; odds: number; home: string; away: string; result: "1" | "X" | "2" | null }>;
+    legs: Array<{ fixtureId: string; pick: "1" | "X" | "2"; odds: number; home: string; away: string;     result: "1" | "X" | "2" | null }>;
   }>;
+  calls: Array<{ id: string; fromId: string; fromName: string; kind: "spray" | "dorime"; amount: number }>;
   requests: {
     incoming: Array<{ fromId: string; username: string }>;
     outgoing: Array<{ toId: string; username: string }>;
@@ -267,6 +268,16 @@ export async function buildView(playerId: string): Promise<GameView | null> {
         text: message.text,
         at: message.at,
         replyTo: message.replyTo ?? null,
+      })),
+    calls: (db.calls ?? [])
+      .filter((call) => call.venueId === me.locationId && Date.now() - call.at < 25_000)
+      .slice(-8)
+      .map((call) => ({
+        id: call.id,
+        fromId: call.fromId,
+        fromName: call.fromName,
+        kind: call.kind,
+        amount: call.amount,
       })),
     nearby,
     known,

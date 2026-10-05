@@ -10,6 +10,19 @@ body {
   background: #0c1a14;
 }
 
+.ol-wide {
+  display: none;
+}
+
+@media (min-width: 1025px) {
+  .ol-fit {
+    display: none;
+  }
+  .ol-wide {
+    display: flex;
+  }
+}
+
 .font-display {
   font-family: var(--font-display);
 }
