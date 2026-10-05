@@ -59,9 +59,13 @@ body {
 }
 
 .ol-ride { animation: ol-drive 1.7s cubic-bezier(0.16, 0.84, 0.3, 1) both; }
-.ol-walker { animation: ol-step 1.3s 1.7s ease both; }
+@keyframes ol-pace {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(72px); }
+}
+.ol-walker { animation: ol-pace 2.2s ease-in-out infinite; }
 .ol-on-foot { animation: ol-walk 1.8s ease both; }
-.ol-choices { opacity: 0; animation: ol-rise 0.45s 3.2s forwards; pointer-events: none; }
+.ol-choices { opacity: 0; animation: ol-rise 0.45s 0.6s forwards; pointer-events: none; }
 .ol-choices.ol-ready { pointer-events: auto; }
 .ol-dancer { animation: ol-dance 0.7s ease-in-out infinite; transform-origin: center bottom; }
 .ol-lights { background-size: 200% 200%; animation: ol-lights 4s linear infinite; }
@@ -432,6 +436,36 @@ body {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.35); }
 }
+@keyframes ol-stride {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+.ol-stride { animation: ol-stride 0.5s ease-in-out infinite; transform-origin: 50% 100%; }
+@keyframes ol-roam-1 {
+  0% { left: 16%; top: 30%; }
+  35% { left: 58%; top: 26%; }
+  70% { left: 46%; top: 18%; }
+  100% { left: 16%; top: 30%; }
+}
+@keyframes ol-roam-2 {
+  0% { left: 70%; top: 34%; }
+  40% { left: 28%; top: 22%; }
+  75% { left: 62%; top: 18%; }
+  100% { left: 70%; top: 34%; }
+}
+@keyframes ol-roam-self {
+  0%, 100% { left: 40%; top: 36%; }
+  50% { left: 54%; top: 24%; }
+}
+@keyframes ol-taxi {
+  0% { transform: translateX(-8%); }
+  100% { transform: translateX(18%); }
+}
+.ol-roam-1, .ol-roam-2, .ol-roam-self { position: absolute; z-index: 12; }
+.ol-roam-1 { animation: ol-roam-1 18s linear infinite; }
+.ol-roam-2 { animation: ol-roam-2 22s linear infinite; }
+.ol-roam-self { animation: ol-roam-self 7s ease-in-out infinite; }
+.ol-taxi { animation: ol-taxi 14s ease-in-out infinite alternate; }
 
 @media (prefers-reduced-motion: reduce) {
   .ol-toast { animation: none; opacity: 1; }
@@ -439,6 +473,7 @@ body {
   .ol-sheet { animation: none; }
   .ol-lie { animation: none; }
   .ol-ride, .ol-walker, .ol-on-foot, .ol-choices, .ol-dancer, .ol-lights, .ol-note, .ol-fade, .ol-cash,
+  .ol-stride, .ol-roam-1, .ol-roam-2, .ol-roam-self, .ol-taxi,
   .ol-marquee-track, .ol-beam, .ol-lane, .ol-bit {
     animation: none;
     opacity: 1;

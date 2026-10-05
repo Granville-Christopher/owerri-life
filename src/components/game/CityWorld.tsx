@@ -147,8 +147,32 @@ export function CityWorld({
       labelNodes.push({ node: button, point });
     }
 
-    for (const place of PLACES) {
+    const laidSpots = PLACES.map((place) => {
       const at = spot(place.x, place.y);
+      return { id: place.id, x: at.x, z: at.z };
+    });
+    const gap = 18;
+    for (let pass = 0; pass < 28; pass += 1) {
+      for (let i = 0; i < laidSpots.length; i += 1) {
+        for (let j = i + 1; j < laidSpots.length; j += 1) {
+          let dx = laidSpots[j].x - laidSpots[i].x;
+          let dz = laidSpots[j].z - laidSpots[i].z;
+          const dist = Math.hypot(dx, dz) || 0.01;
+          if (dist >= gap) continue;
+          const push = (gap - dist) / 2;
+          dx /= dist;
+          dz /= dist;
+          laidSpots[i].x = Math.min(210, Math.max(-210, laidSpots[i].x - dx * push));
+          laidSpots[i].z = Math.min(210, Math.max(-210, laidSpots[i].z - dz * push));
+          laidSpots[j].x = Math.min(210, Math.max(-210, laidSpots[j].x + dx * push));
+          laidSpots[j].z = Math.min(210, Math.max(-210, laidSpots[j].z + dz * push));
+        }
+      }
+    }
+    const laid = new Map(laidSpots.map((item) => [item.id, item]));
+
+    for (const place of PLACES) {
+      const at = laid.get(place.id) ?? spot(place.x, place.y);
       const mine = place.id === homeAreaId;
       const height = mine ? 2.6 : place.kind === "nightlife" ? 2.4 : place.kind === "hotel" ? 2.1 : 1.5;
       const roof = mine ? 0xc4552a : place.kind === "nightlife" ? 0x7a2e1e : place.kind === "health" ? 0x3d7ea6 : place.kind === "school" ? 0x3d6b4f : 0x245c3a;
@@ -170,15 +194,12 @@ export function CityWorld({
     pill("Campus", new THREE.Vector3(spot(76, 18).x, 1, spot(76, 18).z));
 
     const here = PLACES.find((place) => place.id === locationId);
+    const start = here ? (laid.get(here.id) ?? spot(here.x, here.y)) : { x: 0, z: 0 };
     const person = new THREE.Mesh(new THREE.CapsuleGeometry(0.35, 0.9, 4, 8), new THREE.MeshLambertMaterial({ color: 0x1d4a30 }));
-    if (here) {
-      const at = spot(here.x, here.y);
-      person.position.set(at.x + 1.4, 1.05, at.z + 0.6);
-    }
+    if (here) person.position.set(start.x + 1.4, 1.05, start.z + 0.6);
     scene.add(person);
 
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 900);
-    const start = here ? spot(here.x, here.y) : { x: 0, z: 0 };
     const target = new THREE.Vector3(start.x, 0, start.z);
     let zoom = 36;
 

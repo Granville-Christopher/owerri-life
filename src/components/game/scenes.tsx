@@ -378,7 +378,7 @@ function ClubFloor({
   const buyer = spots.get(people.find((person) => person.name === (shout || username))?.id ?? "") ?? spotFor(shout || username);
 
   return (
-    <div className="ol-stage relative h-96 overflow-hidden bg-[radial-gradient(circle_at_50%_8%,#6a3478,#120810_55%)]">
+    <div className="ol-stage relative h-full min-h-[70vh] overflow-hidden bg-[radial-gradient(circle_at_50%_8%,#6a3478,#120810_55%)]">
       <div className="absolute inset-x-3 top-3 z-20">
         <button
           type="button"
@@ -424,6 +424,8 @@ function ClubFloor({
           <div className="ol-pad left-[28%] top-[46%]" />
         </div>
       </div>
+      <Roamer className="ol-roam-1" look="emeka" name="Guest" />
+      <Roamer className="ol-roam-2" look="ngozi" name="Regular" />
       <div className="absolute inset-0">
         {CLUB_TABLES.map((table) => (
           <div key={`${table.x}-${table.y}`} className="ol-table" style={{ left: `${table.x}%`, top: `${table.y}%` }} />
@@ -473,6 +475,24 @@ function ClubFloor({
   );
 }
 
+function Roamer({ className, look, name }: { className: string; look: LookId; name: string }) {
+  return (
+    <div className={className}>
+      <span className="ol-stride inline-block">
+        <Human look={look} className="h-16 w-8" />
+      </span>
+      <span className="mt-0.5 block max-w-16 truncate text-center text-[10px] font-semibold text-white" style={{ textShadow: "0 1px 2px #000" }}>{name}</span>
+    </div>
+  );
+}
+
+function looseSpot(index: number, self: boolean) {
+  if (self) return { left: "46%", top: "46%" };
+  const col = index % 3;
+  const row = Math.floor(index / 3);
+  return { left: `${10 + col * 28}%`, top: `${22 + row * 24}%` };
+}
+
 function RoomScene({
   look,
   kind,
@@ -480,6 +500,7 @@ function RoomScene({
   besideId,
   selfId,
   onPick,
+  walkers,
 }: {
   look: LookId;
   kind: Place["kind"];
@@ -487,32 +508,74 @@ function RoomScene({
   besideId: string | null;
   selfId: string;
   onPick: (id: string) => void;
+  walkers: Array<{ name: string; look: LookId }>;
 }) {
   const scene = sceneFor(kind);
-  const spots = new Map(people.map((person) => [person.id, spotFor(person.name)]));
-  if (besideId && spots.has(besideId) && spots.has(selfId)) {
-    const host = spots.get(besideId)!;
-    spots.set(selfId, { left: `${parseFloat(host.left) + 8}%`, top: host.top });
-  }
+  const guests = people.filter((person) => person.id !== selfId).slice(0, 3);
+  const self = people.find((person) => person.id === selfId);
   return (
-    <div className={`ol-stage relative h-80 overflow-hidden ${scene.sky}`}>
-      <ZoomStage>
+    <div className={`ol-stage relative h-full min-h-[70vh] overflow-hidden ${scene.sky}`}>
       <div className="ol-world">
-        {scene.set}
-        <div className={`ol-floor ${scene.floor}`} />
+        {kind === "airport" ? <AirportApron /> : scene.set}
+        <div className={`ol-floor ${scene.floor} ${kind === "airport" ? "!h-[58%] !bg-transparent !shadow-none" : ""}`} />
       </div>
+      <Roamer className="ol-roam-1" look={walkers[0]?.look ?? "ibe"} name={walkers[0]?.name ?? "Passer"} />
+      <Roamer className="ol-roam-2" look={walkers[1]?.look ?? "zara"} name={walkers[1]?.name ?? "Guest"} />
       <div className="absolute inset-0">
-        {people.map((person) => (
+        {guests.map((person, index) => (
           <PersonPin
             key={person.id}
             name={person.name}
             look={lookFrom(person.id, person.look ?? look)}
-            style={spots.get(person.id) ?? spotFor(person.name)}
+            style={looseSpot(index, false)}
             onClick={() => onPick(person.id)}
           />
         ))}
+        {self ? (
+          <div className="ol-roam-self">
+            <PersonPin
+              name={self.name}
+              look={lookFrom(self.id, self.look ?? look)}
+              style={{ left: besideId ? "8%" : "0%", top: "0%", position: "relative" }}
+              onClick={() => onPick(self.id)}
+            />
+          </div>
+        ) : null}
       </div>
-      </ZoomStage>
+    </div>
+  );
+}
+
+function AirportApron() {
+  return (
+    <div className="absolute inset-0 bg-gradient-to-b from-[#9fd4ef] via-[#d7ebf6] to-[#c5d5c4]">
+      <div className="absolute left-[8%] top-[18%] h-24 w-40 rounded-t-xl bg-[#f4efe4] shadow-lg">
+        <p className="px-2 pt-2 text-[10px] font-semibold tracking-[0.14em] text-[#a9782a]">DEPARTURES</p>
+        <p className="px-2 text-[10px] text-[#245c78]">PHC · 14:00</p>
+        <p className="px-2 text-[10px] text-[#245c78]">LOS · 16:20</p>
+      </div>
+      <div className="absolute bottom-[18%] left-0 right-0 h-16 bg-[#4b5563]">
+        <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 border-t-4 border-dashed border-white/80" />
+      </div>
+      <div className="ol-taxi absolute bottom-[22%] left-[18%]">
+        <Plane body="#f7fafc" tail="#1f6b45" />
+      </div>
+      <div className="absolute bottom-[30%] right-[8%]">
+        <Plane body="#e7eef4" tail="#245c78" />
+      </div>
+    </div>
+  );
+}
+
+function Plane({ body, tail }: { body: string; tail: string }) {
+  return (
+    <div className="relative h-16 w-44" aria-hidden>
+      <div className="absolute left-10 top-7 h-3 w-28 rounded-full shadow" style={{ background: body }} />
+      <div className="absolute left-16 top-4 h-4 w-14 -rotate-6 rounded-full" style={{ background: body }} />
+      <div className="absolute left-[4.5rem] top-6 h-1.5 w-20 bg-[#d5dee6]" />
+      <div className="absolute right-3 top-3 h-8 w-3 rounded-sm" style={{ background: tail }} />
+      <div className="absolute bottom-2 left-14 h-3 w-1.5 bg-[#243044]" />
+      <div className="absolute bottom-2 left-28 h-3 w-1.5 bg-[#243044]" />
     </div>
   );
 }
@@ -803,7 +866,7 @@ export function ArrivalScene({
 
   return (
     <section className={`overflow-hidden rounded-[1.6rem] ${night ? "bg-[#141820]" : "bg-[#d7ebdd]"} text-white`}>
-      <div className={`relative h-28 ${night ? "bg-gradient-to-b from-[#2a1a3a] to-[#141820]" : "bg-gradient-to-b from-[#9fd0ea] to-[#d7ebdd]"}`}>
+      <div className={`relative h-48 ${night ? "bg-gradient-to-b from-[#2a1a3a] to-[#141820]" : "bg-gradient-to-b from-[#9fd0ea] to-[#d7ebdd]"}`}>
         <div className={`absolute inset-x-6 bottom-0 h-16 rounded-t-xl ${night ? "bg-[#2c1810]" : "bg-[#f4efe4]"}`}>
           <div className="mx-auto mt-3 w-fit rounded-full bg-[#e0b15a] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#1a140c]">
             {place.name}
@@ -811,7 +874,7 @@ export function ArrivalScene({
           <div className="mx-auto mt-2 h-8 w-10 rounded-t-md bg-[#0e1c16]" />
         </div>
       </div>
-      <div className={`relative h-28 ${night ? "bg-[#2a241c]" : "bg-[#cbb892]"}`}>
+      <div className={`relative h-40 ${night ? "bg-[#2a241c]" : "bg-[#cbb892]"}`}>
         <ParkedCar className="left-2" color="#6d6256" />
         <ParkedCar className="left-20" color="#8c3d2f" />
         <ParkedCar className="right-3" color="#243044" />
@@ -887,6 +950,9 @@ export function VenueInterior({
   sick,
   house = null,
   onBuyFurniture,
+  fill = false,
+  extra = null,
+  onApply,
 }: {
   place: Place;
   look: LookId;
@@ -912,6 +978,9 @@ export function VenueInterior({
   sick: "none" | "mild" | "severe";
   house?: { name: string; owned: string[] } | null;
   onBuyFurniture?: (itemId: string) => void;
+  fill?: boolean;
+  extra?: ReactNode;
+  onApply?: () => void;
 }) {
   const acts = placeActs(place);
   const [notes, setNotes] = useState<Array<{ id: number; count: number }>>([]);
@@ -930,9 +999,13 @@ export function VenueInterior({
   const clinic = place.kind === "health" || place.id === "eke-ukwu";
   const treatPrice = TREATMENT_FEE[place.id] ?? null;
 
+  const walkers = npcsAt(place.id).slice(0, 2).map((npc, index) => ({
+    name: npc.name,
+    look: LOOKS[index % LOOKS.length].id,
+  }));
   return (
-    <section className="relative overflow-hidden rounded-[1.6rem] bg-[#120c18] text-[#f6f1e6]">
-      {clinic && treatPrice != null ? (
+    <section className={`relative overflow-hidden bg-[#10140f] text-[#f6f1e6] ${fill ? "h-full" : "rounded-[1.6rem]"}`}>
+      {clinic && treatPrice != null && !fill ? (
         <div className="m-3 rounded-2xl bg-white p-3 text-[#17241e]">
           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#a9782a]">{place.kind === "health" ? "Doctor" : "Chemist"}</p>
           <p className="mt-1 font-semibold">{clinician?.name ?? "The ward"}</p>
@@ -950,7 +1023,7 @@ export function VenueInterior({
           </p>
         </div>
       ) : null}
-      <div className="relative">
+      <div className="relative h-full min-h-[70vh]">
         {inRoom ? (
           <HotelRoom
             look={look}
@@ -981,7 +1054,7 @@ export function VenueInterior({
           <HouseRoom name={house.name} owned={house.owned} pending={pending} onBuy={onBuyFurniture ?? (() => undefined)} />
         ) : (
           <>
-            <RoomScene look={look} kind={place.kind} people={people} besideId={besideId} selfId={selfId} onPick={onPickPerson} />
+            <RoomScene look={look} kind={place.kind} people={people} besideId={besideId} selfId={selfId} onPick={onPickPerson} walkers={walkers} />
           </>
         )}
         {notes.map((burst) => (
@@ -1001,7 +1074,7 @@ export function VenueInterior({
           </span>
         ))}
       </div>
-      <div className="grid gap-2 p-3">
+      <div className={`grid gap-2 ${fill ? "absolute bottom-24 left-1/2 z-30 max-h-[34%] w-[min(28rem,calc(100%-1.5rem))] -translate-x-1/2 overflow-y-auto rounded-[1.6rem] bg-white/95 p-3 text-[#17241e] shadow-2xl" : "p-3"}`}>
         {!inRoom && club ? (
           <div className="grid grid-cols-2 gap-2">
             {DORIME_AMOUNTS.map((amount) => (
@@ -1101,13 +1174,24 @@ export function VenueInterior({
           </div>
         ) : null}
         {acts.pickup ? <p className="text-xs text-[#d5e4d8]">Tap her. You pay the price on her head, the scene fades to black, and that naira is added to her. Then message her, or open her profile.</p> : null}
+        {fill && clinic && treatPrice != null ? (
+          <button type="button" disabled={pending || sick === "none"} onClick={onTreat} className="rounded-full bg-[#143d2c] py-2 text-sm font-semibold text-white disabled:opacity-40">
+            {sick === "none" ? "You are not sick" : `Get treatment · ${naira(treatPrice)}`}
+          </button>
+        ) : null}
+        {extra}
+        {onApply ? (
+          <button type="button" disabled={pending} onClick={onApply} className="rounded-full bg-[#143d2c] py-2 text-sm font-semibold text-white disabled:opacity-40">
+            Apply for admission
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={() => {
             setDancing(false);
             onOutside();
           }}
-          className="text-xs text-[#d5e4d8]"
+          className={`text-xs ${fill ? "text-[#5d6b62]" : "text-[#d5e4d8]"}`}
         >
           Step outside
         </button>
@@ -1138,21 +1222,31 @@ export function HouseRoom({
   const [group, setGroup] = useState<(typeof FURNITURE)[number]["group"]>("Sleep");
   const stock = FURNITURE.filter((item) => item.group === group);
   return (
-    <section className="relative h-full min-h-[28rem] overflow-hidden bg-[#d9e8f2] text-[#17241e]">
-      <div className="absolute left-1/2 top-[8%] h-[46%] w-[min(42rem,92%)] -translate-x-1/2 [perspective:900px]">
-        <div className="relative h-full w-full origin-center [transform:rotateX(58deg)] rounded-sm bg-[#d8b48a] shadow-2xl" style={{ backgroundImage: "linear-gradient(#c4a574 1px, transparent 1px), linear-gradient(90deg, #c4a574 1px, transparent 1px)", backgroundSize: "48px 48px" }}>
-          <div className="absolute inset-x-0 top-0 h-8 bg-[#e6d3a1]" />
-          <div className="absolute inset-y-0 left-0 w-8 bg-[#c4a574]" />
-          <div className="absolute left-6 top-10 h-16 w-8 rounded-sm bg-[#6a4630]" />
-          <div className="absolute right-8 top-8 h-14 w-20 bg-[#8ec4d4] ring-4 ring-[#6a4630]" />
-          {has("bed") ? <div className="absolute left-[12%] top-[22%] h-16 w-28 bg-[#f6f1e6] shadow"><div className="h-6 bg-[#143d2c]" /></div> : null}
-          {has("sofa") ? <div className="absolute left-[38%] top-[48%] h-12 w-28 rounded-md bg-[#1f6b45] shadow" /> : null}
-          {has("table") ? <div className="absolute right-[28%] top-[40%] h-10 w-16 bg-[#6a4630] shadow" /> : null}
-          {has("fridge") ? <div className="absolute right-[18%] top-[18%] h-20 w-8 bg-[#d5e4d8] shadow" /> : null}
-          {has("television") ? <div className="absolute right-[8%] top-[55%] h-14 w-20 bg-[#10211a] shadow"><div className="m-1 h-8 bg-[#245c78]" /></div> : null}
+    <section className="relative h-full min-h-[28rem] overflow-hidden bg-[#c5dff0] text-[#17241e]">
+      <div className="absolute left-1/2 top-[6%] h-[58%] w-[min(40rem,94%)] -translate-x-1/2">
+        <div className="absolute left-[18%] right-[6%] top-0 h-36 rounded-sm bg-[#e7c15a] shadow-inner" />
+        <div className="absolute left-[4%] top-10 h-44 w-[16%] origin-bottom-right skew-y-[18deg] bg-[#d7ad45]" />
+        <div className="absolute left-[16%] top-8 h-16 w-8 rounded-sm bg-[#6b442c] shadow" />
+        <div className="absolute right-[10%] top-6 h-16 w-24 bg-[#9fd0ea] shadow ring-4 ring-[#f4efe4]">
+          <div className="h-full w-2 bg-[#f4efe4]" />
         </div>
+        <div className="absolute bottom-0 left-[12%] right-[2%] h-[58%] rounded-sm bg-[#c88848] shadow-2xl" style={{ backgroundImage: "linear-gradient(#b8743c 1px, transparent 1px), linear-gradient(90deg, #b8743c 1px, transparent 1px)", backgroundSize: "46px 46px" }} />
+        {has("bed") ? (
+          <div className="absolute left-[28%] top-[22%] h-16 w-32 rounded-md bg-[#f6f1e6] shadow-lg">
+            <div className="h-5 rounded-t-md bg-[#8c3d2f]" />
+          </div>
+        ) : null}
+        {has("table") ? <div className="absolute right-[30%] top-[34%] h-10 w-16 rounded-sm bg-[#6a4630] shadow" /> : null}
+        {has("sofa") ? <div className="absolute bottom-[18%] left-[22%] h-12 w-32 rounded-xl bg-[#1f6b45] shadow-lg" /> : null}
+        {has("fridge") ? <div className="absolute bottom-[16%] right-[22%] h-16 w-10 rounded-md bg-[#3d7ea6] shadow" /> : null}
+        {has("television") ? (
+          <div className="absolute bottom-[28%] right-[8%] h-14 w-20 rounded-md bg-[#17241e] shadow-lg">
+            <div className="m-1 h-8 rounded-sm bg-[#9fd0ea]" />
+          </div>
+        ) : null}
+        <div className="absolute bottom-[14%] right-[8%] h-16 w-4 rounded-full bg-[#3d6b4f]" />
+        <PersonFigure look={look ?? "chidi"} className="absolute bottom-[22%] left-1/2 z-10 h-28 w-14 -translate-x-1/2" />
       </div>
-      <PersonFigure look={look ?? "chidi"} className="absolute left-1/2 top-[34%] z-10 h-24 w-12 -translate-x-1/2" />
       {owned.length === 0 ? <p className="absolute left-1/2 top-[8%] -translate-x-1/2 rounded-full bg-white px-3 py-1 text-xs font-semibold shadow">The room is empty.</p> : null}
       {typeof document !== "undefined" ? createPortal(
       <div className="fixed inset-x-0 bottom-0 max-h-[46%] overflow-y-auto rounded-t-[1.6rem] bg-white pb-24 shadow-2xl" style={{ zIndex: 200 }}>

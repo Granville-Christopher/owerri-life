@@ -810,8 +810,67 @@ function MapPanel({
     setSheet(null);
   }
 
+  const inside = here && view.me.indoors;
   return (
-    <div ref={panel} className="space-y-4">
+    <div ref={panel} className={inside || showDoor ? "absolute inset-0" : "space-y-4"}>
+      {inside ? (
+        <VenueInterior
+          place={place}
+          look={view.me.look}
+          pending={pending}
+          username={view.me.username}
+          people={[
+            { id: view.me.id, name: view.me.username, look: view.me.look },
+            ...view.nearby.map((person) => ({ id: person.id, name: person.name, look: person.look })),
+          ]}
+          besideId={view.me.besideId}
+          selfId={view.me.id}
+          onPickPerson={onOpen}
+          onDorime={(amount) => run(() => doDorime(amount))}
+          onDrink={() => run(takeDrink)}
+          onDance={() => run(hitDanceFloor)}
+          onFood={() => run(orderFood)}
+          onSpray={(amount) => run(() => spray(amount))}
+          onBook={(stay) => run(() => takeRoom(stay))}
+          onOffer={(npcId) => run(() => makeOffer(npcId))}
+          onOutside={() => run(goOutside)}
+          spendable={view.pools.earned + view.pools.gifted}
+          room={view.me.room?.placeId === place.id ? view.me.room.stay : null}
+          onSleep={() => run(sleepAtHotel)}
+          onLeaveRoom={() => run(checkoutRoom)}
+          onTreat={() => run(getTreatment)}
+          sick={view.me.sick}
+          house={
+            place.kind === "home" && place.id === homeById(view.me.homeId).areaId
+              ? { name: homeById(view.me.homeId).name, owned: view.me.furniture }
+              : null
+          }
+          onBuyFurniture={(itemId) => run(() => buyFurniture(itemId))}
+          fill
+          extra={place.id === "sam-mbakwe" ? <AirportDesk run={run} pending={pending} /> : null}
+          onApply={place.kind === "school" && !view.me.school ? () => setVisit((value) => value + 1) : undefined}
+        />
+      ) : showDoor ? (
+        <div className="flex h-full items-end bg-[#d7ebdd] px-4 pb-28">
+          <div className="w-full">
+            <ArrivalScene
+              placeId={view.me.locationId}
+              ride={view.me.lastRide}
+              look={view.me.look}
+              pending={pending}
+              onEnter={() => {
+                const entering = placeById(view.me.locationId);
+                const already = Boolean(view.me.school);
+                run(enterDoor).then((result) => {
+                  if (result.ok && entering.kind === "school" && !already) setVisit((value) => value + 1);
+                });
+              }}
+              onLeave={() => setLeftAt(view.me.locationId)}
+            />
+          </div>
+        </div>
+      ) : (
+      <>
       <div className="flex gap-2 overflow-x-auto pb-1">
         {(
           [
@@ -839,22 +898,6 @@ function MapPanel({
           </button>
         ))}
       </div>
-      {showDoor ? (
-        <ArrivalScene
-          placeId={view.me.locationId}
-          ride={view.me.lastRide}
-          look={view.me.look}
-          pending={pending}
-          onEnter={() => {
-            const entering = placeById(view.me.locationId);
-            const already = Boolean(view.me.school);
-            run(enterDoor).then((result) => {
-              if (result.ok && entering.kind === "school" && !already) setVisit((value) => value + 1);
-            });
-          }}
-          onLeave={() => setLeftAt(view.me.locationId)}
-        />
-      ) : null}
       {here && view.me.indoors ? (
         <VenueInterior
           place={place}
@@ -1252,6 +1295,8 @@ function MapPanel({
             sheetRoot,
           )
         : null}
+      </>
+      )}
       {view.me.indoors && !view.me.school && placeById(view.me.locationId).kind === "school" && visit !== closedVisit && sheetRoot
         ? createPortal(
             <SlideSheet label="Admission" title={placeById(view.me.locationId).name} detail="Pick a course. The application fee comes off now, and you are admitted." onClose={() => setClosedVisit(visit)}>
@@ -2174,19 +2219,24 @@ function PersonSheet({
 }
 
 function layoutPins(places: Array<{ id: string; x: number; y: number }>) {
-  const laid: Array<{ id: string; x: number; y: number }> = [];
-  for (const place of places) {
-    let x = place.x;
-    let y = place.y;
-    for (let step = 0; step < 12; step += 1) {
-      const crowded = laid.some((pin) => Math.hypot(pin.x - x, pin.y - y) < 9);
-      if (!crowded) break;
-      const angle = step * 1.15 + place.x * 0.2;
-      const reach = 10 + step;
-      x = Math.min(90, Math.max(10, place.x + Math.cos(angle) * reach));
-      y = Math.min(88, Math.max(12, place.y + Math.sin(angle) * reach));
+  const laid = places.map((place) => ({ id: place.id, x: place.x, y: place.y }));
+  const gap = 7.5;
+  for (let pass = 0; pass < 36; pass += 1) {
+    for (let i = 0; i < laid.length; i += 1) {
+      for (let j = i + 1; j < laid.length; j += 1) {
+        let dx = laid[j].x - laid[i].x;
+        let dy = laid[j].y - laid[i].y;
+        const dist = Math.hypot(dx, dy) || 0.01;
+        if (dist >= gap) continue;
+        const push = (gap - dist) / 2;
+        dx /= dist;
+        dy /= dist;
+        laid[i].x = Math.min(94, Math.max(6, laid[i].x - dx * push));
+        laid[i].y = Math.min(92, Math.max(8, laid[i].y - dy * push));
+        laid[j].x = Math.min(94, Math.max(6, laid[j].x + dx * push));
+        laid[j].y = Math.min(92, Math.max(8, laid[j].y + dy * push));
+      }
     }
-    laid.push({ id: place.id, x, y });
   }
   return new Map(laid.map((pin) => [pin.id, pin]));
 }
