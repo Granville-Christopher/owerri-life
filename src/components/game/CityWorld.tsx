@@ -709,25 +709,25 @@ export function CityWorld({
       if (at) schoolApproach(at.x, at.z);
     }
     const strip = laid.get("wetheral-strip");
-    const campus = laid.get("imsu");
-    if (strip && campus) {
-      const seats = [
-        { x: campus.x - 74, z: campus.z },
-        { x: campus.x + 74, z: campus.z },
-        { x: campus.x, z: campus.z + 58 },
-        { x: campus.x, z: campus.z - 58 },
-        { x: campus.x - 62, z: campus.z + 46 },
-        { x: campus.x + 62, z: campus.z + 46 },
-        { x: campus.x - 62, z: campus.z - 46 },
-        { x: campus.x + 62, z: campus.z - 46 },
-      ];
-      const seat = seats.find((item) => !hitsRoad(item.x, item.z, 20, 16));
-      if (seat) {
-        strip.x = seat.x;
-        strip.z = seat.z;
+    const mall = laid.get("owerri-mall");
+    if (strip && mall) {
+      let best: { x: number; z: number; score: number } | null = null;
+      for (let x = 294; x <= 340; x += 6) {
+        for (let z = mall.z - 16; z <= mall.z + 36; z += 6) {
+          if (hitsRoad(x, z, 20, 16)) continue;
+          if (Math.abs(x - mall.x) < 46 && Math.abs(z - mall.z) < 36) continue;
+          const crowded = laidSpots.some((other) => other.id !== "wetheral-strip" && Math.hypot(other.x - x, other.z - z) < 28);
+          if (crowded) continue;
+          const score = x - 294 + Math.abs(z - (mall.z + 10)) * 0.35;
+          if (!best || score < best.score) best = { x, z, score };
+        }
+      }
+      if (best) {
+        strip.x = best.x;
+        strip.z = best.z;
       } else {
-        strip.x = campus.x - 74;
-        strip.z = campus.z;
+        strip.x = 306;
+        strip.z = mall.z + 10;
         parkOffRoad(strip, 20, 16);
       }
     }
