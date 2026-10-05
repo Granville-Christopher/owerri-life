@@ -86,29 +86,39 @@ export function CityWorld({
       }
       return best;
     }
-    function layRiver(pts: RiverPoint[], half: number, flare?: RiverPoint) {
-      riverLines.push({ pts, half: half + (flare ? 8 : 0) });
+    function layRiver(pts: RiverPoint[], half: number) {
+      riverLines.push({ pts, half });
       const positions: number[] = [];
       const normals: number[] = [];
       const indices: number[] = [];
+      const left: RiverPoint[] = [];
+      const right: RiverPoint[] = [];
       for (let i = 0; i < pts.length; i += 1) {
-        const prev = pts[Math.max(0, i - 1)];
-        const next = pts[Math.min(pts.length - 1, i + 1)];
-        let tx = next.x - prev.x;
-        let tz = next.z - prev.z;
-        const len = Math.hypot(tx, tz) || 1;
-        tx /= len;
-        tz /= len;
-        let wide = half * (0.9 + 0.1 * Math.sin(i * 0.45));
-        if (flare) {
-          const dist = Math.hypot(pts[i].x - flare.x, pts[i].z - flare.z);
-          if (dist < 60) {
-            const blend = 1 - dist / 60;
-            wide += blend * blend * 14;
-          }
-        }
-        positions.push(pts[i].x - tz * wide, 0.06, pts[i].z + tx * wide, pts[i].x + tz * wide, 0.06, pts[i].z - tx * wide);
+        const back = pts[Math.max(0, i - 1)];
+        const curr = pts[i];
+        const fore = pts[Math.min(pts.length - 1, i + 1)];
+        let ax = curr.x - back.x;
+        let az = curr.z - back.z;
+        let bx = fore.x - curr.x;
+        let bz = fore.z - curr.z;
+        const al = Math.hypot(ax, az) || 1;
+        const bl = Math.hypot(bx, bz) || 1;
+        ax /= al;
+        az /= al;
+        bx /= bl;
+        bz /= bl;
+        let nx = -az - bz;
+        let nz = ax + bx;
+        const nl = Math.hypot(nx, nz) || 1;
+        nx /= nl;
+        nz /= nl;
+        const denom = Math.max(0.55, nx * -az + nz * ax);
+        const miter = Math.min(1.25, 1 / denom);
+        const wide = half * (0.96 + 0.04 * Math.sin(i * 0.35)) * miter;
+        positions.push(curr.x - nx * wide, 0.06, curr.z - nz * wide, curr.x + nx * wide, 0.06, curr.z + nz * wide);
         normals.push(0, 1, 0, 0, 1, 0);
+        left.push({ x: curr.x - nx * wide, z: curr.z - nz * wide });
+        right.push({ x: curr.x + nx * wide, z: curr.z + nz * wide });
       }
       for (let i = 0; i < pts.length - 1; i += 1) {
         const a = i * 2;
@@ -119,6 +129,21 @@ export function CityWorld({
       geo.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
       geo.setIndex(indices);
       scene.add(new THREE.Mesh(geo, water));
+      return { left, right };
+    }
+    function distToPoly(pts: RiverPoint[], x: number, z: number) {
+      let best = Infinity;
+      for (let i = 0; i < pts.length - 1; i += 1) {
+        const a = pts[i];
+        const b = pts[i + 1];
+        const abx = b.x - a.x;
+        const abz = b.z - a.z;
+        const len2 = abx * abx + abz * abz || 1;
+        let t = ((x - a.x) * abx + (z - a.z) * abz) / len2;
+        t = Math.max(0, Math.min(1, t));
+        best = Math.min(best, Math.hypot(x - (a.x + abx * t), z - (a.z + abz * t)));
+      }
+      return best;
     }
     const otamiriPts: RiverPoint[] = [];
     for (let i = 0; i <= 78; i += 1) {
@@ -136,28 +161,36 @@ export function CityWorld({
         z: -400 + t * 530,
       });
     }
-    nworiePts.splice(-14);
-    const tail = nworiePts[nworiePts.length - 1];
     let mouth = otamiriPts[0];
+    const roughEnd = nworiePts[nworiePts.length - 1];
+    for (const point of otamiriPts) {
+      if (Math.hypot(point.x - roughEnd.x, point.z - roughEnd.z) < Math.hypot(mouth.x - roughEnd.x, mouth.z - roughEnd.z)) mouth = point;
+    }
+    while (nworiePts.length > 12 && Math.hypot(nworiePts[nworiePts.length - 1].x - mouth.x, nworiePts[nworiePts.length - 1].z - mouth.z) < 96) {
+      nworiePts.pop();
+    }
+    const tail = nworiePts[nworiePts.length - 1];
     for (const point of otamiriPts) {
       if (Math.hypot(point.x - tail.x, point.z - tail.z) < Math.hypot(mouth.x - tail.x, mouth.z - tail.z)) mouth = point;
     }
+    const mouthIndex = Math.max(0, otamiriPts.indexOf(mouth));
     const joinPrev = nworiePts[nworiePts.length - 2];
+    const gap = Math.hypot(mouth.x - tail.x, mouth.z - tail.z) || 1;
     let sx = tail.x - joinPrev.x;
     let sz = tail.z - joinPrev.z;
     const sl = Math.hypot(sx, sz) || 1;
-    sx = (sx / sl) * 90;
-    sz = (sz / sl) * 90;
-    const mouthIndex = Math.max(0, otamiriPts.indexOf(mouth));
-    const upstream = otamiriPts[Math.max(0, mouthIndex - 3)];
-    const downstream = otamiriPts[Math.min(otamiriPts.length - 1, mouthIndex + 3)];
+    sx = (sx / sl) * gap * 0.45;
+    sz = (sz / sl) * gap * 0.45;
+    const upstream = otamiriPts[Math.max(0, mouthIndex - 4)];
+    const downstream = otamiriPts[Math.min(otamiriPts.length - 1, mouthIndex + 4)];
     let ex = downstream.x - upstream.x;
     let ez = downstream.z - upstream.z;
     const flow = Math.hypot(ex, ez) || 1;
-    ex = (ex / flow) * 70;
-    ez = (ez / flow) * 70;
-    for (let i = 1; i <= 28; i += 1) {
-      const t = i / 28;
+    ex = (ex / flow) * gap * 0.45;
+    ez = (ez / flow) * gap * 0.45;
+    const steps = Math.max(20, Math.round(gap / 4));
+    for (let i = 1; i <= steps; i += 1) {
+      const t = i / steps;
       const t2 = t * t;
       const t3 = t2 * t;
       nworiePts.push({
@@ -165,19 +198,58 @@ export function CityWorld({
         z: (2 * t3 - 3 * t2 + 1) * tail.z + (t3 - 2 * t2 + t) * sz + (-2 * t3 + 3 * t2) * mouth.z + (t3 - t2) * ez,
       });
     }
-    layRiver(nworiePts, 10, mouth);
-    layRiver(otamiriPts, 10, mouth);
-    const pool = new THREE.Mesh(new THREE.CircleGeometry(28, 40), water);
-    pool.rotation.x = -Math.PI / 2;
-    pool.position.set(mouth.x, 0.055, mouth.z);
-    scene.add(pool);
-    const poolRing: RiverPoint[] = [];
-    for (let i = 0; i < 10; i += 1) {
-      const angle = (i / 10) * Math.PI * 2;
-      poolRing.push({ x: mouth.x + Math.cos(angle) * 12, z: mouth.z + Math.sin(angle) * 12 });
+    while (nworiePts.length > 8 && distToPoly(otamiriPts, nworiePts[nworiePts.length - 1].x, nworiePts[nworiePts.length - 1].z) < 14) {
+      nworiePts.pop();
     }
-    poolRing.push(poolRing[0]);
-    riverLines.push({ pts: poolRing, half: 10 });
+    const nworieRibbon = layRiver(nworiePts, 11);
+    const otamiriRibbon = layRiver(otamiriPts, 11);
+    const tip = nworiePts[nworiePts.length - 1];
+    let joinAt = 0;
+    let joinDist = Infinity;
+    for (let i = 0; i < otamiriPts.length; i += 1) {
+      const dist = Math.hypot(otamiriPts[i].x - tip.x, otamiriPts[i].z - tip.z);
+      if (dist < joinDist) {
+        joinDist = dist;
+        joinAt = i;
+      }
+    }
+    const tipL = nworieRibbon.left[nworieRibbon.left.length - 1];
+    const tipR = nworieRibbon.right[nworieRibbon.right.length - 1];
+    const useLeft = Math.hypot(tip.x - otamiriRibbon.left[joinAt].x, tip.z - otamiriRibbon.left[joinAt].z) < Math.hypot(tip.x - otamiriRibbon.right[joinAt].x, tip.z - otamiriRibbon.right[joinAt].z);
+    const bankEdge = useLeft ? otamiriRibbon.left : otamiriRibbon.right;
+    const span = 8;
+    const from = Math.max(0, joinAt - span);
+    const to = Math.min(bankEdge.length - 1, joinAt + span);
+    const mouthPositions: number[] = [];
+    const mouthNormals: number[] = [];
+    const mouthIndices: number[] = [];
+    const count = to - from + 1;
+    for (let i = 0; i < count; i += 1) {
+      const t = count === 1 ? 0.5 : i / (count - 1);
+      const edge = bankEdge[from + i];
+      const pullX = tip.x - edge.x;
+      const pullZ = tip.z - edge.z;
+      const pull = Math.hypot(pullX, pullZ) || 1;
+      mouthPositions.push(
+        tipL.x + (tipR.x - tipL.x) * t,
+        0.06,
+        tipL.z + (tipR.z - tipL.z) * t,
+        edge.x + (pullX / pull) * 0.8,
+        0.06,
+        edge.z + (pullZ / pull) * 0.8,
+      );
+      mouthNormals.push(0, 1, 0, 0, 1, 0);
+    }
+    for (let i = 0; i < count - 1; i += 1) {
+      const a = i * 2;
+      mouthIndices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+    }
+    const mouthGeo = new THREE.BufferGeometry();
+    mouthGeo.setAttribute("position", new THREE.Float32BufferAttribute(mouthPositions, 3));
+    mouthGeo.setAttribute("normal", new THREE.Float32BufferAttribute(mouthNormals, 3));
+    mouthGeo.setIndex(mouthIndices);
+    scene.add(new THREE.Mesh(mouthGeo, water));
+    riverLines.push({ pts: [tip, otamiriPts[joinAt]], half: 14 });
     const before = otamiriPts[Math.max(0, mouthIndex - 1)];
     const after = otamiriPts[Math.min(otamiriPts.length - 1, mouthIndex + 1)];
     let bankTx = after.x - before.x;
@@ -655,26 +727,66 @@ export function CityWorld({
       estate(aladinma.x + 6, aladinma.z + 32, 7, 8, 2.7);
       estate(aladinma.x + 38, aladinma.z - 28, 6, 7, 2.7);
     }
-    billboard(-36, 16, 0.4, "Wetheral night", "Clubs open till dawn", "#7a2e1e");
-    billboard(28, -78, 0.2, "Bus to campus", "IMSU, FUTO, Nekede", "#143d2c");
-    billboard(62, 22, -0.5, "Mama Nkechi", "Rice, stew, and gist", "#8a5a2a");
-    billboard(-62, 48, 0.8, "New Owerri", "Flats and duplexes", "#1f6b45");
-    billboard(110, 78, -0.3, "Sam Mbakwe", "Flights out of Imo", "#245c78");
-    billboard(-110, -40, 0.6, "Ad board", "Buy this slot", "#a9782a");
-    billboard(140, -30, -0.4, "Port Harcourt Rd", "Your brand here", "#7a2e1e");
-    billboard(40, 120, 0.15, "Airport road", "Seen by every flight", "#143d2c");
-    billboard(-40, -120, 1.1, "State CID", "A big compound", "#1d4a66");
-    billboard(70, -130, -0.8, "Campus life", "IMSU · FUTO · Nekede", "#1f6b45");
-    billboard(-160, 16, 0.2, "Egbu farms", "Cassava every Saturday", "#3d6b4f");
-    billboard(190, 16, -0.3, "Ikenegbu rooms", "The cheap side of town", "#8a5a2a");
-    billboard(-200, -76, 0.5, "Ad board", "This face is for sale", "#a9782a");
-    billboard(210, 104, -0.2, "Heroes Square", "Open ground, every day", "#1d4a66");
-    billboard(-120, 104, 0.7, "Heartland", "Beach, games, and grill", "#7a2e1e");
-    billboard(30, 214, 0.1, "Nekede rice", "Opens with your level", "#143d2c");
-    billboard(-170, -104, 1, "City bank", "Shifts on the centre road", "#245c78");
-    billboard(160, -104, -0.6, "Aladinma", "Flats on this side", "#1f6b45");
-    billboard(-230, 40, 0.9, "Bus stop", "Campus and the markets", "#143d2c");
-    billboard(230, -50, -0.4, "Otamiri", "Cross on the bridge", "#245c78");
+    function placeSign(x: number, z: number, turn: number, title: string, line: string, paint: string) {
+      let px = x;
+      let pz = z;
+      const step = 8;
+      const options = [
+        [step, 0],
+        [-step, 0],
+        [0, step],
+        [0, -step],
+        [step, step],
+        [-step, step],
+        [step, -step],
+        [-step, -step],
+      ];
+      for (let n = 1; n <= 5 && onStrip(px, pz, 2); n += 1) {
+        for (const [dx, dz] of options) {
+          const qx = x + dx * n;
+          const qz = z + dz * n;
+          if (!onStrip(qx, qz, 2)) {
+            px = qx;
+            pz = qz;
+            break;
+          }
+        }
+      }
+      billboard(px, pz, turn, title, line, paint);
+    }
+    function byPlace(id: string, dx: number, dz: number, turn: number, title: string, line: string, paint: string) {
+      const at = laid.get(id);
+      if (!at) return;
+      placeSign(at.x + dx, at.z + dz, turn, title, line, paint);
+    }
+    byPlace("wetheral-strip", 36, -18, 0.4, "Wetheral night", "Clubs open till dawn", "#7a2e1e");
+    byPlace("wetheral-strip", -36, 22, 0.8, "Ad board", "Buy this slot", "#a9782a");
+    byPlace("futo", 78, 16, 0.2, "Bus to campus", "IMSU, FUTO, Nekede", "#143d2c");
+    byPlace("campus-gate", 14, 16, 0.5, "Bus stop", "Campus and the markets", "#143d2c");
+    byPlace("mama-nkechi", 14, 10, -0.4, "Mama Nkechi", "Rice, stew, and gist", "#8a5a2a");
+    byPlace("new-owerri", 18, -16, 0.6, "New Owerri", "Flats and duplexes", "#1f6b45");
+    byPlace("sam-mbakwe", 130, 24, -0.3, "Sam Mbakwe", "Flights out of Imo", "#245c78");
+    byPlace("sam-mbakwe", 130, -36, 0.2, "Airport road", "Seen by every flight", "#143d2c");
+    byPlace("state-cid", 28, 8, 0.7, "State CID", "A big compound", "#1d4a66");
+    byPlace("state-cid", -28, 18, -0.5, "Port Harcourt Rd", "Your brand here", "#7a2e1e");
+    byPlace("imsu", 72, -20, -0.6, "Campus life", "IMSU · FUTO · Nekede", "#1f6b45");
+    byPlace("heroes-square", 26, 18, 0.3, "Heroes Square", "Open ground, every day", "#1d4a66");
+    byPlace("heartland-resort", 26, 12, 0.6, "Heartland", "Beach, games, and grill", "#7a2e1e");
+    byPlace("city-bank", 28, 18, 0.4, "City bank", "Shifts on the centre road", "#245c78");
+    byPlace("aladinma", 16, 14, -0.4, "Aladinma", "Flats on this side", "#1f6b45");
+    byPlace("ikenegbu", 18, -16, -0.2, "Ikenegbu rooms", "The cheap side of town", "#8a5a2a");
+    byPlace("eke-ukwu", 40, 22, 0.5, "Ad board", "This face is for sale", "#a9782a");
+    placeSign(-196, 228, 0.2, "Egbu farms", "Cassava every Saturday", "#3d6b4f");
+    placeSign(186, 218, 0.1, "Nekede rice", "Opens with your level", "#143d2c");
+    const otamiriSign = otamiriPts[52];
+    const otamiriBack = otamiriPts[49];
+    const otamiriFore = otamiriPts[55];
+    let otx = otamiriFore.x - otamiriBack.x;
+    let otz = otamiriFore.z - otamiriBack.z;
+    const otLen = Math.hypot(otx, otz) || 1;
+    otx /= otLen;
+    otz /= otLen;
+    placeSign(otamiriSign.x - otz * 28, otamiriSign.z + otx * 28, Math.atan2(otx, otz), "Otamiri", "Cross on the bridge", "#245c78");
 
     function block(w: number, h: number, d: number, color: number, x: number, y: number, z: number) {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ color }));
@@ -1048,7 +1160,8 @@ export function CityWorld({
       rightArm: THREE.Group;
       base: number;
       span: number;
-      speed: number;
+      stepRate: number;
+      stride: number;
       phase: number;
     }> = [];
     function beachPerson(shirt: number, skin: number, trousers: number, hair: number) {
@@ -1130,8 +1243,9 @@ export function CityWorld({
           rightArm: made.rightArm,
           base: -20,
           span: 40,
-          speed: 0.28 + index * 0.05,
-          phase: index * 1.3,
+          stepRate: 0.82 + index * 0.07,
+          stride: 0.75,
+          phase: index * 1.7,
         });
       });
       const dx = x - mouth.x;
@@ -1365,15 +1479,19 @@ export function CityWorld({
       const elapsed = clock.getElapsedTime();
       const pulse = 1 + Math.sin(elapsed * 3) * 0.16;
       for (const walker of beachWalkers) {
-        const along = elapsed * walker.speed + walker.phase;
-        const swing = Math.sin(along);
-        const step = Math.sin(along * 6);
-        walker.mesh.position.x = walker.base + ((swing + 1) / 2) * walker.span;
-        walker.mesh.rotation.y = Math.cos(along) >= 0 ? Math.PI / 2 : -Math.PI / 2;
-        walker.leftLeg.rotation.x = step * 0.85;
-        walker.rightLeg.rotation.x = -step * 0.85;
-        walker.leftArm.rotation.x = -step * 0.6;
-        walker.rightArm.rotation.x = step * 0.6;
+        const steps = elapsed * walker.stepRate + walker.phase;
+        const travelled = steps * walker.stride;
+        const loop = walker.span * 2;
+        const wrapped = ((travelled % loop) + loop) % loop;
+        const forward = wrapped <= walker.span;
+        walker.mesh.position.x = walker.base + (forward ? wrapped : loop - wrapped);
+        walker.mesh.position.y = Math.abs(Math.sin(steps * Math.PI)) * 0.04;
+        walker.mesh.rotation.y = forward ? Math.PI / 2 : -Math.PI / 2;
+        const swing = Math.sin(steps * Math.PI);
+        walker.leftLeg.rotation.x = swing * 0.75;
+        walker.rightLeg.rotation.x = -swing * 0.75;
+        walker.leftArm.rotation.x = -swing * 0.5;
+        walker.rightArm.rotation.x = swing * 0.5;
       }
       for (const home of homes) home.scale.setScalar(pulse);
       for (const car of traffic) {
