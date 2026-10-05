@@ -143,6 +143,38 @@ export function CityWorld({
     }
     layRiver(nworiePts, 10);
     layRiver(otamiriPts, 10);
+    const mouthIndex = Math.max(0, otamiriPts.indexOf(mouth));
+    const before = otamiriPts[Math.max(0, mouthIndex - 1)];
+    const after = otamiriPts[Math.min(otamiriPts.length - 1, mouthIndex + 1)];
+    let bankTx = after.x - before.x;
+    let bankTz = after.z - before.z;
+    const bankLen = Math.hypot(bankTx, bankTz) || 1;
+    bankTx /= bankLen;
+    bankTz /= bankLen;
+    const bankNormals = [
+      { x: -bankTz, z: bankTx },
+      { x: bankTz, z: -bankTx },
+    ];
+    function bankWet(origin: { x: number; z: number }, normal: { x: number; z: number }) {
+      let wet = 0;
+      for (let i = -3; i <= 3; i += 1) {
+        const edgeX = origin.x + bankTx * i * 11 - normal.x * 14;
+        const edgeZ = origin.z + bankTz * i * 11 - normal.z * 14;
+        if (riverPoint(edgeX, edgeZ, 1)) wet += 1;
+      }
+      return wet;
+    }
+    const bankSpot = bankNormals
+      .map((normal) => {
+        let reach = 28;
+        let origin = { x: mouth.x + normal.x * reach, z: mouth.z + normal.z * reach };
+        while (reach < 70 && bankWet(origin, normal) > 0) {
+          reach += 8;
+          origin = { x: mouth.x + normal.x * reach, z: mouth.z + normal.z * reach };
+        }
+        return { origin, wet: bankWet(origin, normal), land: Math.hypot(origin.x - tail.x, origin.z - tail.z) };
+      })
+      .sort((a, b) => a.wet - b.wet || b.land - a.land)[0].origin;
 
     function road(x: number, z: number, length: number, across: boolean) {
       const mesh = new THREE.Mesh(
@@ -162,7 +194,7 @@ export function CityWorld({
 
     const halfRoad = 2.6;
     const zones = [
-      { minX: mouth.x - 38, maxX: mouth.x + 38, minZ: mouth.z - 28, maxZ: mouth.z + 28 },
+      { minX: bankSpot.x - 40, maxX: bankSpot.x + 40, minZ: bankSpot.z - 40, maxZ: bankSpot.z + 40 },
       { minX: -310, maxX: 310, minZ: -halfRoad, maxZ: halfRoad },
       { minX: -260, maxX: 260, minZ: -90 - halfRoad, maxZ: -90 + halfRoad },
       { minX: 40 - 240, maxX: 40 + 240, minZ: 90 - halfRoad, maxZ: 90 + halfRoad },
@@ -367,6 +399,7 @@ export function CityWorld({
       const at = spot(place.x, place.y);
       return { id: place.id, x: at.x, z: at.z };
     });
+    const schools = new Set(["imsu", "futo", "fedpoly-nekede"]);
     const markets = new Set(["eke-ukwu", "relief-market", "ikenegbu-market", "owerri-mall"]);
     const restaurants = new Set(["donalds", "kilimanjaro", "november-5", "mangrove-grill"]);
     const landmark = new Set(["sam-mbakwe", "state-cid", "imsu", "futo", "fedpoly-nekede", "eke-ukwu", "relief-market", "ikenegbu-market", "owerri-mall", "heroes-square", "cartel-beach", "heartland-resort", "nworie-park", "amusement-park", "city-bank", "teaching-hospital", "general-hospital", "umezuruike-hospital", "st-davids", "shelly-hospital", "imo-specialist"]);
@@ -375,9 +408,10 @@ export function CityWorld({
       for (let i = 0; i < laidSpots.length; i += 1) {
         for (let j = i + 1; j < laidSpots.length; j += 1) {
           const airportPair = laidSpots[i].id === "sam-mbakwe" || laidSpots[j].id === "sam-mbakwe";
+          const schoolPair = schools.has(laidSpots[i].id) || schools.has(laidSpots[j].id);
           const marketPair = markets.has(laidSpots[i].id) || markets.has(laidSpots[j].id);
           const bigPair = landmark.has(laidSpots[i].id) || landmark.has(laidSpots[j].id) || restaurants.has(laidSpots[i].id) || restaurants.has(laidSpots[j].id);
-          const gap = airportPair ? 130 : marketPair ? 64 : bigPair ? 42 : 24;
+          const gap = airportPair ? 130 : schoolPair ? 110 : marketPair ? 64 : bigPair ? 42 : 24;
           let dx = laidSpots[j].x - laidSpots[i].x;
           let dz = laidSpots[j].z - laidSpots[i].z;
           const dist = Math.hypot(dx, dz) || 0.01;
@@ -392,7 +426,7 @@ export function CityWorld({
         }
       }
       for (const spot of laidSpots) {
-        const pad = spot.id === "sam-mbakwe" ? 100 : markets.has(spot.id) ? 30 : restaurants.has(spot.id) ? 16 : landmark.has(spot.id) ? 16 : roadside.has(spot.id) ? 6 : 4;
+        const pad = spot.id === "sam-mbakwe" ? 100 : schools.has(spot.id) ? 56 : markets.has(spot.id) ? 30 : restaurants.has(spot.id) ? 16 : landmark.has(spot.id) ? 16 : roadside.has(spot.id) ? 6 : 4;
         shoveOut(spot, pad);
       }
     }
@@ -509,6 +543,7 @@ export function CityWorld({
           const crowded = laidSpots.some((spot) => {
             const dist = Math.hypot(x - spot.x, z - spot.z);
             if (spot.id === "sam-mbakwe") return Math.abs(x - spot.x) < 100 && Math.abs(z - spot.z) < 72;
+            if (schools.has(spot.id)) return Math.abs(x - spot.x) < 54 && Math.abs(z - spot.z) < 42;
             if (markets.has(spot.id)) return dist < 34;
             if (restaurants.has(spot.id)) return dist < 18;
             if (roadside.has(spot.id)) return dist < 8;
@@ -591,6 +626,7 @@ export function CityWorld({
       shuttle.position.set(7.8, 0, 3.2);
       shuttle.rotation.y = 0.4;
       group.add(staff, shuttle);
+      group.scale.setScalar(4);
       group.position.set(x, 0, z);
       scene.add(group);
       return group;
@@ -898,14 +934,14 @@ export function CityWorld({
 
     function confluenceBank(x: number, z: number) {
       const group = new THREE.Group();
-      group.add(block(78, 0.16, 54, 0xb7a37a, 0, 0.05, 0));
-      group.add(block(52, 0.1, 28, 0xe4d2a8, 8, 0.16, 6));
-      group.add(block(34, 0.08, 16, 0xf2e2b8, 14, 0.22, 12));
+      group.add(block(72, 0.1, 36, 0xb7a37a, 0, 0.03, 6));
+      group.add(block(48, 0.08, 18, 0xe4d2a8, 0, 0.08, 12));
+      group.add(block(30, 0.06, 10, 0xf2e2b8, 0, 0.12, 16));
       const trunkMat = new THREE.MeshLambertMaterial({ color: 0x6a4630 });
       const crownMat = new THREE.MeshLambertMaterial({ color: 0x2a6b38 });
       for (let i = 0; i < 8; i += 1) {
-        const px = -28 + (i % 4) * 10;
-        const pz = -16 + Math.floor(i / 4) * 12;
+        const px = -24 + (i % 4) * 12;
+        const pz = 4 + Math.floor(i / 4) * 10;
         const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.28, 2.4, 5), trunkMat);
         trunk.position.set(px, 1.3, pz);
         const crown = new THREE.Mesh(new THREE.SphereGeometry(1.1, 6, 4), crownMat);
@@ -914,14 +950,17 @@ export function CityWorld({
         group.add(trunk, crown);
       }
       for (let i = 0; i < 4; i += 1) {
-        group.add(block(2.4, 0.08, 2.4, 0xf2c14e, 4 + i * 6, 1.5, 14));
-        group.add(block(0.08, 1.4, 0.08, 0x6a4630, 4 + i * 6, 0.8, 14));
+        group.add(block(2.4, 0.08, 2.4, 0xf2c14e, -12 + i * 8, 1.4, 16));
+        group.add(block(0.08, 1.3, 0.08, 0x6a4630, -12 + i * 8, 0.75, 16));
       }
+      const dx = x - mouth.x;
+      const dz = z - mouth.z;
+      group.rotation.y = Math.atan2(dx, dz);
       group.position.set(x, 0, z);
       scene.add(group);
-      pill("River bank", new THREE.Vector3(x, 3.2, z - 8));
+      pill("River bank", new THREE.Vector3(x, 3.2, z));
     }
-    confluenceBank(mouth.x, mouth.z);
+    confluenceBank(bankSpot.x, bankSpot.z);
 
     function shopfront(x: number, z: number) {
       const group = new THREE.Group();
@@ -947,7 +986,7 @@ export function CityWorld({
         labelY = 6.4;
       } else if (place.kind === "school") {
         group = schoolYard(at.x, at.z);
-        labelY = 6.8;
+        labelY = 26;
       } else if (place.kind === "market") {
         group = marketYard(at.x, at.z);
         labelY = 6.4;
