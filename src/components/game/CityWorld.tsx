@@ -479,11 +479,13 @@ export function CityWorld({
     const restaurants = new Set(["donalds", "dominos", "cold-stone", "kilimanjaro", "november-5", "mangrove-grill", "josephs-pot", "the-warehouse"]);
     const landmark = new Set(["sam-mbakwe", "state-cid", "imsu", "futo", "fedpoly-nekede", "eke-ukwu", "relief-market", "ikenegbu-market", "owerri-mall", "heroes-square", "cartel-beach", "heartland-resort", "nworie-park", "amusement-park", "city-bank", "teaching-hospital", "general-hospital", "umezuruike-hospital", "st-davids", "shelly-hospital", "imo-specialist"]);
     const roadside = new Set(["mama-nkechi", "feedwell", "crunchies"]);
+    const phoneShops = new Set(["anonymous-gadgets", "sugar-gadgets", "buc-phones", "elion-phones", "ocha-gadgets", "maxii-gadgets", "easy-life", "gadgets-plug"]);
+    const pinned = new Set(["car-stand", "assumpta-cathedral", "everyday", ...phoneShops]);
     const hotels = new Set(PLACES.filter((place) => place.kind === "hotel").map((place) => place.id));
     for (let pass = 0; pass < 36; pass += 1) {
       for (let i = 0; i < laidSpots.length; i += 1) {
         for (let j = i + 1; j < laidSpots.length; j += 1) {
-          if (laidSpots[i].id === "car-stand" || laidSpots[j].id === "car-stand") continue;
+          if (pinned.has(laidSpots[i].id) || pinned.has(laidSpots[j].id)) continue;
           const pair = new Set([laidSpots[i].id, laidSpots[j].id]);
           const besideFood = (pair.has("donalds") && (pair.has("dominos") || pair.has("cold-stone"))) || (pair.has("dominos") && pair.has("cold-stone"));
           const shellyMangrove = pair.has("shelly-hospital") && pair.has("mangrove-grill");
@@ -508,7 +510,7 @@ export function CityWorld({
         }
       }
       for (const spot of laidSpots) {
-        if (spot.id === "car-stand") continue;
+        if (pinned.has(spot.id)) continue;
         const pad = spot.id === "sam-mbakwe" ? 100 : spot.id === "assumpta-cathedral" ? 14 : spot.id === "everyday" ? 12 : schools.has(spot.id) ? 56 : clubs.has(spot.id) ? 16 : markets.has(spot.id) ? 30 : restaurants.has(spot.id) ? 16 : landmark.has(spot.id) ? 16 : hotels.has(spot.id) ? 12 : roadside.has(spot.id) ? 6 : 4;
         shoveOut(spot, pad);
       }
@@ -572,6 +574,74 @@ export function CityWorld({
       gateSpot.z = futoSpot.z;
     }
     const laid = new Map(laidSpots.map((item) => [item.id, item]));
+    const keepClear: Array<{ x: number; z: number; hx: number; hz: number }> = [];
+    function hitsRoad(x: number, z: number, hx: number, hz: number) {
+      for (const dx of [-hx, 0, hx]) {
+        for (const dz of [-hz, 0, hz]) {
+          if (onStrip(x + dx, z + dz, 0.8)) return true;
+        }
+      }
+      return false;
+    }
+    function parkOffRoad(spot: { x: number; z: number }, hx: number, hz: number) {
+      if (!hitsRoad(spot.x, spot.z, hx, hz)) return;
+      const baseX = spot.x;
+      const baseZ = spot.z;
+      for (let ring = 1; ring <= 8; ring += 1) {
+        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]] as Array<[number, number]>) {
+          const x = Math.min(LIMIT, Math.max(-LIMIT, baseX + dx * 20 * ring));
+          const z = Math.min(LIMIT, Math.max(-LIMIT, baseZ + dz * 20 * ring));
+          if (hitsRoad(x, z, hx, hz)) continue;
+          spot.x = x;
+          spot.z = z;
+          return;
+        }
+      }
+    }
+    const church = laid.get("assumpta-cathedral");
+    const mart = laid.get("everyday");
+    if (church) {
+      parkOffRoad(church, 26, 20);
+      keepClear.push({ x: church.x, z: church.z, hx: 26, hz: 20 });
+    }
+    if (church && mart) {
+      const seats = [
+        { x: church.x + 44, z: church.z },
+        { x: church.x - 44, z: church.z },
+        { x: church.x, z: church.z + 38 },
+        { x: church.x, z: church.z - 38 },
+      ];
+      const seat = seats.find((item) => !hitsRoad(item.x, item.z, 12, 10)) ?? seats[0];
+      mart.x = seat.x;
+      mart.z = seat.z;
+      keepClear.push({ x: mart.x, z: mart.z, hx: 12, hz: 10 });
+    }
+    function roadSpan(axis: "x" | "z", fixed: number, from: number, to: number) {
+      let cuts: Array<[number, number]> = [[Math.min(from, to), Math.max(from, to)]];
+      for (const box of keepClear) {
+        const next: Array<[number, number]> = [];
+        for (const [start, end] of cuts) {
+          const crosses = axis === "x" ? Math.abs(fixed - box.z) <= box.hz : Math.abs(fixed - box.x) <= box.hx;
+          if (!crosses) {
+            next.push([start, end]);
+            continue;
+          }
+          const cutL = axis === "x" ? box.x - box.hx : box.z - box.hz;
+          const cutR = axis === "x" ? box.x + box.hx : box.z + box.hz;
+          if (start < cutL) next.push([start, Math.min(end, cutL)]);
+          if (end > cutR) next.push([Math.max(start, cutR), end]);
+        }
+        cuts = next.filter(([start, end]) => end - start > 6);
+      }
+      for (const [start, end] of cuts) {
+        const mid = (start + end) / 2;
+        const len = end - start;
+        if (axis === "x") road(mid, fixed, len, true);
+        else road(fixed, mid, len, false);
+        if (axis === "x") zones.push({ minX: start, maxX: end, minZ: fixed - halfRoad, maxZ: fixed + halfRoad });
+        else zones.push({ minX: fixed - halfRoad, maxX: fixed + halfRoad, minZ: start, maxZ: end });
+      }
+    }
     function schoolApproach(cx: number, cz: number) {
       const gx = cx + 50;
       const gz = cz;
@@ -590,18 +660,8 @@ export function CityWorld({
         }
       }
       const joinX = Math.max(gx, bestX);
-      const run = Math.max(12, joinX - gx);
-      road(gx + run / 2, gz, run, true);
-      zones.push({ minX: gx - 4, maxX: joinX + 4, minZ: gz - halfRoad, maxZ: gz + halfRoad });
-      if (Math.abs(bestZ - gz) > 4) {
-        road(joinX, (gz + bestZ) / 2, Math.abs(bestZ - gz), false);
-        zones.push({
-          minX: joinX - halfRoad,
-          maxX: joinX + halfRoad,
-          minZ: Math.min(gz, bestZ) - 4,
-          maxZ: Math.max(gz, bestZ) + 4,
-        });
-      }
+      roadSpan("x", gz, gx, joinX);
+      if (Math.abs(bestZ - gz) > 4) roadSpan("z", joinX, gz, bestZ);
     }
     for (const id of schools) {
       const at = laid.get(id);
@@ -658,7 +718,8 @@ export function CityWorld({
             if (markets.has(spot.id)) return dist < 34;
             if (restaurants.has(spot.id)) return dist < 18;
             if (roadside.has(spot.id)) return dist < 8;
-            if (spot.id === "assumpta-cathedral" || spot.id === "everyday") return dist < 16;
+            if (spot.id === "assumpta-cathedral") return dist < 32;
+            if (spot.id === "everyday" || phoneShops.has(spot.id)) return dist < 12;
             if (landmark.has(spot.id)) return dist < 18;
             if (hotels.has(spot.id)) return Math.abs(x - spot.x) < 8.2 && Math.abs(z - spot.z) < 2.4;
             return false;
@@ -1121,7 +1182,7 @@ export function CityWorld({
 
     function cathedralYard(x: number, z: number) {
       const group = new THREE.Group();
-      group.add(block(24, 0.12, 20, 0xc5d6a4, 0, 0.08, 0));
+      group.add(block(24, 0.12, 18, 0xc5d6a4, 0, 0.08, 0));
       group.add(block(14, 5.2, 9, 0xf7f1e6, 0, 2.7, -1));
       group.add(block(14.6, 0.32, 9.4, 0xc4552a, 0, 5.45, -1));
       const dome = new THREE.Mesh(new THREE.SphereGeometry(2.5, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0xe0b15a }));
@@ -1137,6 +1198,7 @@ export function CityWorld({
       group.add(block(1.8, 2.4, 0.12, 0x143d2c, 0, 1.35, 3.55));
       group.add(block(0.16, 2.4, 1.2, 0x3d7ea6, -7.05, 3.2, -1));
       group.add(block(0.16, 2.4, 1.2, 0xc4552a, 7.05, 3.2, -1));
+      group.scale.setScalar(2);
       group.position.set(x, 0, z);
       scene.add(group);
       return group;
@@ -1447,8 +1509,52 @@ export function CityWorld({
       }
       settle(coldAt, 8, 7);
     }
-    settle(laid.get("assumpta-cathedral"), 12, 10);
-    settle(laid.get("everyday"), 11, 9);
+    let tetlowAxis: "x" | "z" = "z";
+    let tetlowFixed = 80;
+    const hotelAt = laid.get("business-hotel");
+    const campusAt = laid.get("imsu");
+    if (hotelAt && campusAt) {
+      const northSouth = arterials.filter((item) => item.axis === "z");
+      const eastWest = arterials.filter((item) => item.axis === "x");
+      const nsRoad = northSouth.reduce((best, road) => (Math.abs(road.fixed - hotelAt.x) < Math.abs(best.fixed - hotelAt.x) ? road : best));
+      const ewRoad = eastWest.reduce((best, road) => (Math.abs(road.fixed - hotelAt.z) < Math.abs(best.fixed - hotelAt.z) ? road : best));
+      const alongZ = Math.abs(nsRoad.fixed - hotelAt.x) <= Math.abs(ewRoad.fixed - hotelAt.z);
+      tetlowAxis = alongZ ? "z" : "x";
+      tetlowFixed = alongZ ? nsRoad.fixed : ewRoad.fixed;
+      const from = alongZ ? Math.min(hotelAt.z, campusAt.z) : Math.min(hotelAt.x, campusAt.x);
+      const to = alongZ ? Math.max(hotelAt.z, campusAt.z) : Math.max(hotelAt.x, campusAt.x);
+      const span = Math.max(88, to - from);
+      const mid = (from + to) / 2;
+      const start = mid - span / 2;
+      const names = ["anonymous-gadgets", "sugar-gadgets", "buc-phones", "elion-phones", "ocha-gadgets", "maxii-gadgets", "easy-life", "gadgets-plug"];
+      const fillers = ["Tecno Plaza", "Sirvic Mobiles", "Dialogue Phones", "Screen Doctor", "Charger Hub", "Cases & Glass", "Phone Hub", "Accessory Lane"];
+      let named = 0;
+      let filler = 0;
+      for (let along = start + 8; along <= start + span - 8; along += 12) {
+        for (const side of [-1, 1]) {
+          const x = alongZ ? tetlowFixed + side * 14 : along;
+          const z = alongZ ? along : tetlowFixed + side * 14;
+          const onHotel = Math.hypot(x - hotelAt.x, z - hotelAt.z) < 18;
+          const onCampus = Math.abs(x - campusAt.x) < 54 && Math.abs(z - campusAt.z) < 40;
+          if (onHotel || onCampus || footHits(x, z, 4, 3)) continue;
+          if (named < names.length) {
+            const shop = laid.get(names[named]);
+            if (shop) {
+              shop.x = x;
+              shop.z = z;
+            }
+            named += 1;
+          } else if (filler < fillers.length) {
+            const stall = shopfront(x, z);
+            stall.rotation.y = alongZ ? (side > 0 ? -Math.PI / 2 : Math.PI / 2) : side > 0 ? Math.PI : 0;
+            pill(fillers[filler], new THREE.Vector3(x, 3.2, z));
+            filler += 1;
+          }
+        }
+      }
+      const labelAt = alongZ ? new THREE.Vector3(tetlowFixed, 1.2, mid) : new THREE.Vector3(mid, 1.2, tetlowFixed);
+      pill("Tetlow Road", labelAt);
+    }
 
     for (const place of PLACES) {
       const at = laid.get(place.id) ?? spot(place.x, place.y);
@@ -1504,7 +1610,11 @@ export function CityWorld({
         labelY = 6.4;
       } else if (place.id === "assumpta-cathedral") {
         group = cathedralYard(at.x, at.z);
-        labelY = 10.2;
+        labelY = 20;
+      } else if (phoneShops.has(place.id)) {
+        group = shopfront(at.x, at.z);
+        group.rotation.y = tetlowAxis === "z" ? (at.x >= tetlowFixed ? -Math.PI / 2 : Math.PI / 2) : at.z >= tetlowFixed ? Math.PI : 0;
+        labelY = 3.4;
       } else if (place.id === "everyday") {
         group = groceryYard(at.x, at.z);
         labelY = 6.4;
@@ -1539,7 +1649,7 @@ export function CityWorld({
       group.userData.placeId = place.id;
       buildings.push(group);
       if (mine) homes.push(group);
-      const glyph = place.id === "assumpta-cathedral" ? "✝" : mark(place.kind);
+      const glyph = place.id === "assumpta-cathedral" ? "✝" : phoneShops.has(place.id) ? "☎" : mark(place.kind);
       pill(`${glyph} ${mine ? "Home" : place.name}`, new THREE.Vector3(at.x, labelY, at.z), place.id);
     }
 

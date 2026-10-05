@@ -992,6 +992,8 @@ function parkedCar(color: number, x: number, z: number, rot = Math.PI) {
   return car;
 }
 
+const PHONE_SHOPS = new Set(["anonymous-gadgets", "sugar-gadgets", "buc-phones", "elion-phones", "ocha-gadgets", "maxii-gadgets", "easy-life", "gadgets-plug"]);
+
 function BuildingFront({ placeId, look }: { placeId: string; look: LookId }) {
   const host = useRef<HTMLDivElement>(null);
   const rig = useRef({ yaw: 0.42, zoom: 1 });
@@ -1045,25 +1047,38 @@ function BuildingFront({ placeId, look }: { placeId: string; look: LookId }) {
       });
       me.position.set(0.4, 0, 4.2);
     } else if (place.id === "assumpta-cathedral") {
-      add(piece(0xc5d6a4, 28, 0.12, 22, 0, 0.06, 0));
-      add(piece(0xf7f1e6, 14, 6.2, 8, 0, 3.2, -1));
-      add(piece(0xc4552a, 14.6, 0.3, 8.5, 0, 6.4, -1));
+      const church = new THREE.Group();
+      const put = (mesh: THREE.Object3D) => church.add(mesh);
+      put(piece(0xc5d6a4, 28, 0.12, 22, 0, 0.06, 0));
+      put(piece(0xf7f1e6, 14, 6.2, 8, 0, 3.2, -1));
+      put(piece(0xc4552a, 14.6, 0.3, 8.5, 0, 6.4, -1));
       const dome = new THREE.Mesh(new THREE.SphereGeometry(2.6, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0xe0b15a }));
       dome.position.set(0, 6.6, -1);
-      add(dome);
-      add(piece(0xf2c14e, 0.2, 1.6, 0.2, 0, 9.4, -1));
-      add(piece(0xf2c14e, 0.9, 0.16, 0.16, 0, 9.8, -1));
-      add(piece(0xf4efe4, 2.4, 7.2, 2.4, -6.6, 3.6, -1));
-      add(piece(0xf4efe4, 2.4, 7.2, 2.4, 6.6, 3.6, -1));
-      add(piece(0x1f6b45, 2.8, 0.28, 2.8, -6.6, 7.3, -1));
-      add(piece(0x1f6b45, 2.8, 0.28, 2.8, 6.6, 7.3, -1));
-      add(piece(0x143d2c, 1.8, 2.6, 0.12, 0, 1.4, 3.1));
-      add(piece(0x3d7ea6, 0.16, 2.6, 1.4, -7.1, 3.4, -1));
-      add(piece(0xc4552a, 0.16, 2.6, 1.4, 7.1, 3.4, -1));
-      sign("Assumpta", "CATHEDRAL", 0, 5.2, 3.2, 5.2, 1.3, "#143d2c", "#f6f1e6");
-      tree(-11, 4);
-      tree(11, 4);
-      me.position.set(0.4, 0, 6);
+      put(dome);
+      put(piece(0xf2c14e, 0.2, 1.6, 0.2, 0, 9.4, -1));
+      put(piece(0xf2c14e, 0.9, 0.16, 0.16, 0, 9.8, -1));
+      put(piece(0xf4efe4, 2.4, 7.2, 2.4, -6.6, 3.6, -1));
+      put(piece(0xf4efe4, 2.4, 7.2, 2.4, 6.6, 3.6, -1));
+      put(piece(0x1f6b45, 2.8, 0.28, 2.8, -6.6, 7.3, -1));
+      put(piece(0x1f6b45, 2.8, 0.28, 2.8, 6.6, 7.3, -1));
+      put(piece(0x143d2c, 1.8, 2.6, 0.12, 0, 1.4, 3.1));
+      put(piece(0x3d7ea6, 0.16, 2.6, 1.4, -7.1, 3.4, -1));
+      put(piece(0xc4552a, 0.16, 2.6, 1.4, 7.1, 3.4, -1));
+      const board = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 1.3), new THREE.MeshBasicMaterial({ map: frontBoard("Assumpta", "CATHEDRAL", "#143d2c", "#f6f1e6") }));
+      board.position.set(0, 5.2, 3.2);
+      put(board);
+      church.scale.setScalar(1.8);
+      add(church);
+      tree(-16, 6);
+      tree(16, 6);
+      me.position.set(0.4, 0, 12);
+    } else if (PHONE_SHOPS.has(place.id)) {
+      add(piece(0xd7d3cc, 10, 0.1, 7, 0, 0.06, 0));
+      add(piece(0xf7f1e6, 6.4, 3.2, 3.4, 0, 1.7, -0.4));
+      add(piece(0x17241e, 6.6, 0.28, 3.6, 0, 3.4, -0.4));
+      add(piece(0x9fd0ea, 4.2, 1.6, 0.08, 0, 1.8, 1.35));
+      sign(place.name, "TETLOW ROAD", 0, 2.8, 1.4, 4.8, 1.1, "#143d2c", "#f6f1e6");
+      me.position.set(0.2, 0, 3.2);
     } else if (place.id === "everyday") {
       add(piece(0xd7d3cc, 22, 0.12, 16, 0, 0.06, 0));
       add(piece(0xf7fbfc, 16, 4.6, 7, 0, 2.4, -1));
@@ -1870,6 +1885,22 @@ function CathedralNave({ look }: { look: LookId }) {
   return <OrbitRoom look={look} build={build} />;
 }
 
+function PhoneCounter({ look, title }: { look: LookId; title: string }) {
+  const build = useRef((add: (mesh: THREE.Object3D) => void) => {
+    add(piece(0xf7fbfc, 12, 0.12, 10, 0, 0.06, 0));
+    add(piece(0x17241e, 8, 0.28, 0.2, 0, 3.2, -4.6));
+    add(piece(0xe7dcc8, 6, 1.1, 0.8, 0, 0.7, 2.6));
+    for (let col = 0; col < 4; col += 1) {
+      add(piece(col % 2 === 0 ? 0x245c78 : 0x1f6b45, 0.7, 1.3, 0.08, -2.2 + col * 1.5, 1.6, -3.8));
+    }
+    add(piece(0xf2c14e, 0.35, 0.7, 0.04, -1.2, 1.15, 2.2));
+    add(piece(0x143d2c, 0.35, 0.7, 0.04, 0.4, 1.15, 2.2));
+    add(piece(0xc4552a, 0.35, 0.7, 0.04, 1.6, 1.15, 2.2));
+    void title;
+  }).current;
+  return <OrbitRoom look={look} build={build} />;
+}
+
 function EverydayAisle({ look }: { look: LookId }) {
   const build = useRef((add: (mesh: THREE.Object3D) => void) => {
     add(piece(0xf7fbfc, 16, 0.12, 14, 0, 0.06, 0));
@@ -2031,6 +2062,8 @@ export function VenueInterior({
           <CathedralNave look={look} />
         ) : place.id === "everyday" ? (
           <EverydayAisle look={look} />
+        ) : PHONE_SHOPS.has(place.id) ? (
+          <PhoneCounter look={look} title={place.name} />
         ) : (
           <>
             <RoomScene look={look} kind={place.kind} people={people} besideId={besideId} selfId={selfId} onPick={onPickPerson} walkers={walkers} />
