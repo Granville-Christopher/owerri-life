@@ -1589,32 +1589,43 @@ function PhonePanel({
       ) : null}
       {app === "land" ? <section>
         <h2 className="font-display text-2xl">Land</h2>
-        <p className="mt-1 text-sm text-[#5d6b62]">Buy a plot. Every Saturday the tenants pay you. That rent is earned, so it can pay a meet-up. Topped-up naira still cannot.</p>
-        <div className="mt-2 grid gap-2">
-          {LANDS.map((plot) => {
-            const owned = me.lands.some((land) => land.id === plot.id);
-            return (
-              <div key={plot.id} className="rounded-2xl bg-white px-3 py-3 text-sm">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold">{plot.name}</p>
-                    <p className="text-[#5d6b62]">{plot.area}</p>
-                    <p className="text-[#5d6b62]">{plot.blurb}</p>
+        <p className="mt-1 text-sm text-[#5d6b62]">Plots, farmland, and ad boards. Farmland opens as your career level rises. Every Saturday the payment is earned, so it can pay a meet-up.</p>
+        {([
+          ["land", "Plots"],
+          ["farm", "Farmland"],
+          ["board", "Ad boards"],
+        ] as const).map(([kind, title]) => (
+          <div key={kind} className="mt-4">
+            <h3 className="font-semibold">{title}</h3>
+            <div className="mt-2 grid gap-2">
+              {LANDS.filter((plot) => (plot.kind ?? "land") === kind).map((plot) => {
+                const owned = me.lands.some((land) => land.id === plot.id);
+                const level = me.job?.level ?? 0;
+                const locked = (plot.needLevel ?? 0) > level;
+                return (
+                  <div key={plot.id} className="rounded-2xl bg-white px-3 py-3 text-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold">{plot.name}</p>
+                        <p className="text-[#5d6b62]">{plot.area}{plot.needLevel ? ` · level ${plot.needLevel}` : ""}</p>
+                        <p className="text-[#5d6b62]">{plot.blurb}</p>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={pending || owned || locked}
+                        className="shrink-0 rounded-full bg-[#1f6b45] px-3 py-1 text-xs font-semibold text-[#f6f1e6] disabled:opacity-40"
+                        onClick={() => run(() => buyPlot(plot.id))}
+                      >
+                        {owned ? "Yours" : locked ? `Level ${plot.needLevel}` : "Buy"}
+                      </button>
+                    </div>
+                    <p className="mt-2 text-xs font-semibold text-[#1f6b45]">{owned ? `${naira(plot.rent)} every Saturday` : `${naira(plot.price)} · ${naira(plot.rent)}/wk`}</p>
                   </div>
-                  <button
-                    type="button"
-                    disabled={pending || owned}
-                    className="shrink-0 rounded-full bg-[#1f6b45] px-3 py-1 text-xs font-semibold text-[#f6f1e6] disabled:opacity-40"
-                    onClick={() => run(() => buyPlot(plot.id))}
-                  >
-                    {owned ? "Yours" : "Buy"}
-                  </button>
-                </div>
-                <p className="mt-2 text-xs font-semibold text-[#1f6b45]">{owned ? `${naira(plot.rent)} every Saturday` : `${naira(plot.price)} · rent ${naira(plot.rent)}/wk`}</p>
-              </div>
-            );
-          })}
-        </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
         <label className="mt-4 block text-sm">
           Who can see your net worth
           <select

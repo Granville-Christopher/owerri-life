@@ -1151,6 +1151,8 @@ export interface Plot {
   price: number;
   rent: number;
   blurb: string;
+  kind?: "land" | "farm" | "board";
+  needLevel?: number;
 }
 
 export const LANDS: Plot[] = [
@@ -1160,6 +1162,12 @@ export const LANDS: Plot[] = [
   { id: "world-bank-plot", name: "World Bank plot", area: "World Bank", price: 360000, rent: 16000, blurb: "Estate land. Quiet tenants." },
   { id: "wetheral-plot", name: "Wetheral corner", area: "Wetheral Road", price: 480000, rent: 22000, blurb: "A corner on the old road. Shops want the frontage." },
   { id: "new-owerri-plot", name: "New Owerri plot", area: "New Owerri", price: 850000, rent: 38000, blurb: "The expensive side of town. The rent matches the address." },
+  { id: "egbu-farm", name: "Egbu cassava farm", area: "Egbu", price: 240000, rent: 14000, kind: "farm", needLevel: 3, blurb: "Opens at career level 3. The harvest pays every Saturday." },
+  { id: "nekede-farm", name: "Nekede rice field", area: "Nekede", price: 420000, rent: 22000, kind: "farm", needLevel: 4, blurb: "Opens at career level 4. A bigger field on the Nekede side." },
+  { id: "owerri-west-farm", name: "Owerri West palms", area: "Owerri West", price: 700000, rent: 36000, kind: "farm", needLevel: 5, blurb: "Opens at career level 5. The palms pay like a landlord." },
+  { id: "wetheral-board", name: "Wetheral billboard", area: "Wetheral Road", price: 180000, rent: 15000, kind: "board", blurb: "A weekly ad slot on the night road. The payment is earned." },
+  { id: "ph-road-board", name: "Port Harcourt Road board", area: "New Owerri", price: 320000, rent: 24000, kind: "board", blurb: "The busy frontage. Advertisers pay you every Saturday." },
+  { id: "airport-board", name: "Airport road board", area: "Sam Mbakwe", price: 260000, rent: 18000, kind: "board", blurb: "Everyone leaving town sees this one." },
 ];
 
 export interface Course {

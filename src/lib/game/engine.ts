@@ -94,11 +94,16 @@ export function topUp(player: Player, ledger: LedgerEntry[], amount: number): St
 export function buyLand(player: Player, ledger: LedgerEntry[], plotId: string): Step {
   const plot = plotById(plotId);
   if (player.lands.includes(plot.id)) return fail(player, ledger, "You already own that land.");
-  const charged = debit(ledger, player, plot.price, `Land · ${plot.name}`, stamp(player.day, player.hour));
+  const level = player.job?.level ?? 0;
+  if ((plot.needLevel ?? 0) > level) {
+    return fail(player, ledger, `${plot.name} opens at career level ${plot.needLevel}. You are on level ${level}.`);
+  }
+  const charged = debit(ledger, player, plot.price, `${plot.kind === "board" ? "Ad board" : plot.kind === "farm" ? "Farm" : "Land"} · ${plot.name}`, stamp(player.day, player.hour));
   if (!charged) return fail(player, ledger, "Your balance cannot cover that plot.");
   const next = structuredClone(player);
   next.lands = [...player.lands, plot.id];
-  return succeed(next, charged, [`You bought ${plot.name}. ${naira(plot.rent)} rent lands every Saturday. It is earned naira.`]);
+  const pay = plot.kind === "board" ? "The advertisers pay" : plot.kind === "farm" ? "The harvest pays" : "The tenants pay";
+  return succeed(next, charged, [`You bought ${plot.name}. ${pay} ${naira(plot.rent)} every Saturday. It is earned naira.`]);
 }
 
 export function wallet(ledger: LedgerEntry[], playerId: string) {
@@ -207,7 +212,8 @@ function applyBills(player: Player, ledger: LedgerEntry[]) {
   }
   for (const id of player.lands) {
     const plot = plotById(id);
-    ledger = credit(ledger, player, plot.rent, "earned", `Land rent · ${plot.name}`, at);
+    const rentName = plot.kind === "board" ? "Ad board" : plot.kind === "farm" ? "Farm" : "Land rent";
+    ledger = credit(ledger, player, plot.rent, "earned", `${rentName} · ${plot.name}`, at);
     notes.push(`${plot.name} paid ${naira(plot.rent)}.`);
   }
   if (player.loanRemaining > 0) {
