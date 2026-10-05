@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { InstallButton } from "@/components/InstallApp";
 import { currentPlayer } from "@/lib/game/auth";
+import { siteUrl } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
 
@@ -72,8 +73,23 @@ const strip = districts.flatMap((district) => district.places);
 
 export default async function HomePage() {
   const player = await currentPlayer();
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "VideoGame",
+    name: "Owerri Life",
+    url: siteUrl(),
+    description: "A shared life sim set in Owerri. Work a shift, eat, pay Saturday rent, and move through the city.",
+    genre: "Life simulation",
+    playMode: "MultiPlayer",
+    applicationCategory: "Game",
+    operatingSystem: "Web",
+    image: `${siteUrl()}/og.png`,
+    offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+  };
+
   return (
     <main className="ol-landing min-h-dvh bg-[#09090b] text-[#f6f1e8]">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <div className="mx-auto max-w-6xl px-5 py-8 md:py-12">
         <header className="flex items-center justify-between gap-4">
           <p className="font-display text-xl tracking-tight">Owerri Life</p>

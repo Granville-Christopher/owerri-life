@@ -53,7 +53,7 @@ import {
   workShift,
 } from "./engine";
 import { stamp } from "./format";
-import { hashPassword, setSession, verifyPassword, clearSession, sessionPlayerId } from "./auth";
+import { authBlocked, authCleared, authFailed, burnPasswordCheck, clearSession, hashPassword, needsUpgrade, sessionPlayerId, setSession, verifyPassword } from "./auth";
 import { mutate, readDb } from "./store";
 import type { BetPick, ChatQuote, CreateInput, LookId, NetWorthVisibility, Reveal, TraitId, TravelMode, WorkStyle } from "./types";
 
@@ -131,6 +131,8 @@ export async function createAccount(input: {
   if (!input.ageConfirmed) return { ok: false, error: "Owerri Life is 18+." };
   const username = cleanUsername(input.username);
   const email = input.email.trim().toLowerCase();
+  const blocked = authBlocked(`join:${email}`);
+  if (blocked) return { ok: false, error: blocked };
   const accountError = validAccount(username, email, input.password);
   if (accountError) return { ok: false, error: accountError };
   if (!validateLook(input.look) || !validateTraits(input.traits) || !validateDream(input.dream)) {
@@ -166,18 +168,35 @@ export async function createAccount(input: {
       return { save: false, value: { ok: false as const, error: "Pick one of the six launch careers." } };
     }
   });
-  if (!created.ok) return created;
+  if (!created.ok) {
+    authFailed(`join:${email}`);
+    return created;
+  }
+  authCleared(`join:${email}`);
   await setSession(created.id);
   return { ok: true, reveal: created.reveal };
 }
 
 export async function login(email: string, password: string): Promise<ActionResult> {
-  const db = await readDb();
-  const player = db.players.find((item) => item.email === email.trim().toLowerCase());
-  if (!player || !verifyPassword(password, player.passwordHash)) {
-    return { ok: false, error: "Email or password is wrong." };
+  const handle = email.trim().toLowerCase();
+  const blocked = authBlocked(`login:${handle}`);
+  if (blocked) return { ok: false, error: blocked };
+  const outcome = await mutate<{ ok: true; id: string } | { ok: false; error: string }>((db) => {
+    const player = db.players.find((item) => item.email === handle);
+    const matches = player ? verifyPassword(password, player.passwordHash) : (burnPasswordCheck(password), false);
+    if (!player || !matches) {
+      return { save: false, value: { ok: false as const, error: "Email or password is wrong." } };
+    }
+    const upgrade = needsUpgrade(player.passwordHash);
+    if (upgrade) player.passwordHash = hashPassword(password);
+    return { save: upgrade, value: { ok: true as const, id: player.id } };
+  });
+  if (!outcome.ok) {
+    authFailed(`login:${handle}`);
+    return outcome;
   }
-  await setSession(player.id);
+  authCleared(`login:${handle}`);
+  await setSession(outcome.id);
   return { ok: true, notice: "Welcome back." };
 }
 

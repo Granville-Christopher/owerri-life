@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { InstallButton } from "@/components/InstallApp";
 import { LoginForm } from "@/components/LoginForm";
 import { currentPlayer } from "@/lib/game/auth";
+
+export const metadata: Metadata = { title: "Sign in", robots: { index: false, follow: false } };
 
 export const dynamic = "force-dynamic";
 

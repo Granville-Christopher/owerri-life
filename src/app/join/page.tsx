@@ -1,5 +1,11 @@
+import type { Metadata } from "next";
 import { InstallButton } from "@/components/InstallApp";
 import { JoinWizard } from "@/components/JoinWizard";
+
+export const metadata: Metadata = {
+  title: "Create your person",
+  description: "Make a person and move into Owerri Life. Pick a username, a look, and a dream.",
+};
 
 export const dynamic = "force-dynamic";
 
