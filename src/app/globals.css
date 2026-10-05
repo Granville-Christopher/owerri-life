@@ -352,6 +352,18 @@ body {
 }
 .ol-dim { animation: ol-dim 0.22s ease both; }
 .ol-sheet { animation: ol-sheet 0.42s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes ol-pop {
+  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+.ol-pop { animation: ol-pop 0.32s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.ol-veil { background: rgba(12, 26, 20, 0.48); backdrop-filter: blur(7px); }
+.ol-modal {
+  background:
+    linear-gradient(#e0b15a, #e0b15a) 0 0 / 100% 4px no-repeat,
+    linear-gradient(180deg, #fffdf8 0%, #f4eadc 100%);
+  box-shadow: 0 28px 70px rgba(12, 26, 20, 0.34);
+}
 
 .ol-landing { background: #09090b; }
 .ol-frost {
@@ -470,7 +482,7 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .ol-toast { animation: none; opacity: 1; }
   .ol-dim { animation: none; }
-  .ol-sheet { animation: none; }
+  .ol-sheet, .ol-pop { animation: none; }
   .ol-lie { animation: none; }
   .ol-ride, .ol-walker, .ol-on-foot, .ol-choices, .ol-dancer, .ol-lights, .ol-note, .ol-fade, .ol-cash,
   .ol-stride, .ol-roam-1, .ol-roam-2, .ol-roam-self, .ol-taxi,

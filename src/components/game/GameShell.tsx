@@ -423,15 +423,15 @@ function PlaceTrip({
   const rides = here ? [] : travelOptions(view.me.locationId, place.id, view.me.hasCar, view.balance);
   if (typeof document === "undefined") return null;
   return createPortal(
-    <div className="fixed inset-0 z-[220] flex items-end justify-center bg-black/35 p-3 sm:items-center" onClick={onClose}>
-      <div className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-[1.6rem] bg-[#fffaf2] p-4 text-[#17241e] shadow-2xl" onClick={(event) => event.stopPropagation()}>
+    <div className="ol-veil ol-dim fixed inset-0 z-[220] flex items-end justify-center p-3 sm:items-center" onClick={onClose}>
+      <div className="ol-modal ol-pop max-h-[80vh] w-full max-w-md overflow-y-auto rounded-[1.8rem] px-5 pb-5 pt-4 text-[#17241e]" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#a9782a]">{place.area}</p>
-            <h2 className="font-display text-3xl leading-none">{place.name}</h2>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#a9782a]">{place.area}</p>
+            <h2 className="mt-1 font-display text-3xl leading-none">{place.name}</h2>
             <p className="mt-1 text-sm text-[#5d6b62]">{place.hours}</p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-full bg-white px-3 py-1 text-sm font-semibold">Close</button>
+          <button type="button" aria-label="Close" onClick={onClose} className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-lg leading-none shadow-sm">×</button>
         </div>
         <p className="mt-3 text-sm leading-6">{place.summary}</p>
         {place.activities.length > 0 ? (
@@ -453,7 +453,7 @@ function PlaceTrip({
                 }
               });
             }}
-            className="mt-4 w-full rounded-full bg-[#17241e] py-3 text-sm font-semibold text-white disabled:opacity-40"
+            className="mt-4 w-full rounded-full bg-[#1f6b45] py-3 text-sm font-semibold text-[#f6f1e6] shadow-sm disabled:opacity-40"
           >
             Go inside
           </button>
@@ -470,13 +470,13 @@ function PlaceTrip({
                     if (result.ok) onClose();
                   });
                 }}
-                className="flex items-center justify-between rounded-2xl border border-[#e4d8c4] bg-white px-3 py-3 text-left text-sm disabled:opacity-40"
+                className="flex items-center justify-between rounded-2xl bg-white px-3 py-3 text-left text-sm shadow-sm disabled:opacity-40"
               >
                 <span>
                   <span className="block font-semibold">{option.label}</span>
                   <span className="text-[#5d6b62]">{option.hours}h{option.reason ? ` · ${option.reason}` : ""}</span>
                 </span>
-                <span className="font-semibold">{option.cost === 0 ? "Free" : naira(option.cost)}</span>
+                <span className="rounded-full bg-[#1f6b45] px-2.5 py-1 text-xs font-semibold text-[#f6f1e6]">{option.cost === 0 ? "Free" : naira(option.cost)}</span>
               </button>
             ))}
           </div>
@@ -1231,13 +1231,13 @@ function MapPanel({
                   key={option.mode}
                   disabled={pending || !option.available || !option.affordable}
                   onClick={() => depart(option.mode as TravelMode)}
-                  className={`flex items-center justify-between rounded-2xl px-3 py-3 text-left text-sm disabled:opacity-40 ${option.mode === "car" ? "bg-[#1f6b45] text-[#f6f1e6]" : "border border-[#e4d8c4] bg-white"}`}
+                  className="flex items-center justify-between rounded-2xl bg-white px-3 py-3 text-left text-sm shadow-sm disabled:opacity-40"
                 >
                   <span>
                     <span className="font-semibold">{option.label}</span>
-                    <span className={`block ${option.mode === "car" ? "text-[#d5e4d8]" : "text-[#5d6b62]"}`}>{option.hours}h{option.reason ? ` · ${option.reason}` : ""}</span>
+                    <span className="block text-[#5d6b62]">{option.hours}h{option.reason ? ` · ${option.reason}` : ""}</span>
                   </span>
-                  <span className="font-semibold">{option.cost === 0 ? "Free" : naira(option.cost)}</span>
+                  <span className="rounded-full bg-[#1f6b45] px-2.5 py-1 text-xs font-semibold text-[#f6f1e6]">{option.cost === 0 ? "Free" : naira(option.cost)}</span>
                 </button>
               ))}
             </div>
@@ -1641,14 +1641,14 @@ function PhonePanel({
       </section> : null}
       </div>
       {farePlace && fareActs ? (
-        <div className="absolute inset-0 z-20 flex items-end bg-black/45 p-3">
-          <div className="max-h-[78%] w-full overflow-y-auto rounded-[1.6rem] bg-white p-4 text-[#17241e] shadow-2xl">
+        <div className="ol-veil ol-dim absolute inset-0 z-20 flex items-end p-3">
+          <div className="ol-modal ol-pop max-h-[78%] w-full overflow-y-auto rounded-[1.8rem] px-4 pb-4 pt-3 text-[#17241e]">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#a9782a]">{farePlace.area}</p>
-                <h2 className="font-display text-2xl leading-none">{farePlace.name}</h2>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#a9782a]">{farePlace.area}</p>
+                <h2 className="mt-1 font-display text-2xl leading-none">{farePlace.name}</h2>
               </div>
-              <button type="button" aria-label="Close" onClick={() => setPicked(null)} className="grid h-8 w-8 place-items-center rounded-full bg-[#f4efe4] text-lg leading-none">×</button>
+              <button type="button" aria-label="Close" onClick={() => setPicked(null)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg leading-none shadow-sm">×</button>
             </div>
             {fareActs.plate ? <p className="mt-3 text-sm font-semibold text-[#1f6b45]">{fareActs.plate.name} · {naira(fareActs.plate.cost)}</p> : null}
             <p className="mt-2 text-sm leading-6 text-[#5d6b62]">{farePlace.summary}</p>
@@ -1656,7 +1656,7 @@ function PhonePanel({
               <div className="mt-4 grid gap-2">
                 <p className="text-sm font-semibold text-[#1f6b45]">You are already here.</p>
                 {fareActs.plate ? (
-                  <button type="button" disabled={pending} onClick={() => run(orderFood)} className="rounded-full bg-[#17241e] py-3 text-sm font-semibold text-white disabled:opacity-40">
+                  <button type="button" disabled={pending} onClick={() => run(orderFood)} className="rounded-full bg-[#1f6b45] py-3 text-sm font-semibold text-[#f6f1e6] shadow-sm disabled:opacity-40">
                     Order {fareActs.plate.name}
                   </button>
                 ) : null}
@@ -1674,13 +1674,13 @@ function PhonePanel({
                         if (result.ok) onArrived();
                       });
                     }}
-                    className="flex items-center justify-between rounded-2xl border border-[#e4d8c4] px-3 py-3 text-left text-sm disabled:opacity-40"
+                    className="flex items-center justify-between rounded-2xl bg-white px-3 py-3 text-left text-sm shadow-sm disabled:opacity-40"
                   >
                     <span>
                       <span className="block font-semibold">{option.label}</span>
                       <span className="text-[#5d6b62]">{option.hours}h{option.reason ? ` · ${option.reason}` : ""}</span>
                     </span>
-                    <span className="font-semibold">{option.cost === 0 ? "Free" : naira(option.cost)}</span>
+                    <span className="rounded-full bg-[#1f6b45] px-2.5 py-1 text-xs font-semibold text-[#f6f1e6]">{option.cost === 0 ? "Free" : naira(option.cost)}</span>
                   </button>
                 ))}
               </div>
@@ -1732,16 +1732,16 @@ function SlideSheet({
 }) {
   return (
     <div className="absolute inset-0 z-20">
-      <button type="button" className="ol-dim absolute inset-0 bg-[#0c1a14]/55" aria-label="Close" onClick={onClose} />
-      <div role="dialog" aria-modal="true" aria-label={title} className="ol-sheet absolute inset-x-0 bottom-0 flex max-h-[88%] flex-col rounded-t-[1.8rem] bg-[#fffaf2] text-[#17241e] shadow-2xl">
-        <div className="mx-auto mt-2.5 h-1.5 w-12 rounded-full bg-[#d9cbb6]" />
+      <button type="button" className="ol-veil ol-dim absolute inset-0" aria-label="Close" onClick={onClose} />
+      <div role="dialog" aria-modal="true" aria-label={title} className="ol-modal ol-sheet absolute inset-x-0 bottom-0 flex max-h-[88%] flex-col rounded-t-[1.8rem] text-[#17241e]">
+        <div className="mx-auto mt-2.5 h-1.5 w-12 rounded-full bg-[#e0b15a]" />
         <div className="flex items-start justify-between gap-3 px-4 pb-3 pt-3">
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#a9782a]">{label}</p>
             <h2 className="font-display text-[1.65rem] leading-none">{title}</h2>
             {detail ? <p className="mt-1 text-sm text-[#5d6b62]">{detail}</p> : null}
           </div>
-          <button type="button" aria-label="Close sheet" onClick={onClose} className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#efe4d2] text-lg leading-none">×</button>
+          <button type="button" aria-label="Close sheet" onClick={onClose} className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-lg leading-none shadow-sm">×</button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-8">{children}</div>
       </div>
@@ -2308,8 +2308,9 @@ function PersonSheet({
   const socialHere = ["nworie-park", "cartel-lounge", "mama-nkechi", "eke-ukwu", "cartel-beach", "heartland-resort"].includes(view.me.locationId);
 
   return (
-    <div className="absolute inset-x-0 bottom-0 top-16 z-10 mx-auto flex w-full flex-col rounded-t-[1.8rem] bg-[#fffaf2] shadow-2xl md:top-24 xl:top-16">
-      <div className="flex items-start justify-between gap-3 px-4 pt-4">
+    <div className="ol-modal absolute inset-x-0 bottom-0 top-16 z-10 mx-auto flex w-full flex-col rounded-t-[1.8rem] md:top-24 xl:top-16">
+      <div className="mx-auto mt-2.5 h-1.5 w-12 rounded-full bg-[#e0b15a]" />
+      <div className="flex items-start justify-between gap-3 px-4 pt-3">
         <div className="flex items-center gap-3">
           <Avatar look={person.look} name={person.name} size={52} />
           <div>
@@ -2317,7 +2318,7 @@ function PersonSheet({
             <p className="mt-1 text-sm text-[#5d6b62]">{person.gender === "female" ? "Female" : person.gender === "male" ? "Male" : person.role} · {person.mood} · {person.relationship}</p>
           </div>
         </div>
-        <button className="text-sm font-semibold" onClick={onClose}>Close</button>
+        <button type="button" aria-label="Close" className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-lg leading-none shadow-sm" onClick={onClose}>×</button>
       </div>
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4 text-sm">
         <p>{person.bio}</p>

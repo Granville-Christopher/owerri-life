@@ -1249,9 +1249,10 @@ export function HouseRoom({
       </div>
       {owned.length === 0 ? <p className="absolute left-1/2 top-[8%] -translate-x-1/2 rounded-full bg-white px-3 py-1 text-xs font-semibold shadow">The room is empty.</p> : null}
       {typeof document !== "undefined" ? createPortal(
-      <div className="fixed inset-x-0 bottom-0 max-h-[46%] overflow-y-auto rounded-t-[1.6rem] bg-white pb-24 shadow-2xl" style={{ zIndex: 200 }}>
-        <div className="flex items-center justify-between px-4 pt-3">
-          <p className="font-semibold">Catalogue · {name}</p>
+      <div className="ol-modal ol-sheet fixed inset-x-0 bottom-0 max-h-[46%] overflow-y-auto rounded-t-[1.8rem] pb-24 text-[#17241e]" style={{ zIndex: 200 }}>
+        <div className="mx-auto mt-2.5 h-1.5 w-12 rounded-full bg-[#e0b15a]" />
+        <div className="flex items-center justify-between px-4 pt-2">
+          <p className="font-display text-xl leading-none">Catalogue · {name}</p>
         </div>
         <div className="flex gap-2 overflow-x-auto px-4 py-2">
           {(["Sleep", "Comfort", "Kitchen", "Fun"] as const).map((item) => (
@@ -1267,7 +1268,7 @@ export function HouseRoom({
               type="button"
               disabled={pending || has(item.id)}
               onClick={() => onBuy(item.id)}
-              className="rounded-2xl border border-[#efe4d2] p-3 text-left disabled:opacity-50"
+              className="rounded-2xl bg-white p-3 text-left shadow-sm disabled:opacity-50"
             >
               <span className="block text-sm font-semibold">{item.name}</span>
               <span className="mt-1 block text-sm font-semibold text-[#1f6b45]">{has(item.id) ? "In the room" : naira(item.cost)}</span>

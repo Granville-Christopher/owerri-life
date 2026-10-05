@@ -84,8 +84,8 @@ export function InstallProvider({ children }: { children: ReactNode }) {
     <InstallContext.Provider value={{ button, open: () => setOpen(true) }}>
       {children}
       {ready && open && !installed ? (
-        <div className="fixed inset-0 z-[80] grid place-items-center bg-[#0c1a14]/70 px-4">
-          <div role="dialog" aria-modal="true" aria-label="Install Owerri Life" className="w-full max-w-sm rounded-[1.6rem] bg-[#fffaf2] p-5 text-[#17241e] shadow-2xl">
+        <div className="ol-veil ol-dim fixed inset-0 z-[80] grid place-items-center px-4">
+          <div role="dialog" aria-modal="true" aria-label="Install Owerri Life" className="ol-modal ol-pop w-full max-w-sm rounded-[1.8rem] p-5 text-[#17241e]">
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#a9782a]">Web app</p>
             <h2 className="mt-1 font-display text-3xl leading-none">Install Owerri Life</h2>
             {ios ? (
@@ -113,7 +113,7 @@ export function InstallProvider({ children }: { children: ReactNode }) {
                   Install
                 </button>
               )}
-              <button type="button" onClick={close} className="rounded-full border border-[#e4d8c4] py-3 text-sm font-semibold">
+              <button type="button" onClick={close} className="rounded-full bg-white py-3 text-sm font-semibold shadow-sm">
                 Not now
               </button>
             </div>
