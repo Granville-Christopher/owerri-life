@@ -737,8 +737,8 @@ export function CityWorld({
     byPlace("aladinma", 16, 14, -0.4, "Aladinma", "Flats on this side", "#1f6b45");
     byPlace("ikenegbu", 18, -16, -0.2, "Ikenegbu rooms", "The cheap side of town", "#8a5a2a");
     byPlace("eke-ukwu", 40, 22, 0.5, "Ad board", "This face is for sale", "#a9782a");
-    placeSign(-196, 228, 0.2, "Egbu farms", "Cassava every Saturday", "#3d6b4f");
-    placeSign(186, 218, 0.1, "Nekede rice", "Opens with your level", "#143d2c");
+    placeSign(-220, 300, 0.2, "Egbu farms", "Cassava every Saturday", "#3d6b4f");
+    placeSign(210, 300, 0.1, "Nekede rice", "Opens with your level", "#143d2c");
     const otamiriSign = otamiriPts[52];
     const otamiriBack = otamiriPts[49];
     const otamiriFore = otamiriPts[55];
@@ -935,14 +935,19 @@ export function CityWorld({
 
     function field(x: number, z: number, label: string) {
       const group = new THREE.Group();
-      group.add(block(28, 0.08, 18, 0x8a6a32, 0, 0.06, 0));
-      for (let row = -6; row <= 6; row += 2) group.add(block(26, 0.4, 0.8, 0x3d8a4a, 0, 0.28, row));
+      group.add(block(24, 0.08, 18, 0x8a6a32, 0, 0.06, 0));
+      group.add(block(24, 0.35, 0.28, 0xc4a574, 0, 0.2, -9));
+      group.add(block(24, 0.35, 0.28, 0xc4a574, 0, 0.2, 9));
+      group.add(block(0.28, 0.35, 18, 0xc4a574, -12, 0.2, 0));
+      group.add(block(0.28, 0.35, 18, 0xc4a574, 12, 0.2, 0));
+      for (let row = -7; row <= 7; row += 2) group.add(block(22, 0.32, 0.7, 0x3d8a4a, 0, 0.24, row));
+      group.scale.setScalar(4);
       group.position.set(x, 0, z);
       scene.add(group);
-      pill(label, new THREE.Vector3(x, 2.2, z));
+      pill(label, new THREE.Vector3(x, 4, z));
     }
-    field(-220, 210, "Egbu farmland · level 3");
-    field(210, 200, "Nekede rice · level 4");
+    field(-220, 248, "Egbu farmland · level 3");
+    field(210, 248, "Nekede rice · level 4");
 
     function palmEstate(x: number, z: number) {
       const group = new THREE.Group();
