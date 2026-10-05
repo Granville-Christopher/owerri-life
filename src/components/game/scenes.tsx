@@ -6,7 +6,7 @@ import * as THREE from "three";
 import { DORIME_AMOUNTS, FURNITURE, LOOKS, TREATMENT_FEE, npcsAt, placeActs, placeById, sprayFloor } from "@/lib/game/content";
 import type { Place } from "@/lib/game/content";
 import { naira } from "@/lib/game/format";
-import type { LookId, TravelMode } from "@/lib/game/types";
+import type { LookId } from "@/lib/game/types";
 
 export function PersonFigure({
   look,
@@ -955,112 +955,349 @@ function PickupStreet({
   );
 }
 
-function ParkedCar({ className, color }: { className: string; color: string }) {
-  return (
-    <div className={`absolute bottom-3 ${className}`} aria-hidden>
-      <div className="relative h-8 w-16 rounded-t-xl rounded-b-md" style={{ background: color }}>
-        <div className="absolute left-3 top-1 h-3 w-6 rounded-t-md bg-[#d7e7f5]/80" />
-        <div className="absolute -bottom-1 left-1 h-3 w-3 rounded-full bg-[#1a1a1a]" />
-        <div className="absolute -bottom-1 right-1 h-3 w-3 rounded-full bg-[#1a1a1a]" />
-      </div>
-    </div>
-  );
+function frontBoard(title: string, line: string, fill: string, ink: string) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 640;
+  canvas.height = 240;
+  const pen = canvas.getContext("2d");
+  const map = new THREE.CanvasTexture(canvas);
+  if (!pen) return map;
+  pen.fillStyle = fill;
+  pen.fillRect(0, 0, 640, 240);
+  pen.fillStyle = ink;
+  pen.textAlign = "center";
+  const label = title.toUpperCase();
+  let size = 58;
+  pen.font = `700 ${size}px sans-serif`;
+  while (pen.measureText(label).width > 580 && size > 24) {
+    size -= 2;
+    pen.font = `700 ${size}px sans-serif`;
+  }
+  pen.fillText(label, 320, 110);
+  pen.font = "600 30px sans-serif";
+  pen.fillText(line, 320, 175);
+  map.needsUpdate = true;
+  return map;
 }
 
-function Ride({ mode }: { mode: TravelMode }) {
-  if (mode === "okada") {
-    return (
-      <div className="relative h-10 w-14">
-        <div className="absolute bottom-0 left-0 h-3 w-3 rounded-full bg-[#111]" />
-        <div className="absolute bottom-0 right-1 h-3 w-3 rounded-full bg-[#111]" />
-        <div className="absolute bottom-2 left-2 h-2 w-10 rounded-full bg-[#c4552a]" />
-        <div className="absolute bottom-4 left-6 h-4 w-3 rounded-sm bg-[#222]" />
-      </div>
-    );
+function parkedCar(color: number, x: number, z: number, rot = Math.PI) {
+  const car = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.48, 0.95), new THREE.MeshLambertMaterial({ color }));
+  body.position.y = 0.48;
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.38, 0.78), new THREE.MeshLambertMaterial({ color: 0xd7e7f5 }));
+  cabin.position.set(-0.05, 0.86, 0);
+  car.add(body, cabin);
+  car.position.set(x, 0, z);
+  car.rotation.y = rot;
+  return car;
+}
+
+function BuildingFront({ placeId, look }: { placeId: string; look: LookId }) {
+  const host = useRef<HTMLDivElement>(null);
+  const rig = useRef({ yaw: 0.42, zoom: 1 });
+  const place = placeById(placeId);
+  const night = place.kind === "nightlife" || place.kind === "pickup";
+
+  useEffect(() => {
+    const root = host.current;
+    if (!root) return;
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(root.clientWidth, root.clientHeight);
+    root.appendChild(renderer.domElement);
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(night ? "#10141c" : "#c5dff0");
+    scene.add(new THREE.HemisphereLight(night ? 0x33405c : 0xfff6e4, night ? 0x12100e : 0x7d8f68, night ? 0.55 : 1.05));
+    const sun = new THREE.DirectionalLight(night ? 0xc9d4ea : 0xfff3dd, night ? 0.45 : 1.2);
+    sun.position.set(10, 18, 12);
+    scene.add(sun);
+
+    const yard = new THREE.Group();
+    scene.add(yard);
+    const add = (mesh: THREE.Object3D) => {
+      yard.add(mesh);
+      return mesh;
+    };
+    const sign = (title: string, line: string, x: number, y: number, z: number, w: number, h: number, fill: string, ink: string) => {
+      const board = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: frontBoard(title, line, fill, ink) }));
+      board.position.set(x, y, z);
+      add(board);
+    };
+    const tree = (x: number, z: number) => {
+      add(piece(0x6a4630, 0.32, 2.1, 0.32, x, 1.05, z));
+      const crown = new THREE.Mesh(new THREE.SphereGeometry(1.05, 8, 6), new THREE.MeshLambertMaterial({ color: 0x2f7a3e }));
+      crown.position.set(x, 2.5, z);
+      add(crown);
+    };
+    const me = citizen(look);
+    me.rotation.y = Math.PI;
+
+    if (place.kind === "school") {
+      add(piece(0xc5d6a4, 32, 0.12, 26, 0, 0.06, -1));
+      add(piece(0x3a3f46, 32, 0.08, 5, 0, 0.1, 10));
+      add(piece(0xe7dcc8, 32, 0.08, 2.4, 0, 0.16, 6.6));
+      add(piece(0xe7dcc8, 28, 1.5, 0.35, 0, 0.85, -10));
+      add(piece(0xe7dcc8, 0.35, 1.5, 18, -14, 0.85, -1));
+      add(piece(0xe7dcc8, 0.35, 1.5, 18, 14, 0.85, -1));
+      add(piece(0xe0b15a, 0.5, 3.1, 0.5, -1.8, 1.6, 5.4));
+      add(piece(0xe0b15a, 0.5, 3.1, 0.5, 1.8, 1.6, 5.4));
+      add(piece(0xd9c7a2, 2.4, 0.06, 12, 0, 0.18, 0));
+      const hall = (x: number, z: number, w: number, h: number, d: number, wall: number, roof: number) => {
+        add(piece(wall, w, h, d, x, h / 2, z));
+        add(piece(roof, w + 0.35, 0.22, d + 0.35, x, h + 0.12, z));
+        add(piece(0x8ec4de, w * 0.62, h * 0.28, 0.08, x, h * 0.62, z + d / 2 + 0.05));
+      };
+      hall(-8, -3.2, 5.4, 4.4, 3.4, 0xf7f1e6, 0xc4552a);
+      hall(8, -3.2, 5.4, 4.4, 3.4, 0xf7f1e6, 0x1f6b45);
+      hall(0, -4.4, 7.2, 6.2, 4.2, 0xf4efe4, 0xe0b15a);
+      add(piece(0x1a140c, 1.4, 2.4, 0.1, 0, 1.25, -2.2));
+      sign(place.name, "CAMPUS", 0, 5.1, -2.25, 4.6, 1.5, "#143d2c", "#f6f1e6");
+      tree(-11, 1.5);
+      tree(11, 1.5);
+      tree(-11, -7);
+      tree(11, -7);
+      add(parkedCar(0x245c78, -6, 9.2));
+      add(parkedCar(0xf2c14e, 6, 9.2));
+      me.position.set(0.7, 0, 3.2);
+    } else if (place.kind === "hotel") {
+      const tall = place.id === "budget-lodge" ? 8 : place.id === "concord-hotel" || place.id === "rockview-hotel" ? 16 : 12;
+      add(piece(0xd5d3c8, 28, 0.12, 24, 0, 0.06, 0));
+      add(piece(0x3a3f46, 28, 0.08, 5, 0, 0.1, 9.2));
+      add(piece(0xf7f4ee, 9, tall, 7, 0, tall / 2, -2));
+      add(piece(0xe0b15a, 9.4, 0.35, 7.4, 0, tall + 0.15, -2));
+      add(piece(0x7eb6e8, 7.2, tall * 0.72, 0.1, 0, tall * 0.48, 1.55));
+      add(piece(0xe0b15a, 6.4, 0.18, 3.2, 0, 2.7, 3.2));
+      add(piece(0xe0b15a, 0.16, 2.6, 0.16, -3, 1.35, 3.2));
+      add(piece(0xe0b15a, 0.16, 2.6, 0.16, 3, 1.35, 3.2));
+      add(piece(0x1a140c, 1.6, 2.5, 0.1, 0, 1.3, 1.58));
+      sign(place.name, "HOTEL", 0, 4.3, 1.62, 5.2, 1.4, "#143d2c", "#f6f1e6");
+      add(piece(0x3d6b4f, 1.1, 0.7, 1.1, -5.2, 0.4, 2));
+      add(piece(0x3d6b4f, 1.1, 0.7, 1.1, 5.2, 0.4, 2));
+      add(parkedCar(0x17241e, -7, 8.4));
+      add(parkedCar(0xf7fbfc, -4.2, 8.4));
+      add(parkedCar(0x245c78, 6.5, 8.4));
+      me.position.set(0.8, 0, 4.4);
+    } else if (place.kind === "nightlife") {
+      add(piece(0x161412, 28, 0.12, 22, 0, 0.06, 0));
+      add(piece(0x2c2926, 28, 0.08, 5, 0, 0.1, 8.2));
+      add(piece(0x14110f, 16, 7.2, 8, 0, 3.6, -2));
+      add(piece(0xc4552a, 16.5, 0.28, 8.4, 0, 7.3, -2));
+      add(piece(0xe0b15a, 2.4, 3.1, 0.12, 0, 1.6, 2.08));
+      add(piece(0x0c0a0e, 1.7, 2.6, 0.1, 0, 1.35, 2.16));
+      const neon = place.name.toLowerCase().includes("orange") ? "#ff8a2a" : place.name.toLowerCase().includes("channel") ? "#7dffb2" : "#f2c14e";
+      sign(place.name, "OPEN TILL 5", 0, 5.4, 2.08, 6.2, 1.8, "#120c18", neon);
+      const glow = new THREE.PointLight(neon === "#ff8a2a" ? 0xff7a2a : 0xf2c14e, 8, 16);
+      glow.position.set(0, 5, 3.2);
+      add(glow);
+      add(piece(0xe0b15a, 0.14, 1.15, 0.14, -1.8, 0.6, 3.6));
+      add(piece(0xe0b15a, 0.14, 1.15, 0.14, 1.8, 0.6, 3.6));
+      add(piece(0x8c2438, 3.4, 0.06, 0.06, 0, 1.05, 3.6));
+      for (const x of [-10, 10]) {
+        add(piece(0x111111, 0.14, 3.4, 0.14, x, 1.7, 5.4));
+        add(piece(0xf2c14e, 0.8, 0.12, 0.4, x, 3.4, 5.4));
+      }
+      [0x17241e, 0xf2c14e, 0xc4552a, 0x245c78].forEach((color, index) => add(parkedCar(color, -8 + index * 4.2, 7.6)));
+      me.position.set(0.7, 0, 4.6);
+    } else if (place.kind === "market") {
+      add(piece(0xe7d7b8, 30, 0.12, 24, 0, 0.06, -1));
+      add(piece(0xc4a574, 30, 0.7, 0.28, 0, 0.45, -10));
+      add(piece(0xc4a574, 0.28, 0.7, 16, -15, 0.45, -2));
+      add(piece(0xc4a574, 0.28, 0.7, 16, 15, 0.45, -2));
+      const canopies = [0xc4552a, 0xf2c14e, 0x1f6b45, 0x245c78];
+      for (let row = 0; row < 3; row += 1) {
+        for (let col = 0; col < 5; col += 1) {
+          const x = -8 + col * 4;
+          const z = -6 + row * 3.2;
+          add(piece(canopies[(row + col) % canopies.length], 3.2, 0.14, 2.2, x, 2.15, z));
+          add(piece(0x6a4630, 0.12, 2, 0.12, x - 1.4, 1.05, z - 0.9));
+          add(piece(0x6a4630, 0.12, 2, 0.12, x + 1.4, 1.05, z + 0.9));
+        }
+      }
+      add(piece(0xf7f1e6, 8, 4.6, 4, 0, 2.3, -8.2));
+      add(piece(0xc4552a, 8.4, 0.28, 4.4, 0, 4.75, -8.2));
+      sign(place.name, "MARKET", 0, 3.6, -6.1, 4.4, 1.2, "#143d2c", "#f6f1e6");
+      [0xf2c14e, 0x17241e, 0x1f6b45, 0xf7f1e6].forEach((color, index) => add(parkedCar(color, -7.5 + index * 4.2, 8.6, 0)));
+      me.position.set(0.4, 0, 4.2);
+    } else if (place.kind === "health") {
+      add(piece(0xe7eef2, 28, 0.12, 22, 0, 0.06, 0));
+      add(piece(0xd5e4ea, 24, 1.3, 0.28, 0, 0.75, -8));
+      add(piece(0xd5e4ea, 0.28, 1.3, 14, -12, 0.75, -1));
+      add(piece(0xd5e4ea, 0.28, 1.3, 14, 12, 0.75, -1));
+      add(piece(0xf7fbfc, 12, 5.2, 6, -1, 2.6, -2));
+      add(piece(0xe7f0f4, 6, 3.2, 4, 7, 1.6, 1));
+      add(piece(0xc4552a, 1.5, 0.22, 0.08, -1, 4.4, 1.08));
+      add(piece(0xc4552a, 0.22, 1.5, 0.08, -1, 4.4, 1.08));
+      add(piece(0x1a140c, 1.4, 2.3, 0.08, -1, 1.2, 1.08));
+      sign(place.name, "HOSPITAL", -1, 3.3, 1.12, 4.8, 1.2, "#f7fbfc", "#c4552a");
+      add(parkedCar(0xf7fbfc, 6, 6.4, 0.4));
+      me.position.set(0.6, 0, 4);
+    } else if (place.kind === "food") {
+      add(piece(0xe7dcc8, 26, 0.12, 20, 0, 0.06, 0));
+      add(piece(0xf7f1e6, 12, 5.4, 6, 0, 2.7, -2));
+      add(piece(0xc4552a, 12.6, 0.3, 6.4, 0, 5.55, -2));
+      add(piece(0x9fd0ea, 8, 2.4, 0.08, 0, 3.1, 1.08));
+      add(piece(0xc4552a, 7, 0.12, 2.2, 0, 2.3, 2.6));
+      add(piece(0x1a140c, 1.5, 2.4, 0.08, 0, 1.25, 1.08));
+      sign(place.name, "OPEN", 0, 4.4, 1.12, 5, 1.3, "#143d2c", "#f6f1e6");
+      add(piece(0xe8e2d8, 1.2, 0.08, 1.2, -3.2, 0.85, 3.4));
+      add(piece(0x6a4630, 0.1, 0.7, 0.1, -3.2, 0.45, 3.4));
+      [0x17241e, 0xf2c14e, 0x245c78].forEach((color, index) => add(parkedCar(color, -6 + index * 4, 7.4)));
+      me.position.set(1.2, 0, 4.2);
+    } else if (place.kind === "airport") {
+      add(piece(0xd5d8dc, 34, 0.12, 24, 0, 0.06, 0));
+      add(piece(0x3a3f46, 6, 0.1, 18, 8, 0.12, 2));
+      add(piece(0xf7f1e6, 14, 4.2, 5, -6, 2.1, -4));
+      add(piece(0xe7e2d6, 8, 1.1, 3, -6, 0.6, -0.6));
+      add(piece(0x245c78, 1.4, 8, 1.4, 2, 4, -4));
+      add(piece(0x9fd0ea, 2, 1.2, 2, 2, 8.6, -4));
+      sign(place.name, "TERMINAL", -6, 3.6, -1.4, 6, 1.4, "#245c78", "#f7fbfc");
+      const plane = new THREE.Group();
+      const skin = new THREE.MeshLambertMaterial({ color: 0xf7fbfc });
+      const fuse = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.5, 7, 10), skin);
+      fuse.rotation.z = Math.PI / 2;
+      fuse.position.y = 1.1;
+      const wing = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.08, 8), new THREE.MeshLambertMaterial({ color: 0xd5dee8 }));
+      wing.position.set(0.2, 1, 0);
+      plane.add(fuse, wing);
+      plane.position.set(8, 0, 2);
+      plane.rotation.y = Math.PI / 2;
+      add(plane);
+      me.position.set(-2, 0, 4);
+    } else if (place.kind === "home") {
+      add(piece(0xc8d7b0, 24, 0.12, 20, 0, 0.06, 0));
+      add(piece(0xe7dcc8, 16, 1.6, 0.3, 0, 0.9, -6));
+      add(piece(0xe7dcc8, 0.3, 1.6, 12, -8, 0.9, 0));
+      add(piece(0xe7dcc8, 0.3, 1.6, 12, 8, 0.9, 0));
+      add(piece(0xe0b15a, 0.4, 2.4, 0.4, -1.4, 1.3, 5.2));
+      add(piece(0xe0b15a, 0.4, 2.4, 0.4, 1.4, 1.3, 5.2));
+      add(piece(0xf7f1e6, 7, 3.4, 5, 0, 1.7, -1.5));
+      add(piece(0x3d6b4f, 7.6, 0.28, 5.6, 0, 3.55, -1.5));
+      add(piece(0x6a4630, 1.2, 2.1, 0.1, 0, 1.1, 1.05));
+      sign(place.name, "COMPOUND", 0, 2.8, 1.08, 4.2, 1.1, "#143d2c", "#f6f1e6");
+      tree(-5.5, 2);
+      tree(5.5, -3);
+      me.position.set(0.5, 0, 3.6);
+    } else if (night) {
+      add(piece(0x1c1a18, 30, 0.12, 18, 0, 0.06, 0));
+      add(piece(0x2a2622, 30, 0.08, 6, 0, 0.1, 4));
+      for (let i = 0; i < 4; i += 1) {
+        const x = -9 + i * 6;
+        add(piece(0x2a221c, 4.4, 3.6, 3, x, 1.8, -3));
+        add(piece(i % 2 ? 0xc4552a : 0xf2c14e, 4.2, 0.16, 1.2, x, 2.5, -1.3));
+      }
+      sign(place.name, "STREET", 0, 3.4, -1.4, 5, 1.2, "#120c18", "#f2c14e");
+      for (const x of [-12, 12]) {
+        add(piece(0x111111, 0.14, 3.6, 0.14, x, 1.8, 2));
+        add(piece(0xf2c14e, 0.7, 0.1, 0.35, x, 3.6, 2));
+      }
+      me.position.set(0.4, 0, 2.4);
+    } else {
+      add(piece(0xe7e2d6, 28, 0.12, 22, 0, 0.06, 0));
+      add(piece(0xf7f1e6, 14, 6, 6, 0, 3, -2));
+      add(piece(0xe0b15a, 14.4, 0.3, 6.4, 0, 6.2, -2));
+      for (const x of [-4, 0, 4]) add(piece(0xe7dcc8, 0.45, 4.2, 0.45, x, 2.1, 1.2));
+      add(piece(0xd9c7a2, 8, 0.35, 3, 0, 0.25, 2.4));
+      sign(place.name, place.area.toUpperCase(), 0, 5, 1.15, 5.4, 1.3, "#143d2c", "#f6f1e6");
+      tree(-9, 1);
+      tree(9, 1);
+      me.position.set(1.4, 0, 4);
+    }
+    add(me);
+    add(blob(me.position.x, me.position.z, 0.7, 0.45, night ? 0.55 : 0.35));
+
+    const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 140);
+    const aim = new THREE.Vector3(14, 10, 22).normalize();
+    const fit = () => {
+      renderer.setSize(root.clientWidth || 1, root.clientHeight || 1);
+      camera.aspect = (root.clientWidth || 1) / (root.clientHeight || 1);
+      camera.updateProjectionMatrix();
+    };
+    fit();
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const factor = event.deltaY < 0 ? 1.08 : 1 / 1.08;
+      rig.current.zoom = Math.min(2.1, Math.max(0.65, rig.current.zoom * factor));
+    };
+    root.addEventListener("wheel", onWheel, { passive: false });
+    let frame = 0;
+    let alive = true;
+    const loop = () => {
+      if (!alive) return;
+      yard.rotation.y = rig.current.yaw;
+      camera.position.copy(aim).multiplyScalar(34 / rig.current.zoom);
+      camera.lookAt(0, 2.6, -1);
+      renderer.render(scene, camera);
+      frame = window.requestAnimationFrame(loop);
+    };
+    loop();
+    const onResize = () => fit();
+    window.addEventListener("resize", onResize);
+    return () => {
+      alive = false;
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", onResize);
+      root.removeEventListener("wheel", onWheel);
+      renderer.dispose();
+      root.removeChild(renderer.domElement);
+    };
+  }, [placeId, look, night, place.kind, place.id, place.name, place.area]);
+
+  function turn(dir: number) {
+    rig.current.yaw += dir * 0.55;
   }
-  if (mode === "bus") {
-    return (
-      <div className="relative h-12 w-28">
-        <div className="absolute bottom-2 h-7 w-28 rounded-md bg-[#1f6b45]">
-          <div className="absolute left-2 top-1 h-3 w-4 rounded-sm bg-[#e7f3fb]" />
-          <div className="absolute left-8 top-1 h-3 w-4 rounded-sm bg-[#e7f3fb]" />
-          <div className="absolute left-14 top-1 h-3 w-4 rounded-sm bg-[#e7f3fb]" />
-          <div className="absolute right-2 top-1 h-3 w-4 rounded-sm bg-[#e7f3fb]" />
-        </div>
-        <div className="absolute bottom-0 left-3 h-4 w-4 rounded-full bg-[#111]" />
-        <div className="absolute bottom-0 right-3 h-4 w-4 rounded-full bg-[#111]" />
-      </div>
-    );
+  function dolly(factor: number) {
+    rig.current.zoom = Math.min(2.1, Math.max(0.65, rig.current.zoom * factor));
   }
-  if (mode === "keke") {
-    return (
-      <div className="relative h-12 w-16">
-        <div className="absolute bottom-2 left-1 h-8 w-12 rounded-t-lg bg-[#f2c14e]" />
-        <div className="absolute bottom-4 left-3 h-4 w-6 rounded-sm bg-[#17324d]/80" />
-        <div className="absolute bottom-0 left-1 h-3 w-3 rounded-full bg-[#111]" />
-        <div className="absolute bottom-0 right-2 h-3 w-3 rounded-full bg-[#111]" />
-        <div className="absolute bottom-0 left-6 h-3 w-3 rounded-full bg-[#111]" />
-      </div>
-    );
-  }
-  const color = mode === "cab" ? "#f4d35e" : mode === "car" ? "#1f6b45" : "#245c78";
+
   return (
-    <div className="relative h-12 w-24">
-      <div className="absolute bottom-2 h-7 w-24 rounded-t-2xl rounded-b-md" style={{ background: color }}>
-        <div className="absolute left-3 top-1 h-3 w-8 rounded-t-md bg-[#e7f3fb]" />
-        <div className="absolute right-3 top-1 h-3 w-6 rounded-t-md bg-[#e7f3fb]" />
+    <div className="absolute inset-0">
+      <div
+        ref={host}
+        className="absolute inset-0 touch-none"
+        onPointerDown={(event) => {
+          const surface = event.currentTarget;
+          surface.setPointerCapture(event.pointerId);
+          surface.dataset.x = String(event.clientX);
+        }}
+        onPointerMove={(event) => {
+          if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+          const last = Number(event.currentTarget.dataset.x ?? event.clientX);
+          rig.current.yaw += (event.clientX - last) * 0.008;
+          event.currentTarget.dataset.x = String(event.clientX);
+        }}
+      />
+      <div className="absolute right-3 top-16 z-30 flex flex-col gap-1">
+        <button type="button" aria-label="Zoom in" onClick={() => dolly(1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">+</button>
+        <button type="button" aria-label="Zoom out" onClick={() => dolly(1 / 1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">−</button>
+        <button type="button" aria-label="Rotate left" onClick={() => turn(1)} className="mt-2 grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">↺</button>
+        <button type="button" aria-label="Rotate right" onClick={() => turn(-1)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">↻</button>
       </div>
-      <div className="absolute bottom-0 left-2 h-4 w-4 rounded-full bg-[#111]" />
-      <div className="absolute bottom-0 right-2 h-4 w-4 rounded-full bg-[#111]" />
     </div>
   );
 }
 
 export function ArrivalScene({
   placeId,
-  ride,
   look,
   pending,
   onEnter,
   onLeave,
 }: {
   placeId: string;
-  ride: TravelMode;
   look: LookId;
   pending: boolean;
   onEnter: () => void;
   onLeave: () => void;
 }) {
   const place = placeById(placeId);
-  const [ready, setReady] = useState(false);
-  const onFoot = ride === "trek";
-  const night = place.kind === "nightlife" || place.kind === "hotel" || place.kind === "pickup";
-
   return (
-    <section className={`overflow-hidden rounded-[1.6rem] ${night ? "bg-[#141820]" : "bg-[#d7ebdd]"} text-white`}>
-      <div className={`relative h-48 ${night ? "bg-gradient-to-b from-[#2a1a3a] to-[#141820]" : "bg-gradient-to-b from-[#9fd0ea] to-[#d7ebdd]"}`}>
-        <div className={`absolute inset-x-6 bottom-0 h-16 rounded-t-xl ${night ? "bg-[#2c1810]" : "bg-[#f4efe4]"}`}>
-          <div className="mx-auto mt-3 w-fit rounded-full bg-[#e0b15a] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#1a140c]">
-            {place.name}
-          </div>
-          <div className="mx-auto mt-2 h-8 w-10 rounded-t-md bg-[#0e1c16]" />
-        </div>
+    <section className="relative h-full overflow-hidden">
+      <BuildingFront placeId={placeId} look={look} />
+      <div className="pointer-events-none absolute left-3 top-16 z-20 max-w-[14rem] rounded-2xl bg-[#0e1c16]/80 px-3 py-2 text-[#f6f1e6]">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#e0b15a]">Outside</p>
+        <p className="truncate font-semibold">{place.name}</p>
       </div>
-      <div className={`relative h-40 ${night ? "bg-[#2a241c]" : "bg-[#cbb892]"}`}>
-        <ParkedCar className="left-2" color="#6d6256" />
-        <ParkedCar className="left-20" color="#8c3d2f" />
-        <ParkedCar className="right-3" color="#243044" />
-        <div className={`absolute bottom-2 left-1/2 ${onFoot ? "ol-on-foot" : "ol-ride"}`}>
-          {onFoot ? null : <Ride mode={ride} />}
-          <PersonFigure look={look} className={`absolute bottom-0 left-2 h-16 w-10 ${onFoot ? "" : "ol-walker"}`} />
-        </div>
-      </div>
-      <div
-        className={`ol-choices flex gap-2 bg-[#0e1c16] p-3 ${ready ? "ol-ready" : ""}`}
-        onAnimationEnd={(event) => {
-          if (event.animationName === "ol-rise") setReady(true);
-        }}
-      >
+      <div className="absolute inset-x-3 bottom-24 z-30 flex gap-2">
         <button
           type="button"
           disabled={pending}
@@ -1073,7 +1310,7 @@ export function ArrivalScene({
           type="button"
           disabled={pending}
           onClick={onLeave}
-          className="flex-1 rounded-full border border-white/20 py-3 text-sm font-semibold disabled:opacity-40"
+          className="flex-1 rounded-full bg-[#0e1c16]/80 py-3 text-sm font-semibold text-white disabled:opacity-40"
         >
           Leave
         </button>

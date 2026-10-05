@@ -840,24 +840,19 @@ function MapPanel({
           onSay={(text) => run(() => sayInVenue(text))}
         />
       ) : showDoor ? (
-        <div className="flex h-full items-end bg-[#d7ebdd] px-4 pb-28">
-          <div className="w-full">
-            <ArrivalScene
-              placeId={view.me.locationId}
-              ride={view.me.lastRide}
-              look={view.me.look}
-              pending={pending}
-              onEnter={() => {
-                const entering = placeById(view.me.locationId);
-                const already = Boolean(view.me.school);
-                run(enterDoor).then((result) => {
-                  if (result.ok && entering.kind === "school" && !already) setVisit((value) => value + 1);
-                });
-              }}
-              onLeave={() => setLeftAt(view.me.locationId)}
-            />
-          </div>
-        </div>
+        <ArrivalScene
+          placeId={view.me.locationId}
+          look={view.me.look}
+          pending={pending}
+          onEnter={() => {
+            const entering = placeById(view.me.locationId);
+            const already = Boolean(view.me.school);
+            run(enterDoor).then((result) => {
+              if (result.ok && entering.kind === "school" && !already) setVisit((value) => value + 1);
+            });
+          }}
+          onLeave={() => setLeftAt(view.me.locationId)}
+        />
       ) : (
       <>
       <div className="flex gap-2 overflow-x-auto pb-1">
