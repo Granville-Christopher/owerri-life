@@ -346,7 +346,7 @@ export const PLACES: Place[] = [
     y: 44,
     hours: "11:00 – 22:00",
     tier: "Mid",
-    summary: "Kitchen plates and a small room to sit.",
+    summary: "A restaurant in Aladinma, not a roadside eatery. Plates downstairs, a room upstairs.",
     activities: ["Eat"],
   },
   {

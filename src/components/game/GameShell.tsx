@@ -1079,9 +1079,11 @@ function MapPanel({
         >
           <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full">
             <rect width="100" height="100" fill="#d7ebdd" />
-            <path d="M8 8 C 28 18, 18 36, 34 52 C 48 66, 28 78, 42 98" fill="none" stroke="#8ec4d4" strokeWidth="6" />
+            <path d="M46 0 C 64 12, 30 22, 56 36 S 28 52, 50 64 S 66 78, 40 90 S 34 96, 48 100" fill="none" stroke="#2f86a6" strokeWidth="3.1" strokeLinecap="round" />
+            <path d="M0 76 C 16 64, 26 88, 40 74 S 58 62, 72 82 S 90 92, 100 74" fill="none" stroke="#2f86a6" strokeWidth="3.3" strokeLinecap="round" />
             <path d="M6 62 H 94 M 18 20 H 88 M 30 8 V 92 M 55 12 V 90" fill="none" stroke="#c9b48a" strokeWidth="1.1" />
-            <text x="10" y="16" fontSize="3.2" fill="#1f6b45">Nworie</text>
+            <text x="66" y="28" fontSize="3.2" fill="#1f6b45">Nworie</text>
+            <text x="4" y="70" fontSize="3.2" fill="#1f6b45">Otamiri</text>
           </svg>
           {pins.map((item) => {
             const spot = laid.get(item.id) ?? item;
