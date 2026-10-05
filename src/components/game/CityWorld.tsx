@@ -266,7 +266,7 @@ export function CityWorld({
       const button = document.createElement("button");
       button.type = "button";
       button.textContent = text;
-      button.className = "pointer-events-auto absolute -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-full bg-white/95 px-2 py-0.5 text-[11px] font-semibold text-[#17241e] shadow";
+      button.className = "pointer-events-auto absolute -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-full bg-white/95 px-1 py-px text-[8px] font-semibold leading-none text-[#17241e] shadow";
       if (placeId) {
         button.dataset.place = placeId;
         button.addEventListener("click", (event) => {
@@ -335,12 +335,12 @@ export function CityWorld({
     for (const bank of [22, -22]) avenue("z", bank, -300, 300, 13, 0);
     for (const bank of [146, 196]) avenue("x", bank, -300, 300, 13, 0);
 
-    function estate(cx: number, cz: number, rows: number, cols: number) {
+    function estate(cx: number, cz: number, rows: number, cols: number, gap = 3.15) {
       for (let row = 0; row < rows; row += 1) {
         for (let col = 0; col < cols; col += 1) {
           if (row === Math.floor(rows / 2) && col === Math.floor(cols / 2)) continue;
-          const x = cx + (col - cols / 2) * 3.15;
-          const z = cz + (row - rows / 2) * 3.15;
+          const x = cx + (col - cols / 2) * gap;
+          const z = cz + (row - rows / 2) * gap;
           if (onStrip(x, z, 2) || nearAirport(x, z)) continue;
           house(x, z, 0xf4efe4, 1.15, 0x2f6b45);
         }
@@ -359,9 +359,17 @@ export function CityWorld({
       estate(wetheral.x - 32, wetheral.z + 8, 7, 9);
       estate(wetheral.x - 8, wetheral.z - 28, 5, 6);
     }
-    if (ikenegbu) estate(ikenegbu.x + 28, ikenegbu.z, 6, 8);
+    if (ikenegbu) {
+      estate(ikenegbu.x + 34, ikenegbu.z, 10, 12, 2.7);
+      estate(ikenegbu.x + 34, ikenegbu.z + 32, 7, 9, 2.7);
+      estate(ikenegbu.x - 6, ikenegbu.z + 26, 6, 7, 2.7);
+    }
     if (worldBank) estate(worldBank.x - 28, worldBank.z, 5, 7);
-    if (aladinma) estate(aladinma.x + 28, aladinma.z, 5, 7);
+    if (aladinma) {
+      estate(aladinma.x + 34, aladinma.z, 10, 12, 2.7);
+      estate(aladinma.x + 6, aladinma.z + 32, 7, 8, 2.7);
+      estate(aladinma.x + 38, aladinma.z - 28, 6, 7, 2.7);
+    }
     billboard(-36, 16, 0.4, "Wetheral night", "Clubs open till dawn", "#7a2e1e");
     billboard(28, -78, 0.2, "Bus to campus", "IMSU, FUTO, Nekede", "#143d2c");
     billboard(62, 22, -0.5, "Mama Nkechi", "Rice, stew, and gist", "#8a5a2a");

@@ -1103,7 +1103,7 @@ function MapPanel({
               >
                 <span className={`ol-block ${item.id === homeById(view.me.homeId).areaId ? "ol-home-pulse ol-block-home" : ""} ${selected ? "ol-block-on" : ""}`} />
                 {current ? <PersonFigure look={view.me.look} className="pointer-events-none absolute -top-8 h-8 w-4" /> : null}
-                <span className="pointer-events-none absolute top-full mt-1 max-w-24 truncate rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-[#17241e] shadow">
+                <span className="pointer-events-none absolute top-full mt-0.5 max-w-16 truncate rounded-full bg-white px-1 py-px text-[8px] font-semibold leading-none text-[#17241e] shadow">
                   {item.id === homeById(view.me.homeId).areaId ? "Home" : item.name}
                 </span>
               </button>
