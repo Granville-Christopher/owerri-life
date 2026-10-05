@@ -1260,7 +1260,7 @@ export function VenueInterior({
               value={sprayText}
               onChange={(event) => setSprayText(event.target.value.replace(/[^\d]/g, ""))}
               placeholder={`From ${naira(sprayFloor(place.id))}`}
-              className="rounded-full border border-[#e0b15a]/50 bg-transparent px-3 py-2 text-sm text-[#f6f1e6]"
+              className="rounded-full border border-[#e4d8c4] bg-white px-3 py-2 text-sm text-[#17241e] placeholder:text-[#8a8175]"
             />
             <button disabled={pending} className="rounded-full border border-[#e0b15a]/50 px-4 text-xs font-semibold text-[#e0b15a] disabled:opacity-40">
               Spray
