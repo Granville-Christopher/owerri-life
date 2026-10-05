@@ -260,7 +260,7 @@ function PersonPin({
   return (
     <button
       type="button"
-      className={`absolute z-10 border-0 bg-transparent p-0 ${dim ? "opacity-50" : ""}`}
+      className={`pointer-events-auto absolute z-10 border-0 bg-transparent p-0 ${dim ? "opacity-50" : ""}`}
       style={style}
       onClick={onClick}
       aria-label={name}
@@ -379,6 +379,7 @@ function clubSign(title: string, color: string) {
 
 function ClubHall({ name }: { name: string }) {
   const host = useRef<HTMLDivElement>(null);
+  const rig = useRef({ yaw: 0.4, zoom: 1 });
   const lower = name.toLowerCase();
   const neon = lower.includes("orange") ? "#ff8a2a" : lower.includes("channel") ? "#7dffb2" : "#f2c14e";
 
@@ -481,22 +482,67 @@ function ClubHall({ name }: { name: string }) {
       camera.updateProjectionMatrix();
     };
     fit();
-    camera.position.copy(aim).multiplyScalar(20);
-    camera.lookAt(0, 0.6, 0);
-    renderer.render(scene, camera);
-    const onResize = () => {
-      fit();
-      renderer.render(scene, camera);
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const factor = event.deltaY < 0 ? 1.08 : 1 / 1.08;
+      rig.current.zoom = Math.min(2.3, Math.max(0.7, rig.current.zoom * factor));
     };
+    root.addEventListener("wheel", onWheel, { passive: false });
+    let frame = 0;
+    let alive = true;
+    const loop = () => {
+      if (!alive) return;
+      hall.rotation.y = rig.current.yaw;
+      camera.position.copy(aim).multiplyScalar(20 / rig.current.zoom);
+      camera.lookAt(0, 0.6, 0);
+      renderer.render(scene, camera);
+      frame = window.requestAnimationFrame(loop);
+    };
+    loop();
+    const onResize = () => fit();
     window.addEventListener("resize", onResize);
     return () => {
+      alive = false;
+      window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", onResize);
+      root.removeEventListener("wheel", onWheel);
       renderer.dispose();
       root.removeChild(renderer.domElement);
     };
   }, [name, neon, lower]);
 
-  return <div ref={host} className="absolute inset-0" />;
+  function turn(dir: number) {
+    rig.current.yaw += dir * 0.55;
+  }
+  function dolly(factor: number) {
+    rig.current.zoom = Math.min(2.3, Math.max(0.7, rig.current.zoom * factor));
+  }
+
+  return (
+    <div className="absolute inset-0">
+      <div
+        ref={host}
+        className="absolute inset-0 touch-none"
+        onPointerDown={(event) => {
+          const surface = event.currentTarget;
+          surface.setPointerCapture(event.pointerId);
+          surface.dataset.x = String(event.clientX);
+        }}
+        onPointerMove={(event) => {
+          if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+          const last = Number(event.currentTarget.dataset.x ?? event.clientX);
+          rig.current.yaw += (event.clientX - last) * 0.008;
+          event.currentTarget.dataset.x = String(event.clientX);
+        }}
+      />
+      <div className="absolute right-3 top-24 z-30 flex flex-col gap-1">
+        <button type="button" aria-label="Zoom in" onClick={() => dolly(1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">+</button>
+        <button type="button" aria-label="Zoom out" onClick={() => dolly(1 / 1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">−</button>
+        <button type="button" aria-label="Rotate left" onClick={() => turn(1)} className="mt-2 grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">↺</button>
+        <button type="button" aria-label="Rotate right" onClick={() => turn(-1)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">↻</button>
+      </div>
+    </div>
+  );
 }
 
 function ClubFloor({
@@ -556,7 +602,7 @@ function ClubFloor({
       <div className="pointer-events-none absolute left-1/2 top-16 z-10 -translate-x-1/2 text-center text-[10px] font-semibold text-white">
         <span className={`ol-tip ${service ? "ol-tip-on" : ""}`}>Make some noise for {shout}</span>
       </div>
-      <div className="absolute inset-0 z-10">
+      <div className="pointer-events-none absolute inset-0 z-10">
         {service ? (
           <>
             <div key={`${service}-a`} className="ol-carry" style={{ "--to-x": buyer.left, "--to-y": buyer.top } as CSSProperties}>
