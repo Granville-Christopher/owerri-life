@@ -1212,8 +1212,48 @@ function piece(color: number, w: number, h: number, d: number, x: number, y: num
   return mesh;
 }
 
-function RoomView({ owned }: { owned: string[] }) {
+function citizen(lookId: LookId) {
+  const palette = LOOKS.find((item) => item.id === lookId) ?? LOOKS[0];
+  const person = new THREE.Group();
+  const skin = new THREE.MeshLambertMaterial({ color: palette.skin });
+  const cloth = new THREE.MeshLambertMaterial({ color: palette.shirt });
+  const hairM = new THREE.MeshLambertMaterial({ color: palette.hair });
+  const pants = new THREE.MeshLambertMaterial({ color: 0x243044 });
+  const shoe = new THREE.MeshLambertMaterial({ color: 0x2a211c });
+  const white = new THREE.MeshBasicMaterial({ color: 0xfff7f2 });
+  const pupil = new THREE.MeshBasicMaterial({ color: 0x1a1412 });
+  const mouth = new THREE.MeshBasicMaterial({ color: 0xc86b6b });
+  const put = (mesh: THREE.Mesh, x: number, y: number, z: number) => {
+    mesh.position.set(x, y, z);
+    person.add(mesh);
+    return mesh;
+  };
+  put(new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.62, 0.18), pants), -0.12, 0.42, 0);
+  put(new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.62, 0.18), pants), 0.12, 0.42, 0);
+  put(new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.09, 0.32), shoe), -0.12, 0.08, 0.05);
+  put(new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.09, 0.32), shoe), 0.12, 0.08, 0.05);
+  put(new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.52, 0.28), cloth), 0, 1.02, 0);
+  put(new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.46, 0.13), cloth), -0.36, 1.04, 0);
+  put(new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.46, 0.13), cloth), 0.36, 1.04, 0);
+  put(new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.14, 0.11), skin), -0.36, 0.74, 0.04);
+  put(new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.14, 0.11), skin), 0.36, 0.74, 0.04);
+  put(new THREE.Mesh(new THREE.SphereGeometry(0.28, 24, 18), skin), 0, 1.58, 0.02);
+  const hair = put(new THREE.Mesh(new THREE.SphereGeometry(0.29, 20, 14), hairM), 0, 1.72, -0.08);
+  hair.scale.set(1.05, 0.42, 0.72);
+  put(new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 8), white), -0.1, 1.6, 0.24);
+  put(new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 8), white), 0.1, 1.6, 0.24);
+  put(new THREE.Mesh(new THREE.SphereGeometry(0.036, 10, 8), pupil), -0.1, 1.6, 0.3);
+  put(new THREE.Mesh(new THREE.SphereGeometry(0.036, 10, 8), pupil), 0.1, 1.6, 0.3);
+  put(new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8), skin), 0, 1.52, 0.28);
+  const lips = put(new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 8), mouth), 0, 1.42, 0.26);
+  lips.scale.set(1.4, 0.38, 0.4);
+  person.position.set(0, 0.12, 0.15);
+  return person;
+}
+
+function RoomView({ owned, look }: { owned: string[]; look: LookId }) {
   const host = useRef<HTMLDivElement>(null);
+  const rig = useRef({ yaw: 0.55, zoom: 1.15 });
   const ownedKey = owned.join(",");
 
   useEffect(() => {
@@ -1226,92 +1266,142 @@ function RoomView({ owned }: { owned: string[] }) {
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color("#cfe0c2");
-    scene.add(new THREE.HemisphereLight(0xfff6e8, 0x8fbf98, 1.15));
-    const sun = new THREE.DirectionalLight(0xfff3dd, 1.35);
-    sun.position.set(8, 14, 6);
+    scene.add(new THREE.HemisphereLight(0xfff6e8, 0x8fbf98, 1.2));
+    const sun = new THREE.DirectionalLight(0xfff3dd, 1.25);
+    sun.position.set(6, 18, 8);
     scene.add(sun);
 
+    const spin = new THREE.Group();
+    scene.add(spin);
     const yard = new THREE.Mesh(new THREE.PlaneGeometry(18, 16), new THREE.MeshLambertMaterial({ color: 0xcfe0c2 }));
     yard.rotation.x = -Math.PI / 2;
-    scene.add(yard);
+    spin.add(yard);
 
     const wall = 0xf4efe4;
     const roof = 0x2f6b45;
     const gold = 0xe0b15a;
-    scene.add(piece(0xc88848, 8.4, 0.12, 6.6, 0, 0.06, 0));
-    scene.add(piece(wall, 8.6, 3.1, 0.16, 0, 1.55, -3.3));
-    scene.add(piece(wall, 0.16, 3.1, 6.6, -4.2, 1.55, 0));
-    scene.add(piece(wall, 0.16, 3.1, 6.6, 4.2, 1.55, 0));
-    scene.add(piece(wall, 2.4, 3.1, 0.16, -3, 1.55, 3.3));
-    scene.add(piece(wall, 2.4, 3.1, 0.16, 3, 1.55, 3.3));
-    scene.add(piece(0x6b442c, 1.5, 2.2, 0.08, 0, 1.1, 3.28));
-    scene.add(piece(gold, 1.7, 0.12, 0.2, 0, 2.26, 3.28));
-    scene.add(piece(0x9fd0ea, 1.6, 1.05, 0.06, 2.3, 1.85, -3.2));
-    scene.add(piece(0xf6f1e6, 1.8, 0.08, 0.08, 2.3, 2.42, -3.18));
-    scene.add(piece(0xf6f1e6, 1.8, 0.08, 0.08, 2.3, 1.28, -3.18));
-    scene.add(piece(roof, 9, 0.18, 0.55, 0, 3.15, -3.35));
-    scene.add(piece(roof, 0.55, 0.18, 7, -4.25, 3.15, 0));
-    scene.add(piece(roof, 0.55, 0.18, 7, 4.25, 3.15, 0));
-    scene.add(piece(gold, 8.8, 0.06, 0.08, 0, 2.95, -3.2));
+    const add = (mesh: THREE.Object3D) => spin.add(mesh);
+    add(piece(0xc88848, 8.4, 0.12, 6.6, 0, 0.06, 0));
+    add(piece(wall, 8.6, 2.35, 0.16, 0, 1.18, -3.3));
+    add(piece(wall, 0.16, 2.35, 6.6, -4.2, 1.18, 0));
+    add(piece(wall, 0.16, 2.35, 6.6, 4.2, 1.18, 0));
+    add(piece(wall, 2.2, 0.42, 0.16, -3.1, 0.22, 3.3));
+    add(piece(wall, 2.2, 0.42, 0.16, 3.1, 0.22, 3.3));
+    add(piece(0x6b442c, 1.5, 1.7, 0.08, 0, 0.9, 3.22));
+    add(piece(gold, 1.7, 0.1, 0.18, 0, 1.78, 3.22));
+    add(piece(0x9fd0ea, 1.5, 0.85, 0.06, 2.2, 1.45, -3.2));
+    add(piece(roof, 9, 0.16, 0.5, 0, 2.4, -3.35));
+    add(piece(roof, 0.5, 0.16, 7, -4.25, 2.4, 0));
+    add(piece(roof, 0.5, 0.16, 7, 4.25, 2.4, 0));
+    add(piece(gold, 8.6, 0.05, 0.08, 0, 2.22, -3.2));
 
     const has = (id: string) => ownedKey.split(",").includes(id);
     if (has("bed")) {
-      scene.add(piece(0x8c3d2f, 2.4, 0.7, 0.12, -2.1, 0.5, -2.15));
-      scene.add(piece(0xf6f1e6, 2.2, 0.28, 1.35, -2.1, 0.32, -1.45));
-      scene.add(piece(0xe7d3c4, 0.7, 0.16, 0.35, -2.5, 0.52, -1.7));
+      add(piece(0x8c3d2f, 2.4, 0.7, 0.12, -2.1, 0.5, -2.15));
+      add(piece(0xf6f1e6, 2.2, 0.28, 1.35, -2.1, 0.32, -1.45));
+      add(piece(0xe7d3c4, 0.7, 0.16, 0.35, -2.5, 0.52, -1.7));
     }
     if (has("table")) {
-      scene.add(piece(0x6a4630, 1.5, 0.08, 0.9, 0.2, 0.62, 0.2));
-      scene.add(piece(0x6a4630, 0.08, 0.5, 0.08, -0.45, 0.32, -0.15));
-      scene.add(piece(0x6a4630, 0.08, 0.5, 0.08, 0.85, 0.32, -0.15));
-      scene.add(piece(0x6a4630, 0.08, 0.5, 0.08, -0.45, 0.32, 0.55));
-      scene.add(piece(0x6a4630, 0.08, 0.5, 0.08, 0.85, 0.32, 0.55));
+      add(piece(0x6a4630, 1.5, 0.08, 0.9, 0.2, 0.62, 0.2));
+      add(piece(0x6a4630, 0.08, 0.5, 0.08, -0.45, 0.32, -0.15));
+      add(piece(0x6a4630, 0.08, 0.5, 0.08, 0.85, 0.32, -0.15));
+      add(piece(0x6a4630, 0.08, 0.5, 0.08, -0.45, 0.32, 0.55));
+      add(piece(0x6a4630, 0.08, 0.5, 0.08, 0.85, 0.32, 0.55));
     }
     if (has("sofa")) {
-      scene.add(piece(0x1f6b45, 2.3, 0.38, 0.85, 1.5, 0.32, 1.55));
-      scene.add(piece(0x174f34, 2.3, 0.45, 0.16, 1.5, 0.62, 1.95));
+      add(piece(0x1f6b45, 2.3, 0.38, 0.85, 1.5, 0.32, 1.55));
+      add(piece(0x174f34, 2.3, 0.45, 0.16, 1.5, 0.62, 1.95));
     }
     if (has("fridge")) {
-      scene.add(piece(0x3d7ea6, 0.7, 1.45, 0.7, 3.35, 0.8, -2.4));
-      scene.add(piece(0xd7e7f5, 0.5, 0.04, 0.02, 3.35, 0.85, -2.04));
+      add(piece(0x3d7ea6, 0.7, 1.45, 0.7, 3.35, 0.8, -2.4));
+      add(piece(0xd7e7f5, 0.5, 0.04, 0.02, 3.35, 0.85, -2.04));
     }
     if (has("television")) {
-      scene.add(piece(0x6a4630, 0.9, 0.55, 0.4, -3.35, 0.35, 1.7));
-      scene.add(piece(0x17241e, 1.15, 0.7, 0.08, -3.35, 0.95, 1.7));
-      scene.add(piece(0x9fd0ea, 0.95, 0.5, 0.02, -3.35, 0.98, 1.75));
+      add(piece(0x6a4630, 0.9, 0.55, 0.4, -3.35, 0.35, 1.7));
+      add(piece(0x17241e, 1.15, 0.7, 0.08, -3.35, 0.95, 1.7));
+      add(piece(0x9fd0ea, 0.95, 0.5, 0.02, -3.35, 0.98, 1.75));
     }
 
-    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 80);
-    camera.position.set(12, 10, 12);
-    camera.lookAt(0, 1.1, 0);
+    const shadow = new THREE.Mesh(
+      new THREE.CircleGeometry(0.32, 20),
+      new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.16 }),
+    );
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.position.set(0, 0.13, 0.15);
+    spin.add(shadow);
+    spin.add(citizen(look));
+
+    const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 80);
+    const aim = new THREE.Vector3(9, 11, 12).normalize();
     const fit = () => {
       const width = root.clientWidth || 1;
       const height = root.clientHeight || 1;
       renderer.setSize(width, height);
-      const aspect = width / height;
-      const view = 7.2;
-      camera.left = -view * aspect;
-      camera.right = view * aspect;
-      camera.top = view;
-      camera.bottom = -view;
+      camera.aspect = width / height;
       camera.updateProjectionMatrix();
     };
     fit();
-    const frame = window.requestAnimationFrame(() => renderer.render(scene, camera));
-    const onResize = () => {
-      fit();
-      renderer.render(scene, camera);
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const factor = event.deltaY < 0 ? 1.08 : 1 / 1.08;
+      rig.current.zoom = Math.min(2.3, Math.max(0.7, rig.current.zoom * factor));
     };
+    root.addEventListener("wheel", onWheel, { passive: false });
+    let frame = 0;
+    let alive = true;
+    const loop = () => {
+      if (!alive) return;
+      spin.rotation.y = rig.current.yaw;
+      camera.position.copy(aim).multiplyScalar(18 / rig.current.zoom);
+      camera.lookAt(0, 0.85, 0);
+      renderer.render(scene, camera);
+      frame = window.requestAnimationFrame(loop);
+    };
+    loop();
+    const onResize = () => fit();
     window.addEventListener("resize", onResize);
     return () => {
+      alive = false;
       window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", onResize);
+      root.removeEventListener("wheel", onWheel);
       renderer.dispose();
       root.removeChild(renderer.domElement);
     };
-  }, [ownedKey]);
+  }, [ownedKey, look]);
 
-  return <div ref={host} className="absolute inset-0" />;
+  function turn(dir: number) {
+    rig.current.yaw += dir * 0.55;
+  }
+  function dolly(factor: number) {
+    rig.current.zoom = Math.min(2.3, Math.max(0.7, rig.current.zoom * factor));
+  }
+
+  return (
+    <div className="absolute inset-0">
+      <div
+        ref={host}
+        className="absolute inset-0 touch-none"
+        onPointerDown={(event) => {
+          const surface = event.currentTarget;
+          surface.setPointerCapture(event.pointerId);
+          surface.dataset.x = String(event.clientX);
+        }}
+        onPointerMove={(event) => {
+          if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+          const last = Number(event.currentTarget.dataset.x ?? event.clientX);
+          rig.current.yaw += (event.clientX - last) * 0.008;
+          event.currentTarget.dataset.x = String(event.clientX);
+        }}
+      />
+      <div className="absolute right-3 top-32 z-10 flex flex-col gap-1">
+        <button type="button" aria-label="Zoom in" onClick={() => dolly(1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold shadow">+</button>
+        <button type="button" aria-label="Zoom out" onClick={() => dolly(1 / 1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold shadow">−</button>
+        <button type="button" aria-label="Rotate left" onClick={() => turn(1)} className="mt-2 grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold shadow">↺</button>
+        <button type="button" aria-label="Rotate right" onClick={() => turn(-1)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold shadow">↻</button>
+      </div>
+    </div>
+  );
 }
 
 export function HouseRoom({
@@ -1347,10 +1437,9 @@ export function HouseRoom({
   const stock = FURNITURE.filter((item) => item.group === group);
   return (
     <section className="relative h-full min-h-[28rem] overflow-hidden bg-[#cfe0c2] text-[#17241e]">
-      <RoomView owned={owned} />
-      <p className="absolute left-3 top-20 z-10 rounded-full bg-white px-3 py-2 text-xs font-semibold shadow">{name}</p>
-      {owned.length === 0 ? <p className="absolute left-1/2 top-20 z-10 -translate-x-1/2 rounded-full bg-white px-3 py-2 text-xs font-semibold shadow">The room is empty.</p> : null}
-      <PersonFigure look={look ?? "chidi"} className="pointer-events-none absolute bottom-[38%] left-1/2 z-10 h-28 w-14 -translate-x-1/2" />
+      <RoomView owned={owned} look={look ?? "chidi"} />
+      <p className="pointer-events-none absolute left-3 top-20 z-10 rounded-full bg-white px-3 py-2 text-xs font-semibold shadow">{name}</p>
+      {owned.length === 0 ? <p className="pointer-events-none absolute left-1/2 top-20 z-10 -translate-x-1/2 rounded-full bg-white px-3 py-2 text-xs font-semibold shadow">The room is empty.</p> : null}
       <button
         type="button"
         onClick={() => setShop(true)}
