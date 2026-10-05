@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/Avatar";
 import { InstallButton } from "@/components/InstallApp";
 import { CityWorld } from "@/components/game/CityWorld";
-import { ArrivalScene, HouseRoom, PersonFigure, VenueInterior } from "@/components/game/scenes";
+import { ArrivalScene, HouseRoom, VenueInterior } from "@/components/game/scenes";
 import {
   acceptFriendRequest,
   addFriend,
@@ -15,11 +15,8 @@ import {
   clearArrears,
   doDorime,
   deleteDirectLine,
-  deleteVenueLine,
   declineFriendRequest,
   doWork,
-  eatBuka,
-  eatGrill,
   applyForCourse,
   callPolice,
   checkoutRoom,
@@ -68,7 +65,7 @@ import { BET_STAKES, CAREERS, DREAMS, HOMES, LANDS, NPCS, PLACES, TOP_UPS, TRAIT
 import { POLICE_ID, multiplyOdds, travelOptions } from "@/lib/game/engine";
 import { clockLabel, dreamProgress, jobTitle, levelPay, moodLabel, naira, skillLabel, skillNeeded, weekday } from "@/lib/game/format";
 import type { GameView, PersonCard } from "@/lib/game/queries";
-import type { BetPick, TravelMode, WorkStyle } from "@/lib/game/types";
+import type { BetPick, WorkStyle } from "@/lib/game/types";
 
 type Run = (
   work: () => Promise<{ ok: true; notice?: string } | { ok: false; error: string }>,
@@ -167,7 +164,7 @@ export function GameShell({ view }: { view: GameView }) {
             {crowdText}
           </p>
         ) : null}
-        <main className={`absolute inset-0 ${!account && (tab === "home" || tab === "room") ? "overflow-hidden" : !account && tab === "phone" ? "overflow-hidden px-3 pb-24 pt-[4.5rem]" : "overflow-y-auto px-4 pb-28 pt-20"}`}>
+        <main className={`absolute inset-0 ${!account && (tab === "home" || tab === "room" || tab === "map") ? "overflow-hidden" : !account && tab === "phone" ? "overflow-hidden px-3 pb-24 pt-[4.5rem]" : "overflow-y-auto px-4 pb-28 pt-20"}`}>
           {account ? <AccountPage view={view} pending={pending} run={run} onBack={() => setAccount(false)} /> : null}
           {!account && tab === "home" ? <HomePanel view={view} run={run} pending={pending} onOpenMap={() => setTab("map")} onOpenRoom={() => { setRoomEntry("look"); setTab("room"); }} /> : null}
           {!account && tab === "room" ? (
@@ -181,7 +178,7 @@ export function GameShell({ view }: { view: GameView }) {
               onBuy={(itemId) => run(() => buyFurniture(itemId))}
             />
           ) : null}
-          {!account && tab === "map" ? <MapPanel view={view} run={run} pending={pending} onOpen={setPersonId} sheetRoot={phone} /> : null}
+          {!account && tab === "map" ? <MapPanel view={view} run={run} pending={pending} onOpen={setPersonId} onCity={() => setTab("home")} sheetRoot={phone} /> : null}
           {!account && tab === "phone" ? (
             <PhonePanel
               view={view}
@@ -672,132 +669,31 @@ function MapPanel({
   run,
   pending,
   onOpen,
+  onCity,
   sheetRoot,
 }: {
   view: GameView;
   run: Run;
   pending: boolean;
   onOpen: (id: string) => void;
+  onCity: () => void;
   sheetRoot: HTMLDivElement | null;
 }) {
-  const [picked, setPicked] = useState<string | null>(null);
-  const [chat, setChat] = useState("");
-  const [groupOpen, setGroupOpen] = useState(false);
-  const [groupReply, setGroupReply] = useState<{ id: string; fromName: string; text: string } | null>(null);
-  const [filter, setFilter] = useState<"all" | "nightlife" | "food" | "hotel" | "pickup" | "market" | "school" | "airport" | "health" | "city">("all");
-  const [query, setQuery] = useState("");
-  const [leftAt, setLeftAt] = useState<string | null>(null);
-  const [sheet, setSheet] = useState<null | "list" | "place" | "courses">(null);
   const [visit, setVisit] = useState(0);
   const [closedVisit, setClosedVisit] = useState(-1);
   const [admission, setAdmission] = useState<null | { school: string; course: string; when: string; fee: number }>(null);
-  const [returnToList, setReturnToList] = useState(false);
-  const mapFrame = useRef<HTMLDivElement>(null);
-  const mapView = useRef({ zoom: 1, x: 0, y: 0 });
-  const [mapFrameState, setMapFrame] = useState({ zoom: 1, x: 0, y: 0 });
-  const pointers = useRef(new Map<number, { x: number; y: number }>());
-  const drag = useRef<{ x: number; y: number; panX: number; panY: number; moved: boolean } | null>(null);
-  const pinchDist = useRef<number | null>(null);
-  const skipClick = useRef(false);
   const panel = useRef<HTMLDivElement>(null);
-  const placeId = picked ?? view.me.locationId;
-  const place = placeById(placeId);
-  const here = placeId === view.me.locationId;
-  const options = here ? [] : travelOptions(view.me.locationId, placeId, view.me.hasCar, view.balance);
-  const rides = [...options].sort((a, b) => Number(b.mode === "car") - Number(a.mode === "car"));
+  const place = placeById(view.me.locationId);
   const career = view.me.job ? careerById(view.me.job.careerId) : null;
-  const canWork = Boolean(career && here && view.me.indoors && career.placeId === place.id);
-  const showDoor = here && !view.me.indoors && leftAt !== view.me.locationId;
-  const needle = query.trim().toLowerCase();
-  const visible = PLACES.filter((item) => {
-    const inFilter =
-      filter === "all" ||
-      (filter === "market" && item.kind === "market") ||
-      (filter === "health" && item.kind === "health") ||
-      (filter === "city" && (item.kind === "public" || item.kind === "work" || item.kind === "home")) ||
-      item.kind === filter;
-    if (!inFilter) return false;
-    if (!needle) return true;
-    return item.name.toLowerCase().includes(needle) || item.area.toLowerCase().includes(needle);
-  });
-  const pins = visible.some((item) => item.id === place.id) ? visible : [place, ...visible];
-  const laid = layoutPins(pins);
-
-  function focusMap(nextZoom: number, clientX: number, clientY: number) {
-    const el = mapFrame.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const { zoom, x, y } = mapView.current;
-    const z = Math.min(4, Math.max(1, nextZoom));
-    const ox = clientX - rect.left - rect.width / 2;
-    const oy = clientY - rect.top - rect.height / 2;
-    let nx = ox - ((ox - x) / zoom) * z;
-    let ny = oy - ((oy - y) / zoom) * z;
-    if (z <= 1.01) {
-      nx = 0;
-      ny = 0;
-    } else {
-      const limitX = (rect.width * (z - 1)) / 2;
-      const limitY = (rect.height * (z - 1)) / 2;
-      nx = Math.min(limitX, Math.max(-limitX, nx));
-      ny = Math.min(limitY, Math.max(-limitY, ny));
-    }
-    const next = { zoom: z, x: nx, y: ny };
-    mapView.current = next;
-    setMapFrame(next);
-  }
+  const canWork = Boolean(career && view.me.indoors && career.placeId === place.id);
+  const inside = view.me.indoors;
 
   useEffect(() => {
-    const el = mapFrame.current;
-    if (!el) return;
-    const onWheel = (event: WheelEvent) => {
-      event.preventDefault();
-      const factor = event.deltaY < 0 ? 1.16 : 1 / 1.16;
-      focusMap(mapView.current.zoom * factor, event.clientX, event.clientY);
-    };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, []);
-
-  useEffect(() => {
-    if (!here || (!showDoor && !view.me.indoors)) return;
     panel.current?.closest("main")?.scrollTo({ top: 0, behavior: "smooth" });
-  }, [here, showDoor, view.me.indoors, view.me.locationId]);
+  }, [inside, view.me.locationId]);
 
-  function depart(mode: TravelMode) {
-    return run(async () => {
-      const result = await go(place.id, mode);
-      if (result.ok) {
-        setPicked(null);
-        setLeftAt(null);
-        setSheet(null);
-      }
-      return result;
-    });
-  }
-
-  function openPlace(id: string, backToList = false) {
-    setPicked(id);
-    setReturnToList(backToList);
-    setSheet("place");
-  }
-
-  function closeSheet() {
-    if (sheet === "place" && returnToList) {
-      setSheet("list");
-      return;
-    }
-    if (sheet === "courses") {
-      setSheet("list");
-      return;
-    }
-    setReturnToList(false);
-    setSheet(null);
-  }
-
-  const inside = here && view.me.indoors;
   return (
-    <div ref={panel} className={inside || showDoor ? "absolute inset-0" : "space-y-4"}>
+    <div ref={panel} className="absolute inset-0">
       {inside ? (
         <VenueInterior
           place={place}
@@ -818,10 +714,7 @@ function MapPanel({
           onSpray={(amount) => run(() => spray(amount))}
           onBook={(stay) => run(() => takeRoom(stay))}
           onOffer={(npcId) => run(() => makeOffer(npcId))}
-          onOutside={() => {
-            setLeftAt(null);
-            run(goOutside);
-          }}
+          onOutside={() => run(goOutside)}
           spendable={view.pools.earned + view.pools.gifted}
           room={view.me.room?.placeId === place.id ? view.me.room.stay : null}
           onSleep={() => run(sleepAtHotel)}
@@ -837,12 +730,34 @@ function MapPanel({
           }
           onBuyFurniture={(itemId) => run(() => buyFurniture(itemId))}
           fill
-          extra={place.id === "sam-mbakwe" ? <AirportDesk run={run} pending={pending} /> : null}
+          extra={
+            <>
+              {place.id === "sam-mbakwe" ? <AirportDesk run={run} pending={pending} /> : null}
+              {place.id === "state-cid" ? <PoliceDesk view={view} run={run} pending={pending} /> : null}
+              {canWork ? (
+                <div className="grid gap-1.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#a9782a]">Work the shift</p>
+                  {styles.map((style) => (
+                    <button
+                      key={style.id}
+                      type="button"
+                      disabled={pending}
+                      onClick={() => run(() => doWork(style.id))}
+                      className="rounded-2xl border border-[#e4d8c4] bg-white px-3 py-2 text-left text-xs disabled:opacity-40"
+                    >
+                      <span className="font-semibold text-[#17241e]">{style.name}</span>
+                      <span className="block text-[#5d6b62]">{style.detail}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </>
+          }
           onApply={place.kind === "school" && !view.me.school ? () => setVisit((value) => value + 1) : undefined}
           chat={view.chat}
           onSay={(text) => run(() => sayInVenue(text))}
         />
-      ) : showDoor ? (
+      ) : (
         <ArrivalScene
           placeId={view.me.locationId}
           look={view.me.look}
@@ -854,442 +769,8 @@ function MapPanel({
               if (result.ok && entering.kind === "school" && !already) setVisit((value) => value + 1);
             });
           }}
-          onLeave={() => setLeftAt(view.me.locationId)}
+          onLeave={onCity}
         />
-      ) : (
-      <>
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {(
-          [
-            ["all", "All"],
-            ["nightlife", "Nightlife"],
-            ["food", "Food"],
-            ["hotel", "Hotels"],
-            ["pickup", "Pickup"],
-            ["market", "Markets"],
-            ["school", "Schools"],
-            ["health", "Health"],
-            ["airport", "Fly"],
-            ["city", "City"],
-          ] as const
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            onClick={() => {
-              setFilter(id);
-              setSheet("list");
-            }}
-            className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${filter === id ? "bg-[#143d2c] text-[#f6f1e6]" : "bg-white"}`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      {here && view.me.indoors ? (
-        <VenueInterior
-          place={place}
-          look={view.me.look}
-          pending={pending}
-          username={view.me.username}
-          people={[
-            { id: view.me.id, name: view.me.username, look: view.me.look },
-            ...view.nearby.map((person) => ({ id: person.id, name: person.name, look: person.look })),
-          ]}
-          besideId={view.me.besideId}
-          selfId={view.me.id}
-          onPickPerson={onOpen}
-          onDorime={(amount) => run(() => doDorime(amount))}
-          onDrink={() => run(takeDrink)}
-          onDance={() => run(hitDanceFloor)}
-          onFood={() => run(orderFood)}
-          onSpray={(amount) => run(() => spray(amount))}
-          onBook={(stay) => run(() => takeRoom(stay))}
-          onOffer={(npcId) => run(() => makeOffer(npcId))}
-          onOutside={() => {
-            setLeftAt(null);
-            run(goOutside);
-          }}
-          spendable={view.pools.earned + view.pools.gifted}
-          room={view.me.room?.placeId === place.id ? view.me.room.stay : null}
-          onSleep={() => run(sleepAtHotel)}
-          onLeaveRoom={() => run(checkoutRoom)}
-          onTreat={() => run(getTreatment)}
-          sick={view.me.sick}
-          hasCar={view.me.hasCar}
-          onBuyCar={() => run(buyCar)}
-          house={
-            place.kind === "home" && place.id === homeById(view.me.homeId).areaId
-              ? { name: homeById(view.me.homeId).name, owned: view.me.furniture }
-              : null
-          }
-          onBuyFurniture={(itemId) => run(() => buyFurniture(itemId))}
-        />
-      ) : null}
-      {here ? (
-        <section className="flex items-center justify-between gap-3 rounded-[1.6rem] bg-white p-3 shadow-sm">
-          <div className="min-w-0">
-            <h3 className="truncate font-display text-2xl">{place.name}</h3>
-            <p className="text-sm font-semibold text-[#1f6b45]">{view.nearby.length} here</p>
-          </div>
-          <button type="button" onClick={() => setGroupOpen(true)} className="shrink-0 rounded-full bg-[#1f6b45] px-4 py-2 text-sm font-semibold text-[#f6f1e6]">
-            Open chat
-          </button>
-        </section>
-      ) : null}
-      {here && groupOpen && sheetRoot
-        ? createPortal(
-            <div className="absolute inset-x-0 bottom-0 top-16 z-20 flex flex-col overflow-hidden bg-[#efe4d2]">
-              <div className="flex items-center gap-3 bg-[#143d2c] px-3 py-3 text-[#f6f1e6]">
-                <button type="button" className="text-sm font-semibold" onClick={() => setGroupOpen(false)}>Back</button>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-semibold">{place.name}</span>
-                  <span className="block text-xs text-[#d5e4d8]">Everyone here</span>
-                </span>
-              </div>
-              <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
-                <div className="flex min-h-full flex-col justify-end gap-2">
-                  {view.chat.length === 0 ? <p className="text-sm text-[#5d6b62]">No messages yet. What you send shows up for everyone here.</p> : null}
-                  {view.chat.map((line) => (
-                    <div key={line.id} className={`max-w-[80%] ${line.fromId === view.me.id ? "self-end" : "self-start"}`}>
-                      <SwipeMessage
-                        mine={line.fromId === view.me.id}
-                        onReply={() => setGroupReply({ id: line.id, fromName: line.fromName, text: line.text })}
-                        onDelete={() => run(() => deleteVenueLine(line.id))}
-                      >
-                        <div className={`rounded-2xl px-3 py-2 ${line.fromId === view.me.id ? "rounded-br-sm bg-[#d8f3dc] text-[#143d2c]" : "rounded-bl-sm bg-white"}`}>
-                          <p className="text-[10px] font-semibold text-[#5d6b62]">{line.fromName}</p>
-                          {line.replyTo ? <Quote from={line.replyTo.fromName} text={line.replyTo.text} /> : null}
-                          <p className="text-sm"><MentionText text={line.text} names={view.nearby.map((person) => person.name)} /></p>
-                          <p className={`mt-1 text-[10px] text-[#5d6b62] ${line.fromId === view.me.id ? "text-right" : ""}`}>{line.at}</p>
-                        </div>
-                      </SwipeMessage>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="bg-[#fffaf2] p-2">
-                <p className="px-1 pb-2 text-[10px] text-[#5d6b62]">Swipe left to reply. Swipe right to delete a message you sent.</p>
-                {view.nearby.length > 0 ? (
-                  <div className="mb-2 flex gap-2 overflow-x-auto">
-                    {view.nearby.map((person) => (
-                      <button key={person.id} type="button" className="shrink-0 rounded-full bg-[#efe4d2] px-3 py-1 text-xs font-semibold" onClick={() => setChat((current) => `${current}${current.endsWith(" ") || current.length === 0 ? "" : " "}@${person.name} `)}>@{person.name}</button>
-                    ))}
-                  </div>
-                ) : null}
-                {groupReply ? <ReplyBar reply={groupReply} onClear={() => setGroupReply(null)} /> : null}
-                {mentionQuery(chat) != null ? (
-                  <div className="mb-2 flex gap-2 overflow-x-auto">
-                    {view.nearby.filter((person) => person.name.toLowerCase().includes((mentionQuery(chat) ?? "").toLowerCase())).map((person) => (
-                      <button key={person.id} type="button" className="shrink-0 rounded-full bg-[#efe4d2] px-3 py-1 text-xs font-semibold" onClick={() => setChat((current) => current.replace(/@[^\s@]*$/, `@${person.name} `))}>@{person.name}</button>
-                    ))}
-                  </div>
-                ) : null}
-                <form
-                  className="flex gap-2"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    const text = chat;
-                    const reply = groupReply;
-                    setChat("");
-                    setGroupReply(null);
-                    run(() => sayInVenue(text, reply));
-                  }}
-                >
-                  <input value={chat} onChange={(event) => setChat(event.target.value)} className="min-w-0 flex-1 rounded-full border border-[#e4d8c4] bg-white px-3 py-2 text-sm" placeholder="Message the group" />
-                  <button className="rounded-full bg-[#1f6b45] px-4 py-2 text-sm font-semibold text-[#f6f1e6]" disabled={pending}>Send</button>
-                </form>
-              </div>
-            </div>,
-            sheetRoot,
-          )
-        : null}
-      <div
-        ref={mapFrame}
-        className="relative h-[calc(100dvh-11rem)] min-h-[28rem] touch-none overflow-hidden rounded-[1.6rem] bg-[#cfe4d4]"
-      >
-        <div
-          className="absolute inset-0"
-          style={{ transform: `translate(${mapFrameState.x}px, ${mapFrameState.y}px) scale(${mapFrameState.zoom})` }}
-          onPointerDown={(event) => {
-            const surface = event.currentTarget;
-            pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
-            if (pointers.current.size >= 2) {
-              const [a, b] = [...pointers.current.values()];
-              pinchDist.current = Math.max(12, Math.hypot(a.x - b.x, a.y - b.y));
-              drag.current = null;
-              surface.setPointerCapture(event.pointerId);
-              return;
-            }
-            if (mapView.current.zoom > 1) {
-              drag.current = { x: event.clientX, y: event.clientY, panX: mapView.current.x, panY: mapView.current.y, moved: false };
-              surface.setPointerCapture(event.pointerId);
-            }
-          }}
-          onPointerMove={(event) => {
-            if (!pointers.current.has(event.pointerId)) return;
-            pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
-            if (pointers.current.size >= 2 && pinchDist.current) {
-              const [a, b] = [...pointers.current.values()];
-              const dist = Math.max(12, Math.hypot(a.x - b.x, a.y - b.y));
-              const ratio = dist / pinchDist.current;
-              pinchDist.current = dist;
-              skipClick.current = true;
-              focusMap(mapView.current.zoom * ratio, (a.x + b.x) / 2, (a.y + b.y) / 2);
-              return;
-            }
-            if (!drag.current || mapView.current.zoom <= 1) return;
-            const dx = event.clientX - drag.current.x;
-            const dy = event.clientY - drag.current.y;
-            if (Math.hypot(dx, dy) > 5) drag.current.moved = true;
-            const el = mapFrame.current;
-            if (!el) return;
-            const rect = el.getBoundingClientRect();
-            const limitX = (rect.width * (mapView.current.zoom - 1)) / 2;
-            const limitY = (rect.height * (mapView.current.zoom - 1)) / 2;
-            const next = {
-              zoom: mapView.current.zoom,
-              x: Math.min(limitX, Math.max(-limitX, drag.current.panX + dx)),
-              y: Math.min(limitY, Math.max(-limitY, drag.current.panY + dy)),
-            };
-            mapView.current = next;
-            setMapFrame(next);
-          }}
-          onPointerUp={(event) => {
-            if (drag.current?.moved) skipClick.current = true;
-            pointers.current.delete(event.pointerId);
-            if (pointers.current.size < 2) pinchDist.current = null;
-            drag.current = null;
-          }}
-          onPointerCancel={(event) => {
-            pointers.current.delete(event.pointerId);
-            pinchDist.current = null;
-            drag.current = null;
-          }}
-        >
-          <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full">
-            <rect width="100" height="100" fill="#d7ebdd" />
-            <path d="M46 0 C 64 12, 30 22, 56 36 S 28 52, 50 64 S 66 78, 40 90 S 34 96, 48 100" fill="none" stroke="#2f86a6" strokeWidth="3.1" strokeLinecap="round" />
-            <path d="M0 76 C 16 64, 26 88, 40 74 S 58 62, 72 82 S 90 92, 100 74" fill="none" stroke="#2f86a6" strokeWidth="3.3" strokeLinecap="round" />
-            <path d="M6 62 H 94 M 18 20 H 88 M 30 8 V 92 M 55 12 V 90" fill="none" stroke="#c9b48a" strokeWidth="1.1" />
-            <text x="66" y="28" fontSize="3.2" fill="#1f6b45">Nworie</text>
-            <text x="4" y="70" fontSize="3.2" fill="#1f6b45">Otamiri</text>
-          </svg>
-          {pins.map((item) => {
-            const spot = laid.get(item.id) ?? item;
-            const current = item.id === view.me.locationId;
-            const selected = item.id === placeId;
-            return (
-              <button
-                key={item.id}
-                aria-label={item.name}
-                className="absolute grid h-8 w-8 -translate-x-1/2 -translate-y-1/2 place-items-center"
-                style={{ left: `${spot.x}%`, top: `${spot.y}%` }}
-                onClick={() => {
-                  if (skipClick.current) {
-                    skipClick.current = false;
-                    return;
-                  }
-                  openPlace(item.id);
-                }}
-              >
-                <span className={`ol-block ${item.id === homeById(view.me.homeId).areaId ? "ol-home-pulse ol-block-home" : ""} ${selected ? "ol-block-on" : ""}`} />
-                {current ? <PersonFigure look={view.me.look} className="pointer-events-none absolute -top-8 h-8 w-4" /> : null}
-                <span className="pointer-events-none absolute top-full mt-0.5 max-w-16 truncate rounded-full bg-white px-1 py-px text-[8px] font-semibold leading-none text-[#17241e] shadow">
-                  {item.id === homeById(view.me.homeId).areaId ? "Home" : item.name}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-        <div className="absolute right-2 top-2 flex flex-col gap-1">
-          <button type="button" aria-label="Zoom in" onClick={() => {
-            const el = mapFrame.current;
-            if (!el) return;
-            const rect = el.getBoundingClientRect();
-            focusMap(mapView.current.zoom * 1.35, rect.left + rect.width / 2, rect.top + rect.height / 2);
-          }} className="grid h-8 w-8 place-items-center rounded-full bg-[#fffaf2] text-lg font-semibold text-[#143d2c] shadow">+</button>
-          <button type="button" aria-label="Zoom out" onClick={() => {
-            const el = mapFrame.current;
-            if (!el) return;
-            const rect = el.getBoundingClientRect();
-            focusMap(mapView.current.zoom / 1.35, rect.left + rect.width / 2, rect.top + rect.height / 2);
-          }} className="grid h-8 w-8 place-items-center rounded-full bg-[#fffaf2] text-lg font-semibold text-[#143d2c] shadow">−</button>
-        </div>
-        <button
-          type="button"
-          onClick={() => setSheet("place")}
-          className="absolute inset-x-3 bottom-3 rounded-2xl bg-[#fffaf2]/95 px-3 py-2.5 text-left shadow-lg"
-        >
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#a9782a]">{here ? "You are here" : "Selected"}</p>
-          <p className="font-display text-xl leading-tight">{place.name}</p>
-          <p className="text-xs text-[#5d6b62]">{place.area} · Open</p>
-        </button>
-      </div>
-      <div className="flex flex-wrap gap-x-3 gap-y-1 px-1 text-[11px] text-[#5d6b62]">
-        <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-[#a9782a]" /> Night</span>
-        <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-[#c4552a]" /> Food</span>
-        <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-[#5a3d7a]" /> Hotel</span>
-        <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-[#8c3d55]" /> Pickup</span>
-        <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-[#1f6b45]" /> Market</span>
-        <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-[#245c78]" /> City</span>
-        <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-[#3d6b4f]" /> School</span>
-        <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-[#3d7ea6]" /> Fly</span>
-      </div>
-      <section className="space-y-2">
-        <label className="block text-sm font-semibold">
-          Find a place
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Cartel, Mangrove, hotel…"
-            className="mt-1 w-full rounded-2xl border border-[#e4d8c4] bg-white px-3 py-3 text-sm font-normal"
-          />
-        </label>
-        <div className="space-y-2">
-          {visible.length === 0 ? <p className="rounded-2xl bg-white px-4 py-3 text-sm text-[#5d6b62]">No place matches that.</p> : null}
-          {visible.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => openPlace(item.id, true)}
-              className={`flex w-full items-start justify-between gap-3 rounded-2xl px-4 py-3 text-left ${item.id === placeId ? "bg-[#143d2c] text-[#f6f1e6]" : "bg-white"}`}
-            >
-              <span className="min-w-0">
-                <span className="block font-semibold leading-snug">{item.name}</span>
-                <span className={`mt-0.5 block text-xs ${item.id === placeId ? "text-[#d5e4d8]" : "text-[#5d6b62]"}`}>{item.area}</span>
-              </span>
-              <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${item.id === placeId ? "bg-white/15" : "bg-[#efe4d2] text-[#5d6b62]"}`}>{item.tier}</span>
-            </button>
-          ))}
-        </div>
-      </section>
-      {sheet && sheetRoot
-        ? createPortal(
-            sheet === "list" ? (
-        <SlideSheet
-          label="Places"
-          title={{ all: "All", nightlife: "Nightlife", food: "Food", hotel: "Hotels", pickup: "Pickup", market: "Markets", school: "Schools", health: "Hospitals", airport: "Fly", city: "City" }[filter]}
-          detail={`${visible.length} ${visible.length === 1 ? "place" : "places"}`}
-          onClose={closeSheet}
-        >
-          {filter === "school" ? (
-            <button type="button" onClick={() => setSheet("courses")} className="mb-3 w-full rounded-2xl bg-[#143d2c] px-3 py-3 text-left text-sm font-semibold text-[#f6f1e6]">
-              All {courseCount()} courses
-              <span className="mt-0.5 block text-xs font-normal text-[#d5e4d8]">Fees come off your bank balance</span>
-            </button>
-          ) : null}
-          <div className="grid gap-2">
-            {visible.length === 0 ? <p className="text-sm text-[#5d6b62]">Nothing in this category.</p> : null}
-            {visible.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => openPlace(item.id, true)}
-                className="flex w-full items-start justify-between gap-3 rounded-2xl bg-white px-3 py-3 text-left"
-              >
-                <span className="min-w-0">
-                  <span className="block font-semibold leading-tight">{item.name}</span>
-                  <span className="mt-0.5 block text-xs text-[#5d6b62]">{item.area} · {item.hours}</span>
-                </span>
-                <span className="shrink-0 rounded-full bg-[#efe4d2] px-2 py-1 text-[10px] font-semibold text-[#5d6b62]">{item.tier}</span>
-              </button>
-            ))}
-          </div>
-        </SlideSheet>
-            ) : sheet === "courses" ? (
-        <SlideSheet label="Schools" title="Courses" detail={`${courseCount()} courses · fees leave your bank balance`} onClose={closeSheet}>
-          <CourseCatalogue view={view} run={run} pending={pending} />
-        </SlideSheet>
-            ) : (
-        <SlideSheet
-          label={place.tier}
-          title={place.name}
-          detail={`${place.area} · ${place.hours}${coursesAt(place.id).length ? ` · ${coursesAt(place.id).length} courses` : ""}`}
-          onClose={closeSheet}
-        >
-          <p className="text-sm">{place.summary}</p>
-          {place.kind !== "school" && place.activities.length > 0 ? (
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {place.activities.map((activity) => (
-                <span key={activity} className="rounded-full bg-[#efe4d2] px-2 py-1 text-[11px] font-semibold text-[#5d6b62]">{activity}</span>
-              ))}
-            </div>
-          ) : null}
-          {!here ? (
-            <div className="mt-4 grid gap-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#a9782a]">Go there</p>
-              {rides.map((option) => (
-                <button
-                  key={option.mode}
-                  disabled={pending || !option.available || !option.affordable}
-                  onClick={() => depart(option.mode as TravelMode)}
-                  className="flex items-center justify-between rounded-2xl bg-white px-3 py-3 text-left text-sm shadow-sm disabled:opacity-40"
-                >
-                  <span>
-                    <span className="font-semibold">{option.label}</span>
-                    <span className="block text-[#5d6b62]">{option.hours}h{option.reason ? ` · ${option.reason}` : ""}</span>
-                  </span>
-                  <span className="rounded-full bg-[#1f6b45] px-2.5 py-1 text-xs font-semibold text-[#f6f1e6]">{option.cost === 0 ? "Free" : naira(option.cost)}</span>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="mt-4 grid gap-2">
-              {!view.me.indoors && leftAt === view.me.locationId ? (
-                <Action disabled={pending} onClick={() => setLeftAt(null)}>Walk up to the door</Action>
-              ) : null}
-              {place.id === "mama-nkechi" ? <Action disabled={pending} onClick={() => run(eatBuka)}>Eat · {naira(800)}</Action> : null}
-              {place.id === "mangrove-grill" ? <Action disabled={pending} onClick={() => run(eatGrill)}>Eat · {naira(4500)}</Action> : null}
-              {["nworie-park", "cartel-lounge", "mama-nkechi", "eke-ukwu", "cartel-beach", "heartland-resort"].includes(place.id) ? (
-                <Action disabled={pending} onClick={() => run(socialise)}>
-                  Hang out{place.id === "cartel-lounge" ? ` · ${naira(1000)}` : ""}
-                </Action>
-              ) : null}
-              {place.id === "state-cid" && view.me.indoors ? <PoliceDesk view={view} run={run} pending={pending} /> : null}
-              {place.id === "sam-mbakwe" && view.me.indoors ? <AirportDesk run={run} pending={pending} /> : null}
-              {view.me.indoors && (place.kind === "health" || place.id === "eke-ukwu") ? (
-                <Action disabled={pending} onClick={() => run(getTreatment)}>
-                  Get treatment · {naira(TREATMENT_FEE[place.id] ?? 8000)}
-                </Action>
-              ) : null}
-              {canWork ? (
-                <div className="grid gap-2">
-                  <p className="text-sm font-semibold">Work the shift</p>
-                  {styles.map((style) => (
-                    <button
-                      key={style.id}
-                      disabled={pending}
-                      onClick={() => run(() => doWork(style.id))}
-                      className="rounded-2xl border border-[#e4d8c4] bg-white px-3 py-2 text-left text-sm disabled:opacity-40"
-                    >
-                      <span className="font-semibold">{style.name}</span>
-                      <span className="block text-[#5d6b62]">{style.detail}</span>
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          )}
-          {place.kind === "school" && here && view.me.indoors ? (
-            <div className="mt-4">
-              {view.me.school?.school === place.name ? (
-                <CourseCatalogue view={view} run={run} pending={pending} schoolId={place.id} enrolledOnly />
-              ) : view.me.school ? (
-                <p className="rounded-2xl bg-white px-3 py-3 text-sm text-[#5d6b62]">
-                  {view.me.school.status === "admitted"
-                    ? `You are already admitted to ${view.me.school.school} to study ${view.me.school.course}. Drop out of that school if you want to apply here. You can still meet people on this campus.`
-                    : `You already applied to study ${view.me.school.course} at ${view.me.school.school}. Drop out if you want another school. You can still meet people on this campus.`}
-                </p>
-              ) : (
-                <Action disabled={pending} onClick={() => setVisit((value) => value + 1)}>Apply for admission</Action>
-              )}
-            </div>
-          ) : null}
-        </SlideSheet>
-            ),
-            sheetRoot,
-          )
-        : null}
-      </>
       )}
       {view.me.indoors && !view.me.school && placeById(view.me.locationId).kind === "school" && visit !== closedVisit && sheetRoot
         ? createPortal(
@@ -1331,10 +812,6 @@ function MapPanel({
         : null}
     </div>
   );
-}
-
-function courseCount() {
-  return PLACES.filter((item) => item.kind === "school").reduce((sum, item) => sum + coursesAt(item.id).length, 0);
 }
 
 type PhoneApp = "jobs" | "messages" | "bets" | "houses" | "land" | "wallet" | "bus" | "food" | "campus" | "market" | "night" | "club" | "health" | "fly" | "skills" | "settings";
@@ -2360,29 +1837,6 @@ function PersonSheet({
       </div>
     </div>
   );
-}
-
-function layoutPins(places: Array<{ id: string; x: number; y: number }>) {
-  const laid = places.map((place) => ({ id: place.id, x: place.x, y: place.y }));
-  const gap = 7.5;
-  for (let pass = 0; pass < 36; pass += 1) {
-    for (let i = 0; i < laid.length; i += 1) {
-      for (let j = i + 1; j < laid.length; j += 1) {
-        let dx = laid[j].x - laid[i].x;
-        let dy = laid[j].y - laid[i].y;
-        const dist = Math.hypot(dx, dy) || 0.01;
-        if (dist >= gap) continue;
-        const push = (gap - dist) / 2;
-        dx /= dist;
-        dy /= dist;
-        laid[i].x = Math.min(94, Math.max(6, laid[i].x - dx * push));
-        laid[i].y = Math.min(92, Math.max(8, laid[i].y - dy * push));
-        laid[j].x = Math.min(94, Math.max(6, laid[j].x + dx * push));
-        laid[j].y = Math.min(92, Math.max(8, laid[j].y + dy * push));
-      }
-    }
-  }
-  return new Map(laid.map((pin) => [pin.id, pin]));
 }
 
 function mentionQuery(value: string) {

@@ -417,8 +417,7 @@ body {
   to { background-position: -28px 0; }
 }
 
-.ol-house,
-.ol-block {
+.ol-house {
   display: block;
   width: 22px;
   height: 16px;
@@ -427,7 +426,6 @@ body {
   box-shadow: 5px 7px 0 #c4a574;
   position: relative;
 }
-.ol-block::before,
 .ol-house::before {
   content: "";
   position: absolute;
@@ -437,16 +435,6 @@ body {
   height: 10px;
   background: #3d6b4f;
   clip-path: polygon(50% 0, 100% 100%, 0 100%);
-}
-.ol-block-home::before { background: #c4552a; }
-.ol-block-on::before { background: #e0b15a; }
-.ol-home-pulse {
-  animation: ol-home-pulse 1.15s ease-in-out infinite;
-  transform-origin: center bottom;
-}
-@keyframes ol-home-pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.35); }
 }
 @keyframes ol-stride {
   0%, 100% { transform: translateY(0); }
@@ -493,7 +481,7 @@ body {
   }
   .ol-choices { pointer-events: auto; }
   .ol-bit { opacity: 0; }
-  .ol-world, .ol-pose-stand, .ol-pose-dance, .ol-pose-dance .ol-arm, .ol-spot, .ol-carry, .ol-bottle, .ol-home-pulse {
+  .ol-world, .ol-pose-stand, .ol-pose-dance, .ol-pose-dance .ol-arm, .ol-spot, .ol-carry, .ol-bottle {
     animation: none;
   }
 }
