@@ -1028,6 +1028,26 @@ export function CityWorld({
       return group;
     }
 
+    function beachHouseYard(x: number, z: number) {
+      const group = new THREE.Group();
+      group.add(block(26, 0.1, 20, 0xe4d2a8, 0, 0.08, 2));
+      group.add(block(26, 0.08, 8, 0x3d8ec4, 0, 0.06, -8));
+      group.add(block(12, 0.16, 8, 0xc4a574, 0, 0.2, 1));
+      group.add(block(8, 2.8, 6, 0xf7f1e6, 0, 1.6, -0.4));
+      group.add(block(9.2, 0.28, 7.2, 0x8a6a32, 0, 3.15, -0.4));
+      group.add(block(1.4, 2.2, 0.1, 0x6a4630, 0, 1.2, 2.66));
+      group.add(block(3.2, 0.12, 1.4, 0xf7fbfc, -2.2, 0.55, 2.2));
+      group.add(block(3.2, 0.12, 1.4, 0x7ec8c3, 2.2, 0.55, 2.2));
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.28, 2.4, 6), new THREE.MeshLambertMaterial({ color: 0x6a4630 }));
+      trunk.position.set(-8, 1.3, 3);
+      const crown = new THREE.Mesh(new THREE.SphereGeometry(1.2, 8, 6), new THREE.MeshLambertMaterial({ color: 0x2f7a3e }));
+      crown.position.set(-8, 2.8, 3);
+      group.add(trunk, crown);
+      group.position.set(x, 0, z);
+      scene.add(group);
+      return group;
+    }
+
     function parkYard(x: number, z: number, beach: boolean) {
       const group = new THREE.Group();
       group.add(block(28, 0.12, 20, beach ? 0xd7c4a2 : 0xc8d7b0, 0, 0.1, 0));
@@ -1418,8 +1438,11 @@ export function CityWorld({
       } else if (roadside.has(place.id)) {
         group = shopfront(at.x, at.z);
         labelY = 3.2;
-      } else if (place.id === "cartel-beach" || place.id === "heartland-resort" || place.id === "nworie-park" || place.id === "amusement-park") {
-        group = parkYard(at.x, at.z, place.id === "cartel-beach" || place.id === "heartland-resort");
+      } else if (place.id === "cartel-beach") {
+        group = beachHouseYard(at.x, at.z);
+        labelY = 5.2;
+      } else if (place.id === "heartland-resort" || place.id === "nworie-park" || place.id === "amusement-park") {
+        group = parkYard(at.x, at.z, place.id === "heartland-resort");
         labelY = 5.4;
       } else if (hotel) {
         group = tower(at.x, at.z, mine ? 0xfffaf2 : 0xf3efe4);

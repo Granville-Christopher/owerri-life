@@ -1175,6 +1175,18 @@ function BuildingFront({ placeId, look }: { placeId: string; look: LookId }) {
       plane.rotation.y = Math.PI / 2;
       add(plane);
       me.position.set(-2, 0, 4);
+    } else if (place.id === "cartel-beach") {
+      add(piece(0xe4d2a8, 26, 0.1, 18, 0, 0.05, 1));
+      add(piece(0x3d8ec4, 26, 0.08, 8, 0, 0.04, -8));
+      add(piece(0xc4a574, 12, 0.18, 8, 0, 0.18, 0));
+      add(piece(0xf7f1e6, 9, 2.6, 6, 0, 1.5, -1));
+      add(piece(0x8a6a32, 10.2, 0.28, 7.2, 0, 2.95, -1));
+      add(piece(0x6a4630, 1.6, 2.2, 0.1, 0, 1.2, 2.08));
+      sign(place.name, "BEACH HOUSE", 0, 2.3, 2.16, 4.6, 1.2, "#f7f1e6", "#1f6b45");
+      add(parkedCar(0xf2c14e, -8, 4));
+      tree(-9, -2);
+      tree(9, 2);
+      me.position.set(0.6, 0, 3.4);
     } else if (place.kind === "home") {
       add(piece(0xc8d7b0, 24, 0.12, 20, 0, 0.06, 0));
       add(piece(0xe7dcc8, 16, 1.6, 0.3, 0, 0.9, -6));
@@ -1555,6 +1567,159 @@ function ClubChat({
   );
 }
 
+function BeachHouse({ look }: { look: LookId }) {
+  const host = useRef<HTMLDivElement>(null);
+  const rig = useRef({ yaw: 0.45, zoom: 1.05 });
+
+  useEffect(() => {
+    const root = host.current;
+    if (!root) return;
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(root.clientWidth, root.clientHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    root.appendChild(renderer.domElement);
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color("#9fd4ef");
+    scene.add(new THREE.HemisphereLight(0xfff6e4, 0xe4d2a8, 0.95));
+    const sun = new THREE.DirectionalLight(0xfff3dd, 1.15);
+    sun.position.set(6, 12, 8);
+    sun.castShadow = true;
+    scene.add(sun);
+
+    const house = new THREE.Group();
+    scene.add(house);
+    const add = (mesh: THREE.Object3D) => house.add(mesh);
+    add(piece(0xe4d2a8, 22, 0.1, 16, 0, 0.04, 1));
+    add(piece(0x3d8ec4, 22, 0.08, 7, 0, 0.03, -7.5));
+    add(piece(0xc4a574, 11, 0.16, 8, 0, 0.16, 0.2));
+    add(piece(0xb08960, 11.2, 0.04, 0.18, 0, 0.26, -3.6));
+    add(piece(0xb08960, 11.2, 0.04, 0.18, 0, 0.26, 4));
+    for (const [x, z] of [[-5, -3.2], [5, -3.2], [-5, 3.4], [5, 3.4]] as const) {
+      add(piece(0xf7f1e6, 0.22, 2.7, 0.22, x, 1.5, z));
+    }
+    add(piece(0x8a6a32, 11.4, 0.22, 3.4, 0, 2.72, -1.7));
+    add(piece(0x6a4630, 11.8, 0.08, 3.6, 0, 2.86, -1.7));
+    add(piece(0xf7f1e6, 10.4, 1.7, 0.12, 0, 1.1, -3.35));
+    add(piece(0x9fd0ea, 3.2, 1.1, 0.06, -2.2, 1.35, -3.26));
+    add(piece(0x9fd0ea, 3.2, 1.1, 0.06, 2.2, 1.35, -3.26));
+    add(piece(0xf7f1e6, 0.12, 1.1, 7.2, -5.15, 0.7, 0.2));
+    add(piece(0xf7f1e6, 0.12, 1.1, 7.2, 5.15, 0.7, 0.2));
+
+    add(piece(0xf7fbfc, 3.4, 0.28, 1.5, -2.2, 0.42, 0.4));
+    add(piece(0x7ec8c3, 3.2, 0.1, 1.3, -2.2, 0.58, 0.4));
+    add(piece(0xf7fbfc, 0.7, 0.16, 0.4, -3.2, 0.72, 0.15));
+    add(piece(0xf7fbfc, 0.7, 0.16, 0.4, -1.2, 0.72, 0.15));
+    add(blob(-2.2, 0.4, 3.4, 1.6, 0.28));
+
+    add(piece(0xf4efe4, 2.4, 0.32, 0.9, 2.4, 0.42, 1.6));
+    add(piece(0xe7dcc8, 2.4, 0.4, 0.12, 2.4, 0.7, 2));
+    add(piece(0xc4a574, 1.3, 0.08, 0.8, 0.2, 0.48, 1.2));
+    add(piece(0x6a4630, 0.08, 0.28, 0.08, -0.3, 0.32, 0.95));
+    add(piece(0x6a4630, 0.08, 0.28, 0.08, 0.7, 0.32, 1.45));
+
+    add(piece(0x6a4630, 2.6, 0.9, 0.5, -4.5, 0.6, -1.6));
+    add(piece(0xf7f1e6, 2.4, 0.08, 0.46, -4.35, 1.08, -1.6));
+    for (let i = 0; i < 4; i += 1) {
+      const bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.28, 8), new THREE.MeshLambertMaterial({ color: [0x1f6b45, 0xf2c14e, 0xf7fbfc, 0xc4552a][i] }));
+      bottle.position.set(-5.1, 1.25, -2.2 + i * 0.4);
+      add(bottle);
+    }
+    add(piece(0x2a241c, 1.1, 0.7, 0.6, 3.8, 0.5, -1.8));
+    add(piece(0x3a3f46, 0.9, 0.06, 0.5, 3.8, 0.88, -1.8));
+
+    const palm = (x: number, z: number) => {
+      add(piece(0x6a4630, 0.22, 2.2, 0.22, x, 1.15, z));
+      const crown = new THREE.Mesh(new THREE.SphereGeometry(0.85, 8, 6), new THREE.MeshLambertMaterial({ color: 0x2f7a3e }));
+      crown.position.set(x, 2.4, z);
+      add(crown);
+    };
+    palm(-7.2, 3.2);
+    palm(7.2, -4.2);
+    for (const [x, z] of [[-3.5, 2.6], [0, 2.8], [3.5, 2.6]] as const) {
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffe08a }));
+      bulb.position.set(x, 2.55, z);
+      add(bulb);
+    }
+
+    const guest = citizen(look);
+    guest.rotation.y = Math.PI;
+    guest.position.set(0.3, 0.12, 2.2);
+    add(guest);
+    add(blob(0.3, 2.2, 0.7, 0.45, 0.35));
+
+    const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 80);
+    const aim = new THREE.Vector3(10, 7, 14).normalize();
+    const fit = () => {
+      renderer.setSize(root.clientWidth || 1, root.clientHeight || 1);
+      camera.aspect = (root.clientWidth || 1) / (root.clientHeight || 1);
+      camera.updateProjectionMatrix();
+    };
+    fit();
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const factor = event.deltaY < 0 ? 1.08 : 1 / 1.08;
+      rig.current.zoom = Math.min(2.2, Math.max(0.7, rig.current.zoom * factor));
+    };
+    root.addEventListener("wheel", onWheel, { passive: false });
+    let frame = 0;
+    let alive = true;
+    const loop = () => {
+      if (!alive) return;
+      house.rotation.y = rig.current.yaw;
+      camera.position.copy(aim).multiplyScalar(16 / rig.current.zoom);
+      camera.lookAt(0, 0.7, 0);
+      renderer.render(scene, camera);
+      frame = window.requestAnimationFrame(loop);
+    };
+    loop();
+    const onResize = () => fit();
+    window.addEventListener("resize", onResize);
+    return () => {
+      alive = false;
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", onResize);
+      root.removeEventListener("wheel", onWheel);
+      renderer.dispose();
+      root.removeChild(renderer.domElement);
+    };
+  }, [look]);
+
+  function turn(dir: number) {
+    rig.current.yaw += dir * 0.55;
+  }
+  function dolly(factor: number) {
+    rig.current.zoom = Math.min(2.2, Math.max(0.7, rig.current.zoom * factor));
+  }
+
+  return (
+    <div className="absolute inset-0 bg-[#9fd4ef]">
+      <div
+        ref={host}
+        className="absolute inset-0 touch-none"
+        onPointerDown={(event) => {
+          const surface = event.currentTarget;
+          surface.setPointerCapture(event.pointerId);
+          surface.dataset.x = String(event.clientX);
+        }}
+        onPointerMove={(event) => {
+          if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+          const last = Number(event.currentTarget.dataset.x ?? event.clientX);
+          rig.current.yaw += (event.clientX - last) * 0.008;
+          event.currentTarget.dataset.x = String(event.clientX);
+        }}
+      />
+      <div className="absolute right-3 top-24 z-30 flex flex-col gap-1">
+        <button type="button" aria-label="Zoom in" onClick={() => dolly(1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">+</button>
+        <button type="button" aria-label="Zoom out" onClick={() => dolly(1 / 1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">−</button>
+        <button type="button" aria-label="Rotate left" onClick={() => turn(1)} className="mt-2 grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">↺</button>
+        <button type="button" aria-label="Rotate right" onClick={() => turn(-1)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">↻</button>
+      </div>
+    </div>
+  );
+}
+
 export function VenueInterior({
   place,
   look,
@@ -1633,6 +1798,7 @@ export function VenueInterior({
   const club = acts.dance;
   const inRoom = Boolean(room);
   const suite = inRoom || (place.kind === "hotel" && !club);
+  const beach = place.id === "cartel-beach";
   const listed = npcsAt(place.id).filter((npc) => npc.asking);
   const ward = npcsAt(place.id);
   const clinician = ward.find((npc) => npc.role === "Doctor") ?? ward.find((npc) => npc.role === "Nurse" || npc.role === "Chemist");
@@ -1692,6 +1858,8 @@ export function VenueInterior({
           />
         ) : place.kind === "home" && house ? (
           <HouseRoom name={house.name} owned={house.owned} pending={pending} onBuy={onBuyFurniture ?? (() => undefined)} />
+        ) : beach ? (
+          <BeachHouse look={look} />
         ) : (
           <>
             <RoomScene look={look} kind={place.kind} people={people} besideId={besideId} selfId={selfId} onPick={onPickPerson} walkers={walkers} />
@@ -1714,7 +1882,7 @@ export function VenueInterior({
           </span>
         ))}
       </div>
-      <div className={`grid gap-1 ${fill ? `absolute bottom-24 left-1/2 z-30 max-h-[28%] -translate-x-1/2 overflow-y-auto rounded-2xl bg-white/95 text-[#17241e] shadow-2xl ${club || suite ? "w-[min(16rem,calc(100%-5rem))] p-2" : "w-[min(28rem,calc(100%-1.5rem))] gap-2 p-3"}` : "p-3"}`}>
+      <div className={`grid gap-1 ${fill ? `absolute bottom-24 left-1/2 z-30 max-h-[28%] -translate-x-1/2 overflow-y-auto rounded-2xl bg-white/95 text-[#17241e] shadow-2xl ${club || suite || beach ? "w-[min(16rem,calc(100%-5rem))] p-2" : "w-[min(28rem,calc(100%-1.5rem))] gap-2 p-3"}` : "p-3"}`}>
         {!inRoom && club ? (
           <div className="grid grid-cols-4 gap-1">
             {DORIME_AMOUNTS.map((amount) => (
