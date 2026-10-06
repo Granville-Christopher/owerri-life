@@ -450,12 +450,19 @@ export function bookRoom(player: Player, ledger: LedgerEntry[], stay: "night" | 
 export function buyCar(player: Player, ledger: LedgerEntry[]): Step {
   if (player.locationId !== "car-stand") return fail(player, ledger, "The cars are at the stand behind the river bank.");
   if (!player.indoors) return fail(player, ledger, "Walk into the stand first.");
-  if (player.hasCar) return fail(player, ledger, "You already have a car.");
   const charged = debit(ledger, player, CAR_PRICE, "Car · Car Stand", stamp(player.day, player.hour));
   if (!charged) return fail(player, ledger, "Your wallet cannot cover a car.");
   const next = structuredClone(player);
+  const wasOwner = next.hasCar;
   next.hasCar = true;
-  return succeed(next, charged, ["You bought a car at the stand. Your car is now a way to move around Owerri."]);
+  const currentCars = Array.isArray(next.cars) ? next.cars : (wasOwner ? ["Executive Sedan"] : []);
+  next.cars = [...currentCars, "Executive Sedan"];
+  const fleetCount = next.cars.length;
+  return succeed(next, charged, [
+    wasOwner
+      ? `You bought another car at the stand! Your garage fleet now has ${fleetCount} cars.`
+      : "You bought a car at the stand. Your car is now a way to move around Owerri.",
+  ]);
 }
 
 export function sleepInRoom(player: Player, ledger: LedgerEntry[]): Step {

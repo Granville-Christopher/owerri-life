@@ -11,6 +11,10 @@ import { HeroesStadiumScene } from "./HeroesStadiumScene";
 import { PhoneStoreScene } from "./PhoneStoreScene";
 import { SchoolClassroomScene } from "./SchoolClassroomScene";
 import { OwerriMarketScene } from "./OwerriMarketScene";
+import { AssumptaCathedralScene } from "./AssumptaCathedralScene";
+import { CarStandScene } from "./CarStandScene";
+import { AirportTerminalScene } from "./AirportTerminalScene";
+import { WarehouseScene } from "./WarehouseScene";
 
 export function PersonFigure({
   look,
@@ -2244,7 +2248,13 @@ export function VenueInterior({
         ) : beach ? (
           <BeachHouse look={look} />
         ) : place.id === "assumpta-cathedral" ? (
-          <CathedralNave look={look} />
+          <AssumptaCathedralScene look={look} username={username} />
+        ) : place.id === "car-stand" ? (
+          <CarStandScene look={look} username={username} onBuyCarSuccess={() => onBuyCar?.()} />
+        ) : place.id === "sam-mbakwe" || place.kind === "airport" ? (
+          <AirportTerminalScene look={look} username={username} onBookFlight={(dest, cost) => onBook?.("night")} />
+        ) : place.id === "the-warehouse" ? (
+          <WarehouseScene look={look} username={username} />
         ) : place.id === "everyday" ? (
           <EverydayAisle look={look} />
         ) : place.id === "heroes-square" ? (
@@ -2413,11 +2423,11 @@ export function VenueInterior({
               <p className="text-[10px] text-[#cbd5e1]">Owerri Big Boy Spec · Smooth Drive</p>
               <button
                 type="button"
-                disabled={pending || hasCar || !onBuyCar}
+                disabled={pending || !onBuyCar}
                 onClick={onBuyCar}
                 className="mt-1 w-full rounded-full bg-[#143d2c] py-1.5 text-xs font-semibold text-white disabled:opacity-40 hover:bg-[#1a513b] transition-all"
               >
-                {hasCar ? "✔ You Own This Car" : `Buy a Car · ${naira(CAR_PRICE)} 🚗`}
+                {hasCar ? `Buy Another Car · ${naira(CAR_PRICE)} 🚗` : `Buy a Car · ${naira(CAR_PRICE)} 🚗`}
               </button>
             </div>
           </div>

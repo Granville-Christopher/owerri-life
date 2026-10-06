@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import type { LookId } from "@/lib/game/types";
 import { createRealisticHuman } from "@/lib/game/humanModel";
+import { attachSceneCameraControls } from "./sceneCameraControls";
 
 // Canvas texture helper for scoreboard
 function createScoreboardTexture(): THREE.CanvasTexture {
@@ -504,14 +505,7 @@ export function HeroesStadiumScene({
       arena.add(compAvatar);
     }
 
-    // VIP CANOPY ROOF & BROADCAST BOOTH
-    for (let cz = -22; cz <= 22; cz += 11) {
-      box(0.6, 13, 0.6, 0x334155, -35, 6.5, cz);
-      const arm = box(15, 0.5, 0.5, 0x475569, -27.5, 12.8, cz);
-      arm.rotation.z = 0.12;
-    }
-    const roof = box(17, 0.4, 54, 0xf8fafc, -26.5, 13.2, 0);
-    roof.rotation.z = 0.12;
+    // (Open-air stadium: VIP canopy roof removed so entire stadium bowl and pitch are visible from above)
 
     // GIANT SCOREBOARD (North End)
     box(0.8, 14, 0.8, 0x334155, -8, 7, -39);
@@ -562,13 +556,12 @@ export function HeroesStadiumScene({
     };
     fit();
 
-    // Zoom wheel with expanded range (up to 8.0x closer!)
-    const onWheel = (event: WheelEvent) => {
-      event.preventDefault();
-      const factor = event.deltaY < 0 ? 1.12 : 1 / 1.12;
-      rig.current.zoom = Math.min(8.0, Math.max(0.35, rig.current.zoom * factor));
-    };
-    root.addEventListener("wheel", onWheel, { passive: false });
+    // Attach touch pinch-and-zoom / shrink, mouse wheel zoom, and drag rotation
+    const detachControls = attachSceneCameraControls(root, rig, {
+      minZoom: 0.35,
+      maxZoom: 8.0,
+      zoomSpeed: 0.12,
+    });
 
     let frame = 0;
     let alive = true;
@@ -636,7 +629,7 @@ export function HeroesStadiumScene({
       alive = false;
       window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", onResize);
-      root.removeEventListener("wheel", onWheel);
+      detachControls();
       renderer.dispose();
       root.removeChild(renderer.domElement);
     };

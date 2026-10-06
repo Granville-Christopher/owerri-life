@@ -5,6 +5,7 @@ import * as THREE from "three";
 import type { LookId } from "@/lib/game/types";
 import { naira } from "@/lib/game/format";
 import { createRealisticHuman } from "@/lib/game/humanModel";
+import { attachSceneCameraControls } from "./sceneCameraControls";
 
 // Canvas texture for phone screens
 function createPhoneScreenTexture(kind: "lock" | "apps" | "samsung"): THREE.CanvasTexture {
@@ -294,12 +295,12 @@ export function PhoneStoreScene({
     box(12, 0.12, 8.8, 0x172033, 0, -0.06, 0, false);
     box(12.2, 0.14, 0.14, 0xe0b15a, 0, 0.01, 4.35, false);
 
-    // BACK WALL: Dark graphite slatwall
-    box(12, 5.0, 0.28, 0x0f172a, 0, 2.5, -4.3);
+    // CUTAWAY WALLS (Open top, no roof - dollhouse view from above)
+    box(12, 3.5, 0.28, 0x0f172a, 0, 1.75, -4.3); // Back Wall (lower cutaway)
 
-    // SIDE WALLS
-    box(0.28, 5.0, 8.8, 0x111827, -5.9, 2.5, 0); // Left Wall
-    box(0.28, 5.0, 8.8, 0x111827, 5.9, 2.5, 0); // Right Wall
+    // SIDE WALLS (lower cutaway)
+    box(0.28, 3.5, 8.8, 0x111827, -5.9, 1.75, 0); // Left Wall
+    box(0.28, 3.5, 8.8, 0x111827, 5.9, 1.75, 0); // Right Wall
 
     // ILLUMINATED STORE SIGN ON BACK WALL
     const signMat = new THREE.MeshBasicMaterial({ map: createStoreSignTexture(title) });
@@ -578,12 +579,12 @@ export function PhoneStoreScene({
     };
     fit();
 
-    const onWheel = (event: WheelEvent) => {
-      event.preventDefault();
-      const factor = event.deltaY < 0 ? 1.1 : 1 / 1.1;
-      rig.current.zoom = Math.min(6.5, Math.max(0.5, rig.current.zoom * factor));
-    };
-    root.addEventListener("wheel", onWheel, { passive: false });
+    // Attach touch pinch-and-zoom / shrink, mouse wheel zoom, and drag rotation
+    const detachControls = attachSceneCameraControls(root, rig, {
+      minZoom: 0.5,
+      maxZoom: 6.5,
+      zoomSpeed: 0.1,
+    });
 
     let frame = 0;
     let alive = true;
@@ -607,7 +608,7 @@ export function PhoneStoreScene({
       alive = false;
       window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", onResize);
-      root.removeEventListener("wheel", onWheel);
+      detachControls();
       renderer.dispose();
       root.removeChild(renderer.domElement);
     };

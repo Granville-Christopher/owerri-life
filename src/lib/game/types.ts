@@ -61,6 +61,7 @@ export interface Player {
   lottery: Lottery;
   homeId: string;
   hasCar: boolean;
+  cars?: string[];
   loanRemaining: number;
   loanWeekly: number;
   arrears: number;

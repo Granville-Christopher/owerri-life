@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import type { LookId } from "@/lib/game/types";
 import { createRealisticHuman } from "@/lib/game/humanModel";
+import { attachSceneCameraControls } from "./sceneCameraControls";
 import { naira } from "@/lib/game/format";
 
 // Chalkboard canvas texture with formulas, diagrams, and lecture notes
@@ -223,51 +224,49 @@ export function SchoolClassroomScene({
     // Front stage platform for lecturer (0.2m high)
     box(13.6, 0.22, 2.6, 0x7c4921, 0, 0.11, -3.8, false);
 
-    // BACK WALL: Warm cream academic masonry
-    box(14, 5.2, 0.3, 0xf1ede2, 0, 2.6, -5.2);
-
-    // FRONT/BACK BOUNDARIES
-    box(0.3, 5.2, 11.5, 0xdfd9cb, 6.9, 2.6, 0); // Right wall
-    box(0.3, 5.2, 11.5, 0xdfd9cb, -6.9, 2.6, 0); // Left wall
+    // CUTAWAY WALLS (Open roof dollhouse view so inside is clearly visible from above)
+    box(14, 3.8, 0.3, 0xf1ede2, 0, 1.9, -5.2); // Front blackboard wall
+    box(0.3, 3.4, 11.5, 0xdfd9cb, 6.9, 1.7, 0); // Right side cutaway wall
+    box(0.3, 3.4, 11.5, 0xdfd9cb, -6.9, 1.7, 0); // Left side cutaway wall
 
     // FRONT BLACKBOARD / CHALKBOARD
     // Wooden frame
-    box(9.2, 3.1, 0.12, 0x5c3317, 0, 2.6, -4.96);
+    box(9.2, 3.1, 0.12, 0x5c3317, 0, 2.3, -4.96);
     // Board surface
     const boardTex = createClassroomBoardTexture(title);
     const boardMat = new THREE.MeshBasicMaterial({ map: boardTex });
     const boardPlane = new THREE.Mesh(new THREE.PlaneGeometry(8.8, 2.7), boardMat);
-    boardPlane.position.set(0, 2.6, -4.89);
+    boardPlane.position.set(0, 2.3, -4.89);
     room.add(boardPlane);
 
     // Chalk tray below board
-    box(8.9, 0.08, 0.22, 0x855428, 0, 1.2, -4.85);
+    box(8.9, 0.08, 0.22, 0x855428, 0, 0.9, -4.85);
 
     // Pieces of chalk & chalkboard eraser in the tray
-    box(0.12, 0.04, 0.04, 0xffffff, -0.8, 1.25, -4.85);
-    box(0.12, 0.04, 0.04, 0xfef08a, -0.5, 1.25, -4.85);
-    box(0.25, 0.06, 0.12, 0x1f2937, 0.6, 1.26, -4.85); // Eraser
+    box(0.12, 0.04, 0.04, 0xffffff, -0.8, 0.95, -4.85);
+    box(0.12, 0.04, 0.04, 0xfef08a, -0.5, 0.95, -4.85);
+    box(0.25, 0.06, 0.12, 0x1f2937, 0.6, 0.96, -4.85); // Eraser
 
     // NOTICE BOARD ON RIGHT WALL
     const noticeTex = createNoticeBoardTexture();
-    const noticePlane = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 2.4), new THREE.MeshBasicMaterial({ map: noticeTex }));
+    const noticePlane = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 2.2), new THREE.MeshBasicMaterial({ map: noticeTex }));
     noticePlane.rotation.y = -Math.PI / 2;
-    noticePlane.position.set(6.72, 2.8, -1.0);
+    noticePlane.position.set(6.72, 2.3, -1.0);
     room.add(noticePlane);
-    box(0.1, 2.6, 2.6, 0x78350f, 6.78, 2.8, -1.0); // Cork frame
+    box(0.1, 2.4, 2.4, 0x78350f, 6.78, 2.3, -1.0); // Cork frame
 
     // WINDOWS ON LEFT WALL (Bright Nigerian daylight)
     for (let w = -1; w <= 1; w++) {
       const wz = w * 3.2;
       // Window frame
-      box(0.2, 3.0, 2.0, 0x1e293b, -6.75, 2.8, wz);
+      box(0.2, 2.4, 2.0, 0x1e293b, -6.75, 2.2, wz);
       // Sky/outdoor sunlight glass
       const winGlass = new THREE.Mesh(
-        new THREE.PlaneGeometry(1.8, 2.8),
+        new THREE.PlaneGeometry(1.8, 2.2),
         new THREE.MeshBasicMaterial({ color: 0x93c5fd, transparent: true, opacity: 0.85 })
       );
       winGlass.rotation.y = Math.PI / 2;
-      winGlass.position.set(-6.7, 2.8, wz);
+      winGlass.position.set(-6.7, 2.2, wz);
       room.add(winGlass);
 
       // Green tropical foliage visible outside window
@@ -275,43 +274,9 @@ export function SchoolClassroomScene({
         new THREE.SphereGeometry(0.85, 8, 8),
         new THREE.MeshLambertMaterial({ color: 0x15803d })
       );
-      bush.position.set(-7.6, 2.2, wz);
+      bush.position.set(-7.6, 1.8, wz);
       room.add(bush);
     }
-
-    // CEILING INDUSTRIAL BEAMS & FANS
-    box(14, 0.28, 0.35, 0x475569, 0, 5.0, -1.8, false);
-    box(14, 0.28, 0.35, 0x475569, 0, 5.0, 2.2, false);
-
-    // 2 Rotating Industrial Ceiling Fans
-    const fanGroup1 = new THREE.Group();
-    fanGroup1.position.set(-2.5, 4.6, 0);
-    room.add(fanGroup1);
-
-    const fanGroup2 = new THREE.Group();
-    fanGroup2.position.set(2.5, 4.6, 0);
-    room.add(fanGroup2);
-
-    const buildFan = (fg: THREE.Group) => {
-      // Fan motor hub
-      const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.16, 12), new THREE.MeshLambertMaterial({ color: 0x334155 }));
-      fg.add(hub);
-      // Rod to ceiling
-      const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.4, 8), new THREE.MeshLambertMaterial({ color: 0x1e293b }));
-      rod.position.y = 0.22;
-      fg.add(rod);
-      // 3 Blades
-      for (let b = 0; b < 3; b++) {
-        const blade = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.02, 1.2), new THREE.MeshLambertMaterial({ color: 0x475569 }));
-        blade.position.z = 0.6;
-        const bPivot = new THREE.Group();
-        bPivot.rotation.y = (b * Math.PI * 2) / 3;
-        bPivot.add(blade);
-        fg.add(bPivot);
-      }
-    };
-    buildFan(fanGroup1);
-    buildFan(fanGroup2);
 
     // ─────────────────────────────────────────────────────────────
     // LECTURER'S PODIUM & FRONT STAGE
@@ -396,7 +361,7 @@ export function SchoolClassroomScene({
     // REALISTIC 3D STUDENTS SEATED IN ROWS
     // ─────────────────────────────────────────────────────────────
 
-    // Student 1: Ada (Row 1 Left)
+    // Student 1: Ada (Row 1 Left) - Facing front towards blackboard
     const st1 = createRealisticHuman({
       lookId: "ada",
       customShirt: 0x15803d,
@@ -406,10 +371,10 @@ export function SchoolClassroomScene({
       scale: 0.95,
     });
     st1.position.set(-2.0, 0, -0.6);
-    st1.rotation.y = 0;
+    st1.rotation.y = Math.PI - 0.04; // Facing front towards blackboard & lecturer
     room.add(st1);
 
-    // Student 2: Ngozi (Row 1 Right)
+    // Student 2: Ngozi (Row 1 Right) - Facing front towards blackboard
     const st2 = createRealisticHuman({
       lookId: "ngozi",
       customShirt: 0x9333ea,
@@ -419,10 +384,10 @@ export function SchoolClassroomScene({
       scale: 0.95,
     });
     st2.position.set(2.0, 0, -0.6);
-    st2.rotation.y = 0;
+    st2.rotation.y = Math.PI + 0.05; // Facing front towards blackboard & lecturer
     room.add(st2);
 
-    // Student 3: Emeka (Row 2 Center-Left)
+    // Student 3: Emeka (Row 2 Center-Left) - Facing front towards blackboard
     const st3 = createRealisticHuman({
       lookId: "emeka",
       customShirt: 0x3b82f6,
@@ -432,10 +397,10 @@ export function SchoolClassroomScene({
       scale: 0.98,
     });
     st3.position.set(-1.0, 0, 2.0);
-    st3.rotation.y = 0;
+    st3.rotation.y = Math.PI - 0.06; // Facing front towards blackboard & lecturer
     room.add(st3);
 
-    // Student 4: Zara (Row 2 Right)
+    // Student 4: Zara (Row 2 Right) - Facing front towards blackboard
     const st4 = createRealisticHuman({
       lookId: "zara",
       customShirt: 0xc2410c,
@@ -445,11 +410,11 @@ export function SchoolClassroomScene({
       scale: 0.95,
     });
     st4.position.set(3.0, 0, 2.0);
-    st4.rotation.y = 0;
+    st4.rotation.y = Math.PI + 0.06; // Facing front towards blackboard & lecturer
     room.add(st4);
 
     // ─────────────────────────────────────────────────────────────
-    // PLAYER CHARACTER SEATED AT FRONT-CENTER DESK (You are in the class!)
+    // PLAYER CHARACTER SEATED AT FRONT-CENTER DESK (Facing the front!)
     // ─────────────────────────────────────────────────────────────
     const playerAvatar = createRealisticHuman({
       lookId: look,
@@ -457,17 +422,17 @@ export function SchoolClassroomScene({
       scale: 0.98,
     });
     playerAvatar.position.set(0, 0, -0.6); // Front row, center seat!
-    playerAvatar.rotation.y = 0; // Facing front towards lecturer & blackboard
+    playerAvatar.rotation.y = Math.PI; // Facing front towards blackboard & lecturer
     room.add(playerAvatar);
 
     // Open laptop in front of player
-    box(0.38, 0.02, 0.26, 0x334155, 0, 0.92, -1.2);
+    box(0.38, 0.02, 0.26, 0x334155, 0, 0.92, -1.15);
     const playerLaptopScreen = new THREE.Mesh(
       new THREE.BoxGeometry(0.38, 0.24, 0.015),
       new THREE.MeshLambertMaterial({ color: 0x38bdf8 })
     );
-    playerLaptopScreen.position.set(0, 1.05, -1.32);
-    playerLaptopScreen.rotation.x = -0.15;
+    playerLaptopScreen.position.set(0, 1.05, -1.02);
+    playerLaptopScreen.rotation.x = 0.15;
     room.add(playerLaptopScreen);
 
     // Student Desk Nameplate
@@ -475,11 +440,11 @@ export function SchoolClassroomScene({
       new THREE.BoxGeometry(0.32, 0.06, 0.06),
       new THREE.MeshLambertMaterial({ color: 0xfef08a })
     );
-    deskTag.position.set(0, 0.92, -0.96);
+    deskTag.position.set(0, 0.92, -1.35);
     room.add(deskTag);
 
     // ─────────────────────────────────────────────────────────────
-    // CAMERA PERSPECTIVE & RENDER LOOP (Isometric view like in clubs)
+    // CAMERA PERSPECTIVE & RENDER LOOP (Open top cutaway view)
     // ─────────────────────────────────────────────────────────────
     const camera = new THREE.PerspectiveCamera(34, root.clientWidth / root.clientHeight, 0.1, 100);
     const target = new THREE.Vector3(0, 1.2, 0);
@@ -488,15 +453,11 @@ export function SchoolClassroomScene({
     const animate = () => {
       frame = requestAnimationFrame(animate);
 
-      // Rotate industrial ceiling fans smoothly
-      fanGroup1.rotation.y += 0.06;
-      fanGroup2.rotation.y += 0.06;
-
       // Slight natural breathing movement for lecturer
       lecturer.position.y = 0.22 + Math.sin(Date.now() * 0.002) * 0.012;
 
       // Orbit camera calculation
-      const r = 14.5 / rig.current.zoom;
+      const r = 14.5 / Math.max(0.25, rig.current.zoom);
       const phi = 0.65; // High-angle top-down tilt like the club view
       const theta = rig.current.yaw;
 
@@ -511,6 +472,13 @@ export function SchoolClassroomScene({
     };
     animate();
 
+    // Attach touch pinch-and-zoom / shrink, mouse wheel zoom, and drag rotation
+    const detachControls = attachSceneCameraControls(root, rig, {
+      minZoom: 0.35,
+      maxZoom: 6.0,
+      zoomSpeed: 0.12,
+    });
+
     const onResize = () => {
       if (!root) return;
       camera.aspect = root.clientWidth / root.clientHeight;
@@ -521,6 +489,7 @@ export function SchoolClassroomScene({
 
     return () => {
       cancelAnimationFrame(frame);
+      detachControls();
       window.removeEventListener("resize", onResize);
       renderer.dispose();
       if (root.contains(renderer.domElement)) {

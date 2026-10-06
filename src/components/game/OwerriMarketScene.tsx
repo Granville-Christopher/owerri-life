@@ -5,6 +5,7 @@ import * as THREE from "three";
 import type { LookId } from "@/lib/game/types";
 import { createRealisticHuman } from "@/lib/game/humanModel";
 import { naira } from "@/lib/game/format";
+import { attachSceneCameraControls } from "./sceneCameraControls";
 
 export interface MarketItem {
   id: string;
@@ -350,6 +351,12 @@ export function OwerriMarketScene({
     };
     animate();
 
+    const detachControls = attachSceneCameraControls(root, rig, {
+      minZoom: 0.35,
+      maxZoom: 8.0,
+      zoomSpeed: 0.1,
+    });
+
     const onResize = () => {
       if (!root) return;
       camera.aspect = root.clientWidth / root.clientHeight;
@@ -361,6 +368,7 @@ export function OwerriMarketScene({
     return () => {
       cancelAnimationFrame(frame);
       window.removeEventListener("resize", onResize);
+      detachControls();
       renderer.dispose();
       if (root.contains(renderer.domElement)) {
         root.removeChild(renderer.domElement);
