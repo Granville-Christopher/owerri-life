@@ -645,28 +645,28 @@ export function PhoneStoreScene({
         }}
       />
 
-      {/* Store Header Badge */}
-      <div className="pointer-events-none absolute left-3 top-3 z-20 max-w-[19rem] rounded-2xl bg-[#09111c]/90 p-3 shadow-2xl backdrop-blur-md border border-[#38bdf8]/30">
-        <div className="flex items-center gap-2">
-          <span className="flex h-2.5 w-2.5 rounded-full bg-[#22c55e]" />
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#e0b15a]">Verified Gadget Store</p>
+      {/* Mobile-Optimized Store Header Badge */}
+      <div className="pointer-events-none absolute left-3 top-3 z-20 max-w-[calc(100%-4.5rem)] sm:max-w-xs rounded-2xl bg-[#09111c]/90 p-2.5 sm:p-3 shadow-2xl backdrop-blur-md border border-[#38bdf8]/30">
+        <div className="flex items-center gap-1.5">
+          <span className="flex h-2 w-2 rounded-full bg-[#22c55e]" />
+          <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.16em] text-[#e0b15a]">Verified Gadget Store</p>
         </div>
-        <h2 className="mt-1 font-bold text-base text-white">{title}</h2>
-        <p className="text-xs text-[#94a3b8]">Tetlow Road Phone Market · Owerri</p>
-        <p className="mt-1 text-[11px] text-[#cbd5e1] leading-relaxed">
+        <h2 className="mt-0.5 font-bold text-sm sm:text-base text-white truncate">{title}</h2>
+        <p className="text-[10px] sm:text-xs text-[#94a3b8] truncate">Tetlow Road Phone Market · Owerri</p>
+        <p className="hidden sm:block mt-1 text-[11px] text-[#cbd5e1] leading-relaxed">
           Glass showcase with smartphones &amp; cases in center, with hanging phone cases on the walls.
         </p>
       </div>
 
       {/* Purchase Toast Banner */}
       {purchaseToast ? (
-        <div className="pointer-events-none absolute inset-x-4 top-20 z-40 mx-auto max-w-md animate-bounce rounded-2xl bg-[#061826]/95 border-2 border-[#22c55e] p-3 text-center shadow-2xl backdrop-blur-md">
-          <p className="text-sm font-bold text-[#4ade80]">{purchaseToast}</p>
+        <div className="pointer-events-none absolute inset-x-3 top-16 sm:top-20 z-40 mx-auto max-w-sm sm:max-w-md animate-bounce rounded-2xl bg-[#061826]/95 border-2 border-[#22c55e] p-2.5 sm:p-3 text-center shadow-2xl backdrop-blur-md">
+          <p className="text-xs sm:text-sm font-bold text-[#4ade80]">{purchaseToast}</p>
         </div>
       ) : null}
 
-      {/* Middle-Left Showcase, Wall Cases & Quick Actions Panel */}
-      <div className="absolute left-3 top-28 z-30 w-72 sm:w-80 max-h-[calc(100%-8rem)] flex flex-col rounded-2xl bg-[#09111c]/95 border border-[#38bdf8]/35 shadow-2xl backdrop-blur-xl transition-all">
+      {/* Mobile-Optimized Showcase, Wall Cases & Quick Actions Panel */}
+      <div className="absolute left-3 top-24 sm:top-28 z-30 w-[calc(100%-1.5rem)] sm:w-80 max-h-[50vh] sm:max-h-[calc(100%-8rem)] flex flex-col rounded-2xl bg-[#09111c]/95 border border-[#38bdf8]/35 shadow-2xl backdrop-blur-xl transition-all">
         {/* Panel Header */}
         <div className="flex items-center justify-between p-3 pb-2 border-b border-white/10">
           <div>
@@ -850,13 +850,13 @@ export function PhoneStoreScene({
         </div>
       ) : null}
 
-      {/* Zoom and Orbit Controls */}
-      <div className="absolute right-3 top-16 z-30 flex flex-col gap-1">
+      {/* Compact Zoom and Orbit Controls (Top-Right) */}
+      <div className="absolute right-2.5 top-3 z-30 flex flex-col gap-1">
         <button
           type="button"
           aria-label="Zoom in"
           onClick={() => dolly(1.2)}
-          className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-bold text-[#0f172a] shadow-lg active:scale-90 transition-transform"
+          className="grid h-8 w-8 place-items-center rounded-full bg-white text-base font-bold text-[#0f172a] shadow-lg active:scale-90 transition-transform"
         >
           +
         </button>
@@ -864,7 +864,7 @@ export function PhoneStoreScene({
           type="button"
           aria-label="Zoom out"
           onClick={() => dolly(1 / 1.2)}
-          className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-bold text-[#0f172a] shadow-lg active:scale-90 transition-transform"
+          className="grid h-8 w-8 place-items-center rounded-full bg-white text-base font-bold text-[#0f172a] shadow-lg active:scale-90 transition-transform"
         >
           −
         </button>
@@ -872,7 +872,7 @@ export function PhoneStoreScene({
           type="button"
           aria-label="Rotate left"
           onClick={() => turn(1)}
-          className="mt-2 grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-bold text-[#0f172a] shadow-lg active:scale-90 transition-transform"
+          className="mt-1 grid h-8 w-8 place-items-center rounded-full bg-white text-base font-bold text-[#0f172a] shadow-lg active:scale-90 transition-transform"
         >
           ↺
         </button>
@@ -880,7 +880,7 @@ export function PhoneStoreScene({
           type="button"
           aria-label="Rotate right"
           onClick={() => turn(-1)}
-          className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-bold text-[#0f172a] shadow-lg active:scale-90 transition-transform"
+          className="grid h-8 w-8 place-items-center rounded-full bg-white text-base font-bold text-[#0f172a] shadow-lg active:scale-90 transition-transform"
         >
           ↻
         </button>

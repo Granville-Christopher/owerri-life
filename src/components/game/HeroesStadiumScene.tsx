@@ -689,81 +689,84 @@ export function HeroesStadiumScene({
         }}
       />
 
-      {/* Stadium & VIP Seat Badge */}
-      <div className="pointer-events-none absolute left-3 top-3 z-20 max-w-[20rem] rounded-2xl bg-[#091e2b]/90 p-3 shadow-2xl backdrop-blur-md border border-[#38bdf8]/30">
-        <div className="flex items-center gap-2">
-          <span className="flex h-3 w-3 animate-ping rounded-full bg-[#22c55e]" />
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#e0b15a]">VIP Grandstand · Seated</p>
+      {/* Mobile-Optimized Stadium & VIP Seat Badge */}
+      <div className="pointer-events-none absolute left-3 top-3 z-20 max-w-[calc(100%-4.5rem)] sm:max-w-xs rounded-2xl bg-[#091e2b]/90 p-2.5 sm:p-3 shadow-2xl backdrop-blur-md border border-[#38bdf8]/30">
+        <div className="flex items-center gap-1.5">
+          <span className="flex h-2.5 w-2.5 animate-ping rounded-full bg-[#22c55e]" />
+          <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.16em] text-[#e0b15a]">VIP Grandstand · Seated</p>
         </div>
-        <h2 className="mt-1 font-bold text-base text-white">Imo Heroes Square Stadium</h2>
-        <p className="text-xs text-[#94a3b8] mt-0.5">Watching match from VIP Covered Stand, Row 1</p>
-        <div className="mt-2 flex items-center justify-between rounded-lg bg-[#06121c] px-2.5 py-1 text-xs">
-          <span className="font-semibold text-[#38bdf8]">Heartland FC 2</span>
-          <span className="text-[10px] text-[#e0b15a] font-bold">VS</span>
-          <span className="font-semibold text-[#a3e635]">1 Enyimba FC</span>
-          <span className="rounded bg-[#16a34a]/30 px-1.5 py-0.5 text-[9px] font-semibold text-[#4ade80]">78&apos;</span>
+        <h2 className="mt-0.5 font-bold text-sm sm:text-base text-white truncate">Imo Heroes Square Stadium</h2>
+        <p className="text-[10px] sm:text-xs text-[#94a3b8] truncate">VIP Covered Stand · Front Row</p>
+        <div className="mt-1.5 flex items-center justify-between rounded-lg bg-[#06121c] px-2 py-0.5 text-[10px] sm:text-xs">
+          <span className="font-semibold text-[#38bdf8]">Heartland 2</span>
+          <span className="text-[9px] text-[#e0b15a] font-bold">VS</span>
+          <span className="font-semibold text-[#a3e635]">1 Enyimba</span>
+          <span className="rounded bg-[#16a34a]/30 px-1 py-0.2 text-[8px] sm:text-[9px] font-semibold text-[#4ade80]">78&apos;</span>
         </div>
       </div>
 
-      {/* Camera View Switcher */}
-      <div className="absolute left-3 bottom-24 z-30 flex flex-wrap gap-1.5 max-w-[19rem]">
-        {(
-          [
-            ["seat", "👑 My VIP Seat"],
-            ["match", "⚽ Match Action"],
-            ["stadium", "🏟 Full Stadium"],
-            ["aerial", "🦅 Aerial"],
-          ] as const
-        ).map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setCameraView(key)}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold shadow transition-all ${
-              cameraView === key
-                ? "bg-[#e0b15a] text-[#0f172a] shadow-lg scale-105 font-bold"
-                : "bg-[#0f1e29]/80 text-[#d1d5db] border border-white/10 hover:bg-[#1a2d3c]"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Actions in the Stands */}
-      <div className="absolute right-3 bottom-24 z-30 flex flex-col gap-2">
+      {/* Floating Stand Actions (Positioned above camera bar) */}
+      <div className="absolute right-2.5 sm:right-3 bottom-14 z-30 flex items-center gap-1.5">
         <button
           type="button"
           onClick={handleChant}
-          className="flex items-center gap-1.5 rounded-full bg-[#0284c7] px-3.5 py-2 text-xs font-bold text-white shadow-xl hover:bg-[#0369a1] active:scale-95 transition-all border border-[#38bdf8]/40"
+          className="flex items-center gap-1 rounded-full bg-[#0284c7] px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold text-white shadow-xl hover:bg-[#0369a1] active:scale-95 transition-all border border-[#38bdf8]/40"
         >
           <span>📣</span>
-          <span>Chant in Stands</span>
+          <span className="hidden sm:inline">Chant in Stands</span>
+          <span className="sm:hidden">Chant</span>
         </button>
         <button
           type="button"
           onClick={handleRefreshment}
-          className="flex items-center gap-1.5 rounded-full bg-[#16a34a] px-3.5 py-2 text-xs font-bold text-white shadow-xl hover:bg-[#15803d] active:scale-95 transition-all border border-[#4ade80]/40"
+          className="flex items-center gap-1 rounded-full bg-[#16a34a] px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold text-white shadow-xl hover:bg-[#15803d] active:scale-95 transition-all border border-[#4ade80]/40"
         >
           <span>🥤</span>
-          <span>Order Snack · ₦1,500</span>
+          <span className="hidden sm:inline">Order Snack · ₦1,500</span>
+          <span className="sm:hidden">Snack · ₦1.5k</span>
         </button>
+      </div>
+
+      {/* Responsive Camera Presets (Bottom Center) */}
+      <div className="absolute inset-x-2 sm:inset-x-3 bottom-3 z-30 mx-auto flex max-w-sm sm:max-w-md items-center justify-center gap-1 rounded-2xl bg-[#091e2b]/90 border border-white/10 p-1 backdrop-blur-md">
+        {(
+          [
+            ["seat", "👑 VIP", "👑 My VIP Seat"],
+            ["match", "⚽ Match", "⚽ Match Action"],
+            ["stadium", "🏟 Stadium", "🏟 Full Stadium"],
+            ["aerial", "🦅 Sky", "🦅 Aerial"],
+          ] as const
+        ).map(([key, mobileLabel, deskLabel]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setCameraView(key)}
+            className={`flex-1 rounded-xl py-1 text-[10px] sm:text-[11px] font-semibold transition-all active:scale-95 text-center ${
+              cameraView === key
+                ? "bg-[#e0b15a] text-[#0f172a] font-bold shadow"
+                : "text-[#d1d5db] hover:bg-white/10"
+            }`}
+          >
+            <span className="sm:hidden">{mobileLabel}</span>
+            <span className="hidden sm:inline">{deskLabel}</span>
+          </button>
+        ))}
       </div>
 
       {/* Chant / Snack Toast */}
       {chantMessage ? (
-        <div className="pointer-events-none absolute inset-x-4 top-24 z-40 mx-auto max-w-md rounded-2xl bg-[#061826]/95 border-2 border-[#e0b15a] p-3 text-center shadow-2xl backdrop-blur-md">
-          <p className="text-sm font-bold text-[#e0b15a]">{chantMessage}</p>
+        <div className="pointer-events-none absolute inset-x-3 top-20 z-40 mx-auto max-w-sm rounded-2xl bg-[#061826]/95 border-2 border-[#e0b15a] p-2.5 sm:p-3 text-center shadow-2xl backdrop-blur-md">
+          <p className="text-xs sm:text-sm font-bold text-[#e0b15a]">{chantMessage}</p>
         </div>
       ) : null}
 
-      {/* Zoom and Orbit Controls (Supports Zoom In Far Closer!) */}
-      <div className="absolute right-3 top-16 z-30 flex flex-col gap-1">
+      {/* Compact Zoom and Orbit Controls (Top-Right) */}
+      <div className="absolute right-2.5 top-3 z-30 flex flex-col gap-1">
         <button
           type="button"
           aria-label="Zoom in"
           onClick={() => dolly(1.25)}
-          className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-bold text-[#0f172a] shadow-lg active:scale-90 transition-transform"
+          className="grid h-8 w-8 place-items-center rounded-full bg-white text-base font-bold text-[#0f172a] shadow-lg active:scale-90 transition-transform"
         >
           +
         </button>
@@ -771,7 +774,7 @@ export function HeroesStadiumScene({
           type="button"
           aria-label="Zoom out"
           onClick={() => dolly(1 / 1.25)}
-          className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-bold text-[#0f172a] shadow-lg active:scale-90 transition-transform"
+          className="grid h-8 w-8 place-items-center rounded-full bg-white text-base font-bold text-[#0f172a] shadow-lg active:scale-90 transition-transform"
         >
           −
         </button>
@@ -779,7 +782,7 @@ export function HeroesStadiumScene({
           type="button"
           aria-label="Rotate left"
           onClick={() => turn(1)}
-          className="mt-2 grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-bold text-[#0f172a] shadow-lg active:scale-90 transition-transform"
+          className="mt-1 grid h-8 w-8 place-items-center rounded-full bg-white text-base font-bold text-[#0f172a] shadow-lg active:scale-90 transition-transform"
         >
           ↺
         </button>
@@ -787,7 +790,7 @@ export function HeroesStadiumScene({
           type="button"
           aria-label="Rotate right"
           onClick={() => turn(-1)}
-          className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-bold text-[#0f172a] shadow-lg active:scale-90 transition-transform"
+          className="grid h-8 w-8 place-items-center rounded-full bg-white text-base font-bold text-[#0f172a] shadow-lg active:scale-90 transition-transform"
         >
           ↻
         </button>

@@ -161,6 +161,7 @@ export function SchoolClassroomScene({
   const rig = useRef({ yaw: 0.38, zoom: 1.15 });
   const [toast, setToast] = useState<string | null>(null);
   const [notesCount, setNotesCount] = useState(0);
+  const [actionsOpen, setActionsOpen] = useState(false);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -571,136 +572,152 @@ export function SchoolClassroomScene({
         }}
       />
 
-      {/* University & Department Header Badge */}
-      <div className="pointer-events-none absolute left-3 top-3 z-20 max-w-[21rem] rounded-2xl bg-[#09111c]/90 p-3.5 shadow-2xl backdrop-blur-md border border-[#e0b15a]/30">
-        <div className="flex items-center gap-2">
-          <span className="flex h-2.5 w-2.5 rounded-full bg-[#22c55e] animate-pulse" />
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#e0b15a]">Live Lecture in Session</p>
+      {/* Mobile-Optimized University Header Badge */}
+      <div className="pointer-events-none absolute left-3 top-3 z-20 max-w-[calc(100%-4.5rem)] sm:max-w-xs rounded-2xl bg-[#09111c]/90 p-2.5 sm:p-3 shadow-2xl backdrop-blur-md border border-[#e0b15a]/30">
+        <div className="flex items-center gap-1.5">
+          <span className="flex h-2 w-2 rounded-full bg-[#22c55e] animate-pulse" />
+          <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.16em] text-[#e0b15a]">Live Lecture in Session</p>
         </div>
-        <h2 className="mt-1 font-bold text-base text-white">{title}</h2>
-        <p className="text-xs text-[#94a3b8]">ETF Lecture Theatre 2 · Faculty of Engineering</p>
-        <p className="mt-1 text-[11px] text-[#cbd5e1] leading-relaxed">
+        <h2 className="mt-0.5 font-bold text-sm sm:text-base text-white truncate">{title}</h2>
+        <p className="text-[10px] sm:text-xs text-[#94a3b8] truncate">ETF Lecture Theatre · Faculty of Eng.</p>
+        <p className="hidden sm:block mt-1 text-[11px] text-[#cbd5e1] leading-relaxed">
           Dr. Osuji is lecturing on Thermodynamics at the blackboard. You are seated in the front row desk taking notes.
         </p>
       </div>
 
       {/* Toast Alert */}
       {toast ? (
-        <div className="pointer-events-none absolute inset-x-4 top-20 z-40 mx-auto max-w-md animate-bounce rounded-2xl bg-[#061826]/95 border-2 border-[#22c55e] p-3 text-center shadow-2xl backdrop-blur-md">
-          <p className="text-sm font-bold text-[#4ade80]">{toast}</p>
+        <div className="pointer-events-none absolute inset-x-3 top-16 sm:top-20 z-40 mx-auto max-w-sm sm:max-w-md animate-bounce rounded-2xl bg-[#061826]/95 border-2 border-[#22c55e] p-2.5 sm:p-3 text-center shadow-2xl backdrop-blur-md">
+          <p className="text-xs sm:text-sm font-bold text-[#4ade80]">{toast}</p>
         </div>
       ) : null}
 
-      {/* Middle-Left Interactive Student Actions Panel */}
-      <div className="absolute left-3 top-36 z-30 w-64 sm:w-72 flex flex-col rounded-2xl bg-[#09111c]/95 border border-[#e0b15a]/35 p-3 shadow-2xl backdrop-blur-xl gap-2">
-        <div className="flex items-center justify-between pb-1 border-b border-white/10">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#e0b15a]">Classroom Actions</p>
-          <span className="text-[10px] text-[#94a3b8]">Notes: {notesCount} pgs</span>
+      {/* Mobile-Optimized Collapsible Student Actions Panel */}
+      <div className="absolute left-3 top-24 sm:top-28 z-30 w-[calc(100%-1.5rem)] sm:w-72 max-h-[50vh] sm:max-h-[calc(100%-8rem)] flex flex-col rounded-2xl bg-[#09111c]/95 border border-[#e0b15a]/35 shadow-2xl backdrop-blur-xl transition-all">
+        {/* Toggle Bar */}
+        <div className="flex items-center justify-between p-2.5 sm:p-3 border-b border-white/10">
+          <div className="min-w-0 pr-2">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#e0b15a]">Classroom Actions</p>
+            <p className="text-[11px] text-[#cbd5e1] truncate">
+              {actionsOpen ? "Tap an action to study" : `Notes: ${notesCount} pgs · Tap to open`}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActionsOpen(!actionsOpen)}
+            className="shrink-0 rounded-lg bg-[#e0b15a]/20 border border-[#e0b15a]/40 px-2.5 py-1 text-[11px] font-bold text-[#e0b15a] hover:bg-[#e0b15a]/30 transition-colors"
+          >
+            {actionsOpen ? "Hide ▴" : "Actions ▾"}
+          </button>
         </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            setNotesCount((c) => c + 1);
-            showToast("✍️ Copied Navier-Stokes & Carnot cycle formulas into lecture notebook!");
-          }}
-          className="flex items-center justify-between rounded-xl bg-white/5 p-2 text-left hover:bg-white/10 border border-white/5 transition-all active:scale-95"
-        >
-          <div className="flex items-center gap-2">
-            <span className="text-base">✍️</span>
-            <div>
-              <p className="text-xs font-bold text-white">Take Lecture Notes</p>
-              <p className="text-[10px] text-[#94a3b8]">Record key formulas &amp; diagrams</p>
-            </div>
-          </div>
-          <span className="text-[10px] font-bold text-[#4ade80]">+Study</span>
-        </button>
+        {actionsOpen ? (
+          <div className="p-2 space-y-1.5 overflow-y-auto">
+            <button
+              type="button"
+              onClick={() => {
+                setNotesCount((c) => c + 1);
+                showToast("✍️ Copied Navier-Stokes & Carnot cycle formulas into lecture notebook!");
+              }}
+              className="w-full flex items-center justify-between rounded-xl bg-white/5 p-2 text-left hover:bg-white/10 border border-white/5 transition-all active:scale-95"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-base">✍️</span>
+                <div>
+                  <p className="text-xs font-bold text-white">Take Lecture Notes</p>
+                  <p className="text-[10px] text-[#94a3b8]">Record key formulas &amp; diagrams</p>
+                </div>
+              </div>
+              <span className="text-[10px] font-bold text-[#4ade80]">+Study</span>
+            </button>
 
-        <button
-          type="button"
-          onClick={() => {
-            showToast("🙋‍♂️ You asked about Boundary Layer separation. Dr. Osuji explains: 'Good question! Observe the pressure gradient.'");
-          }}
-          className="flex items-center justify-between rounded-xl bg-white/5 p-2 text-left hover:bg-white/10 border border-white/5 transition-all active:scale-95"
-        >
-          <div className="flex items-center gap-2">
-            <span className="text-base">🙋‍♂️</span>
-            <div>
-              <p className="text-xs font-bold text-white">Ask Question</p>
-              <p className="text-[10px] text-[#94a3b8]">Clarify lecture problem with lecturer</p>
-            </div>
-          </div>
-          <span className="text-[10px] font-bold text-[#38bdf8]">Raise Hand</span>
-        </button>
+            <button
+              type="button"
+              onClick={() => {
+                showToast("🙋‍♂️ You asked about Boundary Layer separation. Dr. Osuji explains: 'Good question! Observe the pressure gradient.'");
+              }}
+              className="w-full flex items-center justify-between rounded-xl bg-white/5 p-2 text-left hover:bg-white/10 border border-white/5 transition-all active:scale-95"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-base">🙋‍♂️</span>
+                <div>
+                  <p className="text-xs font-bold text-white">Ask Question</p>
+                  <p className="text-[10px] text-[#94a3b8]">Clarify lecture problem with lecturer</p>
+                </div>
+              </div>
+              <span className="text-[10px] font-bold text-[#38bdf8]">Raise Hand</span>
+            </button>
 
-        <button
-          type="button"
-          onClick={() => {
-            showToast("📚 Studied past exam questions for ENG 204. Ready for Friday's test!");
-          }}
-          className="flex items-center justify-between rounded-xl bg-white/5 p-2 text-left hover:bg-white/10 border border-white/5 transition-all active:scale-95"
-        >
-          <div className="flex items-center gap-2">
-            <span className="text-base">📚</span>
-            <div>
-              <p className="text-xs font-bold text-white">Study for Exams</p>
-              <p className="text-[10px] text-[#94a3b8]">Review course handouts &amp; past papers</p>
-            </div>
-          </div>
-          <span className="text-[10px] font-bold text-[#e0b15a]">Prepare</span>
-        </button>
+            <button
+              type="button"
+              onClick={() => {
+                showToast("📚 Studied past exam questions for ENG 204. Ready for Friday's test!");
+              }}
+              className="w-full flex items-center justify-between rounded-xl bg-white/5 p-2 text-left hover:bg-white/10 border border-white/5 transition-all active:scale-95"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-base">📚</span>
+                <div>
+                  <p className="text-xs font-bold text-white">Study for Exams</p>
+                  <p className="text-[10px] text-[#94a3b8]">Review course handouts &amp; past papers</p>
+                </div>
+              </div>
+              <span className="text-[10px] font-bold text-[#e0b15a]">Prepare</span>
+            </button>
 
-        <button
-          type="button"
-          onClick={() => {
-            showToast("💧 Chilled Pure Water enjoyed! Energy restored · −₦100");
-          }}
-          className="flex items-center justify-between rounded-xl bg-gradient-to-r from-[#0284c7]/20 to-[#0ea5e9]/10 border border-[#38bdf8]/40 px-3 py-1.5 text-xs font-bold text-[#38bdf8] hover:bg-[#0284c7]/30 transition-all active:scale-95 shadow"
-        >
-          <span>🥤 Cold Pure Water</span>
-          <span className="text-[11px] text-[#e0b15a]">₦100</span>
-        </button>
+            <button
+              type="button"
+              onClick={() => {
+                showToast("💧 Chilled Pure Water enjoyed! Energy restored · −₦100");
+              }}
+              className="w-full flex items-center justify-between rounded-xl bg-gradient-to-r from-[#0284c7]/20 to-[#0ea5e9]/10 border border-[#38bdf8]/40 px-3 py-1.5 text-xs font-bold text-[#38bdf8] hover:bg-[#0284c7]/30 transition-all active:scale-95 shadow"
+            >
+              <span>🥤 Cold Pure Water</span>
+              <span className="text-[11px] text-[#e0b15a]">₦100</span>
+            </button>
+          </div>
+        ) : null}
       </div>
 
-      {/* Camera Presets (Bottom Center) */}
-      <div className="absolute inset-x-3 bottom-3 z-30 mx-auto flex max-w-md items-center justify-center gap-1.5 rounded-2xl bg-[#09111c]/90 border border-white/10 p-1.5 backdrop-blur-md">
+      {/* Mobile-Friendly Camera Presets (Bottom Center) */}
+      <div className="absolute inset-x-2 sm:inset-x-3 bottom-3 z-30 mx-auto flex max-w-sm sm:max-w-md items-center justify-center gap-1 rounded-2xl bg-[#09111c]/90 border border-white/10 p-1 backdrop-blur-md">
         <button
           type="button"
           onClick={() => setViewPreset("desk")}
-          className="rounded-xl px-2.5 py-1 text-[11px] font-bold text-[#cbd5e1] hover:bg-white/10 hover:text-white transition-all active:scale-95"
+          className="flex-1 rounded-xl py-1 text-[10px] sm:text-[11px] font-bold text-[#cbd5e1] hover:bg-white/10 transition-all active:scale-95 text-center"
         >
-          🎓 My Desk
+          🎓 Desk
         </button>
         <button
           type="button"
           onClick={() => setViewPreset("lecturer")}
-          className="rounded-xl px-2.5 py-1 text-[11px] font-bold text-[#cbd5e1] hover:bg-white/10 hover:text-white transition-all active:scale-95"
+          className="flex-1 rounded-xl py-1 text-[10px] sm:text-[11px] font-bold text-[#cbd5e1] hover:bg-white/10 transition-all active:scale-95 text-center"
         >
-          👨‍🏫 Lecturer &amp; Board
+          👨‍🏫 Board
         </button>
         <button
           type="button"
           onClick={() => setViewPreset("overview")}
-          className="rounded-xl px-2.5 py-1 text-[11px] font-bold text-[#e0b15a] bg-white/10 transition-all active:scale-95"
+          className="flex-1 rounded-xl py-1 text-[10px] sm:text-[11px] font-bold text-[#e0b15a] bg-white/10 transition-all active:scale-95 text-center"
         >
-          🏛 Classroom Overview
+          🏛 Theatre
         </button>
         <button
           type="button"
           onClick={() => setViewPreset("topdown")}
-          className="rounded-xl px-2.5 py-1 text-[11px] font-bold text-[#cbd5e1] hover:bg-white/10 hover:text-white transition-all active:scale-95"
+          className="flex-1 rounded-xl py-1 text-[10px] sm:text-[11px] font-bold text-[#cbd5e1] hover:bg-white/10 transition-all active:scale-95 text-center"
         >
           🦅 Top-Down
         </button>
       </div>
 
-      {/* Zoom and Orbit Controls */}
-      <div className="absolute right-3 top-16 z-30 flex flex-col gap-1">
+      {/* Compact Zoom and Orbit Controls (Top-Right) */}
+      <div className="absolute right-2.5 top-3 z-30 flex flex-col gap-1">
         <button
           type="button"
           aria-label="Zoom in"
           onClick={() => dolly(1.2)}
-          className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-bold text-[#0f172a] shadow-lg active:scale-90 transition-transform"
+          className="grid h-8 w-8 place-items-center rounded-full bg-white text-base font-bold text-[#0f172a] shadow-lg active:scale-90 transition-transform"
         >
           +
         </button>
@@ -708,7 +725,7 @@ export function SchoolClassroomScene({
           type="button"
           aria-label="Zoom out"
           onClick={() => dolly(1 / 1.2)}
-          className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-bold text-[#0f172a] shadow-lg active:scale-90 transition-transform"
+          className="grid h-8 w-8 place-items-center rounded-full bg-white text-base font-bold text-[#0f172a] shadow-lg active:scale-90 transition-transform"
         >
           −
         </button>
@@ -716,7 +733,7 @@ export function SchoolClassroomScene({
           type="button"
           aria-label="Rotate left"
           onClick={() => turn(1)}
-          className="mt-2 grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-bold text-[#0f172a] shadow-lg active:scale-90 transition-transform"
+          className="mt-1 grid h-8 w-8 place-items-center rounded-full bg-white text-base font-bold text-[#0f172a] shadow-lg active:scale-90 transition-transform"
         >
           ↺
         </button>
@@ -724,7 +741,7 @@ export function SchoolClassroomScene({
           type="button"
           aria-label="Rotate right"
           onClick={() => turn(-1)}
-          className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-bold text-[#0f172a] shadow-lg active:scale-90 transition-transform"
+          className="grid h-8 w-8 place-items-center rounded-full bg-white text-base font-bold text-[#0f172a] shadow-lg active:scale-90 transition-transform"
         >
           ↻
         </button>

@@ -10,6 +10,7 @@ import type { LookId } from "@/lib/game/types";
 import { HeroesStadiumScene } from "./HeroesStadiumScene";
 import { PhoneStoreScene } from "./PhoneStoreScene";
 import { SchoolClassroomScene } from "./SchoolClassroomScene";
+import { OwerriMarketScene } from "./OwerriMarketScene";
 
 export function PersonFigure({
   look,
@@ -2252,6 +2253,8 @@ export function VenueInterior({
           <PhoneStoreScene look={look} title={place.name} placeId={place.id} />
         ) : place.kind === "school" ? (
           <SchoolClassroomScene look={look} title={place.name} placeId={place.id} username={username} />
+        ) : place.kind === "market" ? (
+          <OwerriMarketScene look={look} title={place.name} placeId={place.id} username={username} />
         ) : (
           <>
             <RoomScene look={look} kind={place.kind} people={people} besideId={besideId} selfId={selfId} onPick={onPickPerson} walkers={walkers} />
