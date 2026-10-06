@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
-import { LOOKS } from "@/lib/game/content";
 import type { LookId } from "@/lib/game/types";
+import { createRealisticHuman } from "@/lib/game/humanModel";
 
 // Canvas texture helper for scoreboard
 function createScoreboardTexture(): THREE.CanvasTexture {
@@ -38,8 +38,7 @@ function createScoreboardTexture(): THREE.CanvasTexture {
   ctx.font = "bold 26px sans-serif";
   ctx.fillText("NPFL MATCHDAY · OWERRI DERBY", 512, 130);
 
-  // Team names & score
-  // Heartland FC
+  // Heartland FC (Home)
   ctx.fillStyle = "#f6f1e6";
   ctx.font = "bold 48px sans-serif";
   ctx.textAlign = "left";
@@ -59,7 +58,7 @@ function createScoreboardTexture(): THREE.CanvasTexture {
   ctx.textAlign = "center";
   ctx.fillText("2 - 1", 512, 252);
 
-  // Enyimba FC
+  // Enyimba FC (Away)
   ctx.fillStyle = "#f6f1e6";
   ctx.font = "bold 48px sans-serif";
   ctx.textAlign = "right";
@@ -162,26 +161,20 @@ function createPitchTexture(): THREE.CanvasTexture {
 
   // North penalty box (top)
   ctx.strokeRect(262, 60, 500, 220);
-  // North 6-yard box
   ctx.strokeRect(382, 60, 260, 90);
-  // North penalty spot
   ctx.beginPath();
   ctx.arc(512, 200, 10, 0, Math.PI * 2);
   ctx.fill();
-  // North penalty arc
   ctx.beginPath();
   ctx.arc(512, 200, 110, 0.65, Math.PI - 0.65);
   ctx.stroke();
 
   // South penalty box (bottom)
   ctx.strokeRect(262, 744, 500, 220);
-  // South 6-yard box
   ctx.strokeRect(382, 874, 260, 90);
-  // South penalty spot
   ctx.beginPath();
   ctx.arc(512, 824, 10, 0, Math.PI * 2);
   ctx.fill();
-  // South penalty arc
   ctx.beginPath();
   ctx.arc(512, 824, 110, Math.PI + 0.65, -0.65);
   ctx.stroke();
@@ -205,18 +198,18 @@ function createPitchTexture(): THREE.CanvasTexture {
 }
 
 export function HeroesStadiumScene({
-  look,
+  look = "chidi",
   username = "You",
+  people = [],
 }: {
-  look: LookId;
+  look?: LookId;
   username?: string;
+  people?: Array<{ id: string; name: string; look: LookId | null }>;
 }) {
   const host = useRef<HTMLDivElement>(null);
-  const rig = useRef({ yaw: 0.45, pitch: 0.48, zoom: 1 });
-  const [cameraView, setCameraView] = useState<"pitch" | "vip" | "goal" | "aerial">("pitch");
+  const rig = useRef({ yaw: -0.85, pitch: 0.38, zoom: 1.6 });
+  const [cameraView, setCameraView] = useState<"seat" | "stadium" | "match" | "aerial">("seat");
   const [chantMessage, setChantMessage] = useState<string | null>(null);
-  const [ballKicked, setBallKicked] = useState(false);
-  const ballMeshRef = useRef<THREE.Mesh | null>(null);
 
   useEffect(() => {
     const root = host.current;
@@ -230,29 +223,28 @@ export function HeroesStadiumScene({
     root.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color("#7db4d8"); // Bright open sky
-    scene.fog = new THREE.FogExp2("#7db4d8", 0.007);
+    scene.background = new THREE.Color("#7db4d8");
+    scene.fog = new THREE.FogExp2("#7db4d8", 0.005);
 
     // Sun & Sky lights
-    const hemi = new THREE.HemisphereLight(0xfff8e8, 0x3d7040, 1.15);
-    scene.add(hemi);
+    scene.add(new THREE.HemisphereLight(0xfff8e8, 0x3d7040, 1.2));
 
-    const sun = new THREE.DirectionalLight(0xfff2dc, 1.35);
+    const sun = new THREE.DirectionalLight(0xfff2dc, 1.4);
     sun.position.set(24, 45, 18);
     sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);
     sun.shadow.camera.near = 1;
-    sun.shadow.camera.far = 120;
-    sun.shadow.camera.left = -35;
-    sun.shadow.camera.right = 35;
-    sun.shadow.camera.top = 35;
-    sun.shadow.camera.bottom = -35;
+    sun.shadow.camera.far = 140;
+    sun.shadow.camera.left = -40;
+    sun.shadow.camera.right = 40;
+    sun.shadow.camera.top = 40;
+    sun.shadow.camera.bottom = -40;
     scene.add(sun);
 
     const arena = new THREE.Group();
     scene.add(arena);
 
-    // Helpers
+    // Helper
     const box = (w: number, h: number, d: number, color: number, x: number, y: number, z: number, cast = true) => {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ color }));
       mesh.position.set(x, y, z);
@@ -263,25 +255,22 @@ export function HeroesStadiumScene({
     };
 
     // Ground platform around stadium
-    box(80, 0.2, 80, 0xd2cbbe, 0, -0.1, 0, false);
+    box(90, 0.2, 90, 0xd2cbbe, 0, -0.1, 0, false);
 
     // ATHLETIC RUNNING TRACK (Terracotta / Brick Red)
-    const track = box(44, 0.14, 58, 0xa83b24, 0, 0.07, 0, false);
-    // Track white lane lines
+    box(46, 0.14, 60, 0xa83b24, 0, 0.07, 0, false);
     for (let lane = 1; lane <= 4; lane++) {
       const insetX = lane * 1.4;
       const insetZ = lane * 1.6;
-      const lw = 44 - insetX * 2;
-      const ld = 58 - insetZ * 2;
-      // North & South lane lines
+      const lw = 46 - insetX * 2;
+      const ld = 60 - insetZ * 2;
       box(lw, 0.02, 0.08, 0xffffff, 0, 0.16, -ld / 2, false);
       box(lw, 0.02, 0.08, 0xffffff, 0, 0.16, ld / 2, false);
-      // East & West lane lines
       box(0.08, 0.02, ld, 0xffffff, -lw / 2, 0.16, 0, false);
       box(0.08, 0.02, ld, 0xffffff, lw / 2, 0.16, 0, false);
     }
 
-    // FOOTBALL PITCH (Center field)
+    // FOOTBALL PITCH (Field)
     const pitchMat = new THREE.MeshLambertMaterial({ map: createPitchTexture() });
     const pitchPlane = new THREE.Mesh(new THREE.PlaneGeometry(28, 42), pitchMat);
     pitchPlane.rotation.x = -Math.PI / 2;
@@ -289,34 +278,23 @@ export function HeroesStadiumScene({
     pitchPlane.receiveShadow = true;
     arena.add(pitchPlane);
 
-    // 3D GOALPOSTS (North and South)
+    // 3D GOALPOSTS
     const makeGoal = (zPos: number, rotY: number) => {
       const goal = new THREE.Group();
       const white = new THREE.MeshLambertMaterial({ color: 0xffffff });
       const netMat = new THREE.MeshBasicMaterial({ color: 0xe0e7ff, transparent: true, opacity: 0.5, wireframe: true });
 
-      // Left & Right posts
       const p1 = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 2.2, 8), white);
       p1.position.set(-3.2, 1.1, 0);
       const p2 = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 2.2, 8), white);
       p2.position.set(3.2, 1.1, 0);
-
-      // Crossbar
       const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 6.4, 8), white);
       bar.rotation.z = Math.PI / 2;
       bar.position.set(0, 2.2, 0);
-
-      // Back support stanchions
-      const s1 = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.8, 6), white);
-      s1.position.set(-3.2, 1.0, -1.2);
-      const s2 = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.8, 6), white);
-      s2.position.set(3.2, 1.0, -1.2);
-
-      // Net box
       const netBox = new THREE.Mesh(new THREE.BoxGeometry(6.4, 2.2, 1.2), netMat);
       netBox.position.set(0, 1.1, -0.6);
 
-      goal.add(p1, p2, bar, s1, s2, netBox);
+      goal.add(p1, p2, bar, netBox);
       goal.position.set(0, 0, zPos);
       goal.rotation.y = rotY;
       arena.add(goal);
@@ -338,103 +316,103 @@ export function HeroesStadiumScene({
       arena.add(flag);
     });
 
-    // OFFICIAL SOCCER BALL (Center Spot)
+    // PITCH-SIDE LED ADVERTISING BOARDS
+    const adMat = new THREE.MeshBasicMaterial({ map: createAdBannerTexture() });
+    const bE = new THREE.Mesh(new THREE.PlaneGeometry(40, 1.1), adMat);
+    bE.position.set(17, 0.65, 0);
+    bE.rotation.y = -Math.PI / 2;
+    const bW = new THREE.Mesh(new THREE.PlaneGeometry(40, 1.1), adMat);
+    bW.position.set(-17, 0.65, 0);
+    bW.rotation.y = Math.PI / 2;
+    const bN = new THREE.Mesh(new THREE.PlaneGeometry(26, 1.1), adMat);
+    bN.position.set(0, 0.65, -24);
+    const bS = new THREE.Mesh(new THREE.PlaneGeometry(26, 1.1), adMat);
+    bS.position.set(0, 0.65, 24);
+    bS.rotation.y = Math.PI;
+    arena.add(bE, bW, bN, bS);
+
+    // SOCCER BALL ON PITCH
     const ballGeo = new THREE.SphereGeometry(0.24, 16, 12);
     const ballMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
     const ball = new THREE.Mesh(ballGeo, ballMat);
-    ball.position.set(0, 0.36, 0);
+    ball.position.set(2.4, 0.36, -3.2); // In play between players
     ball.castShadow = true;
     arena.add(ball);
-    ballMeshRef.current = ball;
 
-    // Ball pentagon spots
-    for (let i = 0; i < 6; i++) {
-      const spot = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 6), new THREE.MeshBasicMaterial({ color: 0x111827 }));
-      const theta = (i * Math.PI) / 3;
-      spot.position.set(Math.cos(theta) * 0.22, 0.12 * (i % 2 === 0 ? 1 : -1), Math.sin(theta) * 0.22);
-      ball.add(spot);
-    }
-
-    // PITCH-SIDE LED ADVERTISING BOARDS
-    const adMat = new THREE.MeshBasicMaterial({ map: createAdBannerTexture() });
-    const makeAdBoards = () => {
-      // East touchline boards
-      const bE = new THREE.Mesh(new THREE.PlaneGeometry(38, 1.1), adMat);
-      bE.position.set(16.5, 0.65, 0);
-      bE.rotation.y = -Math.PI / 2;
-      arena.add(bE);
-
-      // West touchline boards
-      const bW = new THREE.Mesh(new THREE.PlaneGeometry(38, 1.1), adMat);
-      bW.position.set(-16.5, 0.65, 0);
-      bW.rotation.y = Math.PI / 2;
-      arena.add(bW);
-
-      // North goal boards
-      const bN = new THREE.Mesh(new THREE.PlaneGeometry(24, 1.1), adMat);
-      bN.position.set(0, 0.65, -23.5);
-      arena.add(bN);
-
-      // South goal boards
-      const bS = new THREE.Mesh(new THREE.PlaneGeometry(24, 1.1), adMat);
-      bS.position.set(0, 0.65, 23.5);
-      bS.rotation.y = Math.PI;
-      arena.add(bS);
+    // ─────────────────────────────────────────────────────────────
+    // TWO FULL TEAMS PLAYING SOCCER ON THE PITCH!
+    // (Heartland FC Red vs Enyimba FC Blue + Referee)
+    // ─────────────────────────────────────────────────────────────
+    const makePitchPlayer = (x: number, z: number, jerseyColor: number, rotY = 0) => {
+      const p = createRealisticHuman({
+        seated: false,
+        scale: 0.65,
+        customShirt: jerseyColor,
+        customPants: 0xffffff, // White shorts
+      });
+      p.position.set(x, 0.18, z);
+      p.rotation.y = rotY;
+      arena.add(p);
+      return p;
     };
-    makeAdBoards();
 
-    // PLAYER DUGOUTS / TECHNICAL BENCHES (Touchline)
-    const makeDugout = (zPos: number, teamColor: number, teamName: string) => {
-      const dGroup = new THREE.Group();
-      // Floor & frame
-      dGroup.add(new THREE.Mesh(new THREE.BoxGeometry(5.4, 0.14, 1.8), new THREE.MeshLambertMaterial({ color: 0x334155 })));
-      // Arched canopy roof
-      const roof = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 5.4, 16, 1, false, 0, Math.PI), new THREE.MeshLambertMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.65, side: THREE.DoubleSide }));
-      roof.rotation.z = Math.PI / 2;
-      roof.position.set(0, 1.2, 0);
-      dGroup.add(roof);
-      // Bench seating (6 seats)
-      for (let s = 0; s < 5; s++) {
-        const seat = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.5, 0.5), new THREE.MeshLambertMaterial({ color: teamColor }));
-        seat.position.set(-1.8 + s * 0.9, 0.35, -0.2);
-        dGroup.add(seat);
-      }
-      dGroup.position.set(-18.5, 0.1, zPos);
-      dGroup.rotation.y = Math.PI / 2;
-      arena.add(dGroup);
-      void teamName;
-    };
-    makeDugout(-5.5, 0x1d4a66, "Heartland FC");
-    makeDugout(5.5, 0x1f6b45, "Visitors");
+    // Heartland FC (Home team - Red jerseys #c42032)
+    const heartlandPositions = [
+      [0, -19.5, 0], // Goalkeeper
+      [-8, -13, 0], [-2.5, -14, 0], [2.5, -14, 0], [8, -13, 0], // Defenders
+      [-6, -6, 0], [-1.5, -5, 0], [2, -6, 0], [6.5, -5.5, 0], // Midfielders
+      [-2, 1.2, 0], [3, -1.8, 0], // Forwards near ball
+    ] as const;
+    heartlandPositions.forEach(([px, pz, rot]) => {
+      makePitchPlayer(px, pz, 0xc42032, rot);
+    });
 
-    // SPECTATOR GRANDSTANDS (Stepped Seating Bowl)
+    // Enyimba FC (Away team - Blue jerseys #1d4ed8)
+    const enyimbaPositions = [
+      [0, 19.5, Math.PI], // Goalkeeper
+      [-8, 13, Math.PI], [-2.5, 14, Math.PI], [2.5, 14, Math.PI], [8, 13, Math.PI], // Defenders
+      [-6, 6, Math.PI], [-1.5, 5, Math.PI], [2, 6, Math.PI], [6.5, 5.5, Math.PI], // Midfielders
+      [-1, -0.8, Math.PI], [4, 2.5, Math.PI], // Forwards contesting ball
+    ] as const;
+    enyimbaPositions.forEach(([px, pz, rot]) => {
+      makePitchPlayer(px, pz, 0x1d4ed8, rot);
+    });
+
+    // Referee (Neon Yellow jersey #eab308)
+    makePitchPlayer(4.5, -0.5, 0xfacc15, -0.6);
+
+    // ─────────────────────────────────────────────────────────────
+    // SPECTATOR GRANDSTANDS & THE USER SEATED IN THE STANDS!
+    // ─────────────────────────────────────────────────────────────
     const SEAT_COLORS = [0x1d4a66, 0x1f6b45, 0xffffff, 0xf2c14e, 0x1d4a66, 0x1f6b45];
 
     // North & South Stands
     const makeTieredStand = (zSign: number) => {
-      const tiers = 6;
-      for (let t = 0; t < tiers; t++) {
-        const z = zSign * (25 + t * 2.2);
+      for (let t = 0; t < 6; t++) {
+        const z = zSign * (26 + t * 2.2);
         const y = 0.5 + t * 0.95;
         const color = SEAT_COLORS[t % SEAT_COLORS.length];
 
-        // Concrete tier step
-        box(46 + t * 2.5, 0.95, 2.2, 0xd4cdc3, 0, y, z, true);
+        box(48 + t * 2.5, 0.95, 2.2, 0xd4cdc3, 0, y, z, true);
 
-        // Rows of individual seats
-        const seatCount = 20 + t * 2;
-        const spacing = (44 + t * 2.5) / seatCount;
+        const seatCount = 18 + t * 2;
+        const spacing = (46 + t * 2.5) / seatCount;
         for (let s = 0; s < seatCount; s++) {
-          // Yellow gangway gaps every 7 seats
-          if (s % 7 === 0) continue;
-          const sx = -((44 + t * 2.5) / 2) + s * spacing;
+          if (s % 6 === 0) continue;
+          const sx = -((46 + t * 2.5) / 2) + s * spacing;
           box(0.7, 0.45, 0.7, color, sx, y + 0.65, z, false);
 
-          // Dot some cheering fans
+          // Real seated spectator people in stands
           if ((s + t) % 3 === 0) {
-            const fanColor = [0x1d4a66, 0x1f6b45, 0xe0b15a, 0xffffff, 0xc42032][(s * 3) % 5];
-            const fan = new THREE.Mesh(new THREE.SphereGeometry(0.24, 8, 6), new THREE.MeshLambertMaterial({ color: fanColor }));
-            fan.position.set(sx, y + 1.15, z);
+            const spectatorLook: LookId = ["ada", "chidi", "ngozi", "emeka", "zara", "ibe"][(s + t) % 6] as LookId;
+            const fan = createRealisticHuman({
+              lookId: spectatorLook,
+              seated: true,
+              scale: 0.55,
+              customShirt: [0x1d4a66, 0x1f6b45, 0xc42032, 0xf2c14e][(s * 2) % 4],
+            });
+            fan.position.set(sx, y + 0.65, z);
+            fan.rotation.y = zSign > 0 ? Math.PI : 0;
             arena.add(fan);
           }
         }
@@ -443,106 +421,121 @@ export function HeroesStadiumScene({
     makeTieredStand(-1); // North Stand
     makeTieredStand(1); // South Stand
 
-    // East Stand
-    const makeSideStand = (xSign: number, isVip: boolean) => {
-      const tiers = 6;
-      for (let t = 0; t < tiers; t++) {
-        const x = xSign * (20 + t * 2.2);
-        const y = 0.5 + t * 0.95;
-        const color = isVip ? 0x1d4a66 : SEAT_COLORS[t % SEAT_COLORS.length];
+    // East Stand (Popular Terraces)
+    for (let t = 0; t < 6; t++) {
+      const x = 21 + t * 2.2;
+      const y = 0.5 + t * 0.95;
+      box(2.2, 0.95, 50 + t * 2.5, 0xd4cdc3, x, y, 0, true);
 
-        // Concrete tier step
-        box(2.2, 0.95, 48 + t * 2.5, 0xd4cdc3, x, y, 0, true);
+      const seatCount = 20 + t * 2;
+      const spacing = (48 + t * 2.5) / seatCount;
+      for (let s = 0; s < seatCount; s++) {
+        if (s % 7 === 0) continue;
+        const sz = -((48 + t * 2.5) / 2) + s * spacing;
+        box(0.7, 0.45, 0.7, 0x1f6b45, x, y + 0.65, sz, false);
 
-        // Rows of seats
-        const seatCount = 22 + t * 2;
-        const spacing = (46 + t * 2.5) / seatCount;
-        for (let s = 0; s < seatCount; s++) {
-          if (s % 8 === 0) continue;
-          const sz = -((46 + t * 2.5) / 2) + s * spacing;
-          box(0.7, 0.45, 0.7, color, x, y + 0.65, sz, false);
-
-          // Spectators
-          if ((s + t) % 3 === 1) {
-            const fanColor = [0x1d4a66, 0x1f6b45, 0xe0b15a, 0xffffff][(s * 2) % 4];
-            const fan = new THREE.Mesh(new THREE.SphereGeometry(0.24, 8, 6), new THREE.MeshLambertMaterial({ color: fanColor }));
-            fan.position.set(x, y + 1.15, sz);
-            arena.add(fan);
-          }
+        if ((s + t) % 3 === 1) {
+          const spec = createRealisticHuman({
+            lookId: ["chidi", "emeka", "ibe", "ada"][(s + t) % 4] as LookId,
+            seated: true,
+            scale: 0.55,
+          });
+          spec.position.set(x, y + 0.65, sz);
+          spec.rotation.y = -Math.PI / 2; // Facing the pitch
+          arena.add(spec);
         }
       }
-    };
-    makeSideStand(1, false); // East Stand (Popular side)
-    makeSideStand(-1, true); // West Stand (Main VIP stand)
+    }
 
-    // MAIN VIP GRANDSTAND ROOF & EXECUTIVE PAVILION (West Stand)
-    const makeVipCanopy = () => {
-      // Cantilever structural steel truss columns
-      for (let cz = -20; cz <= 20; cz += 10) {
-        box(0.6, 12, 0.6, 0x334155, -34, 6, cz);
-        // Cantilever arm projecting over seats
-        const arm = box(14, 0.5, 0.5, 0x475569, -27, 11.8, cz);
-        arm.rotation.z = 0.12;
+    // WEST STAND: MAIN VIP COVERED GRANDSTAND
+    // Where the USER and friends sit in prime VIP seats!
+    for (let t = 0; t < 6; t++) {
+      const x = -(21 + t * 2.2);
+      const y = 0.5 + t * 0.95;
+      box(2.2, 0.95, 50 + t * 2.5, 0xd4cdc3, x, y, 0, true);
+
+      const seatCount = 18 + t * 2;
+      const spacing = (48 + t * 2.5) / seatCount;
+      for (let s = 0; s < seatCount; s++) {
+        if (s % 7 === 0) continue;
+        const sz = -((48 + t * 2.5) / 2) + s * spacing;
+        // Padded red VIP armchairs in front tiers
+        box(0.7, 0.5, 0.7, t <= 2 ? 0x991b1b : 0x1d4a66, x, y + 0.65, sz, false);
       }
-      // Curved aerodynamic grandstand canopy roof
-      const roof = box(16, 0.4, 52, 0xf8fafc, -26, 12.2, 0);
-      roof.rotation.z = 0.12;
+    }
 
-      // Executive State Box / Commentary Gantry
-      box(6, 2.8, 14, 0x0f172a, -31, 7.8, 0);
-      // Panoramic glass viewing windows
-      const glass = new THREE.Mesh(new THREE.PlaneGeometry(13.8, 2.2), new THREE.MeshLambertMaterial({ color: 0x93c5fd, transparent: true, opacity: 0.5 }));
-      glass.position.set(-27.9, 7.8, 0);
-      glass.rotation.y = Math.PI / 2;
-      arena.add(glass);
+    // 👑 THE USER'S SEAT IN THE VIP GRANDSTAND!
+    // Front row VIP armchair with prime view overlooking the pitch:
+    const userSeatX = -21.8;
+    const userSeatY = 0.85;
+    const userSeatZ = 0;
 
-      // VIP broadcast cameras on tripod
-      const cam = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.5, 1.1), new THREE.MeshLambertMaterial({ color: 0x111827 }));
-      cam.position.set(-27.2, 8.2, 2.5);
-      const camLens = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 0.6, 8), new THREE.MeshLambertMaterial({ color: 0x38bdf8 }));
-      camLens.rotation.x = Math.PI / 2;
-      camLens.position.set(-27.2, 8.2, 1.8);
-      arena.add(cam, camLens);
-    };
-    makeVipCanopy();
+    // User's VIP armchair with gold armrests
+    box(0.85, 0.6, 0.85, 0xb91c1c, userSeatX, userSeatY + 0.35, userSeatZ);
+    box(0.1, 0.4, 0.85, 0xe0b15a, userSeatX + 0.38, userSeatY + 0.65, userSeatZ);
+    box(0.1, 0.4, 0.85, 0xe0b15a, userSeatX - 0.38, userSeatY + 0.65, userSeatZ);
 
-    // GIANT SCOREBOARD TOWER (North End)
-    const makeScoreboard = () => {
-      // Scoreboard support pylons
-      box(0.8, 14, 0.8, 0x334155, -8, 7, -38);
-      box(0.8, 14, 0.8, 0x334155, 8, 7, -38);
+    // Realistic User Avatar seated in VIP armchair
+    const userAvatar = createRealisticHuman({
+      lookId: look,
+      seated: true,
+      scale: 0.62,
+    });
+    userAvatar.position.set(userSeatX, userSeatY + 0.35, userSeatZ);
+    userAvatar.rotation.y = Math.PI / 2; // Facing pitch
+    arena.add(userAvatar);
 
-      // Scoreboard screen housing
-      box(22, 11, 1.4, 0x0f172a, 0, 14.5, -38);
+    // Other users / friends seated next to the user in VIP stands!
+    const companionList = people.filter((p) => p.name !== username).slice(0, 5);
+    const defaultCompanions: LookId[] = ["ada", "zara", "emeka", "ngozi", "ibe"];
 
-      // High-res digital display screen
-      const screenMat = new THREE.MeshBasicMaterial({ map: createScoreboardTexture() });
-      const screen = new THREE.Mesh(new THREE.PlaneGeometry(21.4, 10.4), screenMat);
-      screen.position.set(0, 14.5, -37.2);
-      arena.add(screen);
-    };
-    makeScoreboard();
+    for (let c = 1; c <= 4; c++) {
+      // Seats to the left and right of user
+      const sideZ = c % 2 === 1 ? Math.ceil(c / 2) * 1.3 : -Math.ceil(c / 2) * 1.3;
+      const compLook = companionList[c - 1]?.look ?? defaultCompanions[c - 1] ?? "ada";
 
-    // 4 TOWERING CORNER FLOODLIGHT PYLONS
-    const floodlightSpots: THREE.PointLight[] = [];
+      const compAvatar = createRealisticHuman({
+        lookId: compLook,
+        seated: true,
+        scale: 0.62,
+      });
+      compAvatar.position.set(userSeatX, userSeatY + 0.35, sideZ);
+      compAvatar.rotation.y = Math.PI / 2; // Facing pitch
+      arena.add(compAvatar);
+    }
+
+    // VIP CANOPY ROOF & BROADCAST BOOTH
+    for (let cz = -22; cz <= 22; cz += 11) {
+      box(0.6, 13, 0.6, 0x334155, -35, 6.5, cz);
+      const arm = box(15, 0.5, 0.5, 0x475569, -27.5, 12.8, cz);
+      arm.rotation.z = 0.12;
+    }
+    const roof = box(17, 0.4, 54, 0xf8fafc, -26.5, 13.2, 0);
+    roof.rotation.z = 0.12;
+
+    // GIANT SCOREBOARD (North End)
+    box(0.8, 14, 0.8, 0x334155, -8, 7, -39);
+    box(0.8, 14, 0.8, 0x334155, 8, 7, -39);
+    box(23, 11.5, 1.4, 0x0f172a, 0, 14.8, -39);
+    const screenMat = new THREE.MeshBasicMaterial({ map: createScoreboardTexture() });
+    const screen = new THREE.Mesh(new THREE.PlaneGeometry(22.2, 10.8), screenMat);
+    screen.position.set(0, 14.8, -38.2);
+    arena.add(screen);
+
+    // 4 FLOODLIGHT TOWERS
     const corners4 = [
-      [-26, -34],
-      [26, -34],
-      [-26, 34],
-      [26, 34],
+      [-28, -35],
+      [28, -35],
+      [-28, 35],
+      [28, 35],
     ] as const;
 
     corners4.forEach(([lx, lz]) => {
-      // Heavy base
       box(2.2, 1.2, 2.2, 0x334155, lx, 0.6, lz);
-      // Steel lattice pylon
-      box(0.9, 20, 0.9, 0x475569, lx, 10.6, lz);
+      box(0.9, 21, 0.9, 0x475569, lx, 11, lz);
 
-      // Angled floodlight head rack
       const head = new THREE.Group();
       head.add(new THREE.Mesh(new THREE.BoxGeometry(4.8, 2.6, 0.8), new THREE.MeshLambertMaterial({ color: 0x1e293b })));
-
-      // Grid of 12 glowing halogen lamps
       for (let r = 0; r < 3; r++) {
         for (let c = 0; c < 4; c++) {
           const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.24, 8, 6), new THREE.MeshBasicMaterial({ color: 0xfffde8 }));
@@ -550,57 +543,17 @@ export function HeroesStadiumScene({
           head.add(bulb);
         }
       }
-      head.position.set(lx, 21.2, lz);
-      head.lookAt(0, 2, 0); // Aimed at pitch center
+      head.position.set(lx, 21.8, lz);
+      head.lookAt(0, 2, 0);
       arena.add(head);
 
-      // Real point light from floodlight
-      const pLight = new THREE.PointLight(0xfff5e0, 25, 60);
-      pLight.position.set(lx * 0.9, 20, lz * 0.9);
+      const pLight = new THREE.PointLight(0xfff5e0, 28, 70);
+      pLight.position.set(lx * 0.9, 21, lz * 0.9);
       arena.add(pLight);
-      floodlightSpots.push(pLight);
     });
 
-    // PLAYER AVATAR ON THE PITCH
-    const playerGroup = new THREE.Group();
-    const pal = LOOKS.find((l) => l.id === look) ?? LOOKS[0];
-    const skinMat = new THREE.MeshLambertMaterial({ color: pal.skin });
-    const jerseyMat = new THREE.MeshLambertMaterial({ color: 0xc42032 }); // Heartland Red Jersey
-    const shortsMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
-
-    // Legs
-    const lLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.8, 8), shortsMat);
-    lLeg.position.set(-0.16, 0.4, 0);
-    const rLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.8, 8), shortsMat);
-    rLeg.position.set(0.16, 0.4, 0);
-    // Torso
-    const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.22, 0.8, 8), jerseyMat);
-    torso.position.set(0, 1.15, 0);
-    // Head
-    const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 10), skinMat);
-    headMesh.position.set(0, 1.75, 0);
-    // Hair
-    const hairMesh = new THREE.Mesh(new THREE.SphereGeometry(0.23, 10, 8), new THREE.MeshLambertMaterial({ color: pal.hair }));
-    hairMesh.position.set(0, 1.84, -0.02);
-    hairMesh.scale.set(1.02, 0.55, 0.98);
-
-    playerGroup.add(lLeg, rLeg, torso, headMesh, hairMesh);
-    playerGroup.position.set(0, 0.18, 1.4);
-    playerGroup.castShadow = true;
-    arena.add(playerGroup);
-
-    // EMEKA SQUARE (Regular NPC hanging out on the low wall)
-    const emekaGroup = new THREE.Group();
-    const emekaTorso = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.2, 0.75, 8), new THREE.MeshLambertMaterial({ color: 0x1f6b45 }));
-    emekaTorso.position.set(0, 1.1, 0);
-    const emekaHead = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 8), new THREE.MeshLambertMaterial({ color: 0x4a2a18 }));
-    emekaHead.position.set(0, 1.65, 0);
-    emekaGroup.add(emekaTorso, emekaHead);
-    emekaGroup.position.set(-17, 0.18, -12);
-    arena.add(emekaGroup);
-
     // CAMERA SETUP
-    const camera = new THREE.PerspectiveCamera(38, 1, 0.2, 200);
+    const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 250);
 
     const fit = () => {
       renderer.setSize(root.clientWidth || 1, root.clientHeight || 1);
@@ -609,70 +562,67 @@ export function HeroesStadiumScene({
     };
     fit();
 
-    // Wheel zoom
+    // Zoom wheel with expanded range (up to 8.0x closer!)
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
-      const factor = event.deltaY < 0 ? 1.08 : 1 / 1.08;
-      rig.current.zoom = Math.min(2.8, Math.max(0.45, rig.current.zoom * factor));
+      const factor = event.deltaY < 0 ? 1.12 : 1 / 1.12;
+      rig.current.zoom = Math.min(8.0, Math.max(0.35, rig.current.zoom * factor));
     };
     root.addEventListener("wheel", onWheel, { passive: false });
 
-    // Animation Loop
     let frame = 0;
     let alive = true;
-    let ballTimer = 0;
 
     const loop = () => {
       if (!alive) return;
 
-      // Ball kick animation
-      if (ballKicked && ballMeshRef.current) {
-        ballTimer += 0.05;
-        if (ballTimer < 2.2) {
-          const t = ballTimer;
-          // Arching shot towards south goal (Z = 20.8)
-          ballMeshRef.current.position.z = Math.min(20.4, t * 9.5);
-          ballMeshRef.current.position.y = 0.36 + Math.sin(t * 1.6) * 2.1;
-          ballMeshRef.current.rotation.x += 0.3;
-        } else {
-          // Ball in the net
-          ballMeshRef.current.position.set(0, 0.36, 20.6);
-        }
-      }
-
-      // Camera coordinates based on preset & rig
       arena.rotation.y = rig.current.yaw;
 
-      let targetDist = 32;
-      let targetHeight = 14;
-      let lookAtY = 1.6;
+      let targetDist = 28;
+      let targetHeight = 12;
+      let lookAtX = 0;
+      let lookAtY = 1.4;
+      let lookAtZ = 0;
 
-      if (cameraView === "pitch") {
+      if (cameraView === "seat") {
+        // Close-up on the user seated in VIP Grandstand!
+        targetDist = 7.5;
+        targetHeight = 2.4;
+        lookAtX = -18;
+        lookAtY = 1.6;
+        lookAtZ = 0;
+      } else if (cameraView === "match") {
+        // Focused view of football match action on pitch
         targetDist = 18;
-        targetHeight = 6.5;
+        targetHeight = 7.5;
+        lookAtX = 0;
         lookAtY = 1.2;
-      } else if (cameraView === "vip") {
-        targetDist = 42;
-        targetHeight = 22;
+        lookAtZ = 0;
+      } else if (cameraView === "stadium") {
+        // Elevated wide view of entire stadium bowl and stands
+        targetDist = 34;
+        targetHeight = 16;
+        lookAtX = 0;
         lookAtY = 2.0;
-      } else if (cameraView === "goal") {
-        targetDist = 24;
-        targetHeight = 8;
-        lookAtY = 1.5;
+        lookAtZ = 0;
       } else if (cameraView === "aerial") {
-        targetDist = 58;
-        targetHeight = 38;
+        // Bird's eye view
+        targetDist = 55;
+        targetHeight = 36;
+        lookAtX = 0;
         lookAtY = 0;
+        lookAtZ = 0;
       }
 
-      const dist = (targetDist / rig.current.zoom);
-      const rad = rig.current.pitch;
+      // Smooth camera position with super close zoom capability
+      const dist = targetDist / rig.current.zoom;
+      const pitch = rig.current.pitch;
       camera.position.set(
-        Math.sin(rad) * dist * 0.45,
-        targetHeight / rig.current.zoom,
-        Math.cos(rad) * dist
+        lookAtX + Math.sin(pitch) * dist * 0.48,
+        targetHeight / rig.current.zoom + 0.4,
+        lookAtZ + Math.cos(pitch) * dist
       );
-      camera.lookAt(0, lookAtY, 0);
+      camera.lookAt(lookAtX, lookAtY, lookAtZ);
 
       renderer.render(scene, camera);
       frame = window.requestAnimationFrame(loop);
@@ -690,33 +640,29 @@ export function HeroesStadiumScene({
       renderer.dispose();
       root.removeChild(renderer.domElement);
     };
-  }, [look, cameraView, ballKicked]);
+  }, [look, cameraView, username, people]);
 
   function turn(dir: number) {
     rig.current.yaw += dir * 0.45;
   }
   function dolly(factor: number) {
-    rig.current.zoom = Math.min(2.8, Math.max(0.45, rig.current.zoom * factor));
-  }
-
-  function handleKickBall() {
-    setBallKicked(true);
-    setChantMessage("⚽ GOOOAL! Heartland FC scores! The whole stadium erupts in celebration!");
-    window.setTimeout(() => {
-      setBallKicked(false);
-      if (ballMeshRef.current) ballMeshRef.current.position.set(0, 0.36, 0);
-    }, 4500);
+    rig.current.zoom = Math.min(8.0, Math.max(0.35, rig.current.zoom * factor));
   }
 
   function handleChant() {
     const chants = [
       "📣 'Nzogbu Nzogbu, Enyimba Enyi! Heartland Odeshi!'",
-      "📣 'Owerri Boys! No shaking on the pitch today!'",
-      "📣 'Dan Anyiam is roaring! Stand up for the Naze Millionaires!'",
-      "📣 'Owerri Life matchday! Victory for the home side!'",
+      "📣 'Up Heartland! Owerri Millionaires are taking the 3 points!'",
+      "📣 'Dan Anyiam is rocking! The whole stand is on their feet!'",
+      "📣 'Goal scorer Nnamdi! What a strike from outside the box!'",
     ];
     const picked = chants[Math.floor(Math.random() * chants.length)];
     setChantMessage(picked);
+    window.setTimeout(() => setChantMessage(null), 3800);
+  }
+
+  function handleRefreshment() {
+    setChantMessage("🥤 Stadium vendor served you a cold Malt drink & hot meat pie in your VIP seat!");
     window.setTimeout(() => setChantMessage(null), 3800);
   }
 
@@ -737,20 +683,20 @@ export function HeroesStadiumScene({
           const lastX = Number(event.currentTarget.dataset.x ?? event.clientX);
           const lastY = Number(event.currentTarget.dataset.y ?? event.clientY);
           rig.current.yaw += (event.clientX - lastX) * 0.007;
-          rig.current.pitch = Math.max(0.15, Math.min(1.4, rig.current.pitch + (event.clientY - lastY) * 0.004));
+          rig.current.pitch = Math.max(0.12, Math.min(1.4, rig.current.pitch + (event.clientY - lastY) * 0.004));
           event.currentTarget.dataset.x = String(event.clientX);
           event.currentTarget.dataset.y = String(event.clientY);
         }}
       />
 
-      {/* Stadium Header Badge */}
-      <div className="pointer-events-none absolute left-3 top-3 z-20 max-w-[19rem] rounded-2xl bg-[#091e2b]/90 p-3 shadow-2xl backdrop-blur-md border border-[#38bdf8]/30">
+      {/* Stadium & VIP Seat Badge */}
+      <div className="pointer-events-none absolute left-3 top-3 z-20 max-w-[20rem] rounded-2xl bg-[#091e2b]/90 p-3 shadow-2xl backdrop-blur-md border border-[#38bdf8]/30">
         <div className="flex items-center gap-2">
           <span className="flex h-3 w-3 animate-ping rounded-full bg-[#22c55e]" />
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#e0b15a]">Matchday Live · Arena</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#e0b15a]">VIP Grandstand · Seated</p>
         </div>
         <h2 className="mt-1 font-bold text-base text-white">Imo Heroes Square Stadium</h2>
-        <p className="text-xs text-[#94a3b8] mt-0.5">Dan Anyiam Stadium Complex, Wetheral Road</p>
+        <p className="text-xs text-[#94a3b8] mt-0.5">Watching match from VIP Covered Stand, Row 1</p>
         <div className="mt-2 flex items-center justify-between rounded-lg bg-[#06121c] px-2.5 py-1 text-xs">
           <span className="font-semibold text-[#38bdf8]">Heartland FC 2</span>
           <span className="text-[10px] text-[#e0b15a] font-bold">VS</span>
@@ -760,12 +706,12 @@ export function HeroesStadiumScene({
       </div>
 
       {/* Camera View Switcher */}
-      <div className="absolute left-3 bottom-24 z-30 flex flex-wrap gap-1.5 max-w-[18rem]">
+      <div className="absolute left-3 bottom-24 z-30 flex flex-wrap gap-1.5 max-w-[19rem]">
         {(
           [
-            ["pitch", "🏟 Pitch"],
-            ["vip", "🏆 VIP Stand"],
-            ["goal", "⚽ Goal End"],
+            ["seat", "👑 My VIP Seat"],
+            ["match", "⚽ Match Action"],
+            ["stadium", "🏟 Full Stadium"],
             ["aerial", "🦅 Aerial"],
           ] as const
         ).map(([key, label]) => (
@@ -775,7 +721,7 @@ export function HeroesStadiumScene({
             onClick={() => setCameraView(key)}
             className={`rounded-full px-3 py-1.5 text-xs font-semibold shadow transition-all ${
               cameraView === key
-                ? "bg-[#e0b15a] text-[#0f172a] shadow-lg scale-105"
+                ? "bg-[#e0b15a] text-[#0f172a] shadow-lg scale-105 font-bold"
                 : "bg-[#0f1e29]/80 text-[#d1d5db] border border-white/10 hover:bg-[#1a2d3c]"
             }`}
           >
@@ -784,39 +730,39 @@ export function HeroesStadiumScene({
         ))}
       </div>
 
-      {/* Interactive Matchday Actions */}
+      {/* Actions in the Stands */}
       <div className="absolute right-3 bottom-24 z-30 flex flex-col gap-2">
-        <button
-          type="button"
-          onClick={handleKickBall}
-          className="flex items-center gap-1.5 rounded-full bg-[#16a34a] px-3.5 py-2 text-xs font-bold text-white shadow-xl hover:bg-[#15803d] active:scale-95 transition-all border border-[#4ade80]/40"
-        >
-          <span>⚽</span>
-          <span>Kick Ball!</span>
-        </button>
         <button
           type="button"
           onClick={handleChant}
           className="flex items-center gap-1.5 rounded-full bg-[#0284c7] px-3.5 py-2 text-xs font-bold text-white shadow-xl hover:bg-[#0369a1] active:scale-95 transition-all border border-[#38bdf8]/40"
         >
           <span>📣</span>
-          <span>Stadium Chant</span>
+          <span>Chant in Stands</span>
+        </button>
+        <button
+          type="button"
+          onClick={handleRefreshment}
+          className="flex items-center gap-1.5 rounded-full bg-[#16a34a] px-3.5 py-2 text-xs font-bold text-white shadow-xl hover:bg-[#15803d] active:scale-95 transition-all border border-[#4ade80]/40"
+        >
+          <span>🥤</span>
+          <span>Order Snack · ₦1,500</span>
         </button>
       </div>
 
-      {/* Chant / Goal Celebration Toast */}
+      {/* Chant / Snack Toast */}
       {chantMessage ? (
-        <div className="pointer-events-none absolute inset-x-4 top-24 z-40 mx-auto max-w-md animate-bounce rounded-2xl bg-[#061826]/95 border-2 border-[#e0b15a] p-3 text-center shadow-2xl backdrop-blur-md">
+        <div className="pointer-events-none absolute inset-x-4 top-24 z-40 mx-auto max-w-md rounded-2xl bg-[#061826]/95 border-2 border-[#e0b15a] p-3 text-center shadow-2xl backdrop-blur-md">
           <p className="text-sm font-bold text-[#e0b15a]">{chantMessage}</p>
         </div>
       ) : null}
 
-      {/* Zoom and Orbit Controls */}
+      {/* Zoom and Orbit Controls (Supports Zoom In Far Closer!) */}
       <div className="absolute right-3 top-16 z-30 flex flex-col gap-1">
         <button
           type="button"
           aria-label="Zoom in"
-          onClick={() => dolly(1.18)}
+          onClick={() => dolly(1.25)}
           className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-bold text-[#0f172a] shadow-lg active:scale-90 transition-transform"
         >
           +
@@ -824,7 +770,7 @@ export function HeroesStadiumScene({
         <button
           type="button"
           aria-label="Zoom out"
-          onClick={() => dolly(1 / 1.18)}
+          onClick={() => dolly(1 / 1.25)}
           className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-bold text-[#0f172a] shadow-lg active:scale-90 transition-transform"
         >
           −
