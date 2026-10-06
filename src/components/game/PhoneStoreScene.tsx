@@ -218,6 +218,13 @@ export function PhoneStoreScene({
   const [inspectedItem, setInspectedItem] = useState<StoreItem | null>(null);
   const [purchasedIds, setPurchasedIds] = useState<Set<string>>(new Set());
   const [purchaseToast, setPurchaseToast] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<"all" | "phones" | "cases">("all");
+  const [panelCollapsed, setPanelCollapsed] = useState(false);
+
+  const handleQuenchThirst = () => {
+    setPurchaseToast("🥤 Ice-cold Chapman & Eva Water enjoyed! Thirst satisfied · −₦300");
+    window.setTimeout(() => setPurchaseToast(null), 3500);
+  };
 
   // Store Catalog items with Purchase capability
   const allItems: StoreItem[] = [
@@ -658,59 +665,127 @@ export function PhoneStoreScene({
         </div>
       ) : null}
 
-      {/* Bottom Showcase & Wall Items Tray with Purchase Buttons */}
-      <div className="absolute inset-x-3 bottom-24 z-30 max-h-[35%] overflow-y-auto rounded-2xl bg-[#09111c]/95 border border-[#38bdf8]/30 p-3 shadow-2xl backdrop-blur-xl">
-        <div className="flex items-center justify-between pb-2 border-b border-white/10">
+      {/* Middle-Left Showcase, Wall Cases & Quick Actions Panel */}
+      <div className="absolute left-3 top-28 z-30 w-72 sm:w-80 max-h-[calc(100%-8rem)] flex flex-col rounded-2xl bg-[#09111c]/95 border border-[#38bdf8]/35 shadow-2xl backdrop-blur-xl transition-all">
+        {/* Panel Header */}
+        <div className="flex items-center justify-between p-3 pb-2 border-b border-white/10">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#e0b15a]">Store Items in Stock</p>
-            <p className="text-xs text-[#cbd5e1]">Tap any item to purchase or inspect</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#e0b15a]">
+              Tetlow Gadget Showcase
+            </p>
+            <p className="text-xs text-[#cbd5e1]">
+              {categoryFilter === "all" ? "All Items" : categoryFilter === "phones" ? "Center Showcase (Phones)" : "Wall Slatwall Cases"}
+            </p>
           </div>
-          <span className="text-xs font-semibold text-[#38bdf8]">
-            Wallet: {naira(spendable)}
-          </span>
+          <button
+            type="button"
+            onClick={() => setPanelCollapsed(!panelCollapsed)}
+            className="rounded-lg bg-white/10 px-2 py-1 text-[11px] font-bold text-white hover:bg-white/20 transition-colors"
+          >
+            {panelCollapsed ? "Expand ▾" : "Collapse ▴"}
+          </button>
         </div>
 
-        <div className="mt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {allItems.slice(0, 8).map((item) => {
-            const isOwned = purchasedIds.has(item.id);
-            return (
-              <div
-                key={item.id}
-                className="flex items-center justify-between rounded-xl bg-white/5 p-2 hover:bg-white/10 transition-colors border border-white/5"
+        {!panelCollapsed ? (
+          <>
+            {/* Quick Action: Thirst & Category Filter Tabs */}
+            <div className="p-2.5 pb-1 border-b border-white/10 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={handleQuenchThirst}
+                className="w-full flex items-center justify-between rounded-xl bg-gradient-to-r from-[#0284c7]/20 to-[#0ea5e9]/10 border border-[#38bdf8]/40 px-3 py-1.5 text-xs font-bold text-[#38bdf8] hover:bg-[#0284c7]/30 transition-all active:scale-95 shadow"
               >
-                <div className="min-w-0 pr-2">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs">{item.category === "Phone" ? "📱" : "🛡"}</span>
-                    <span className="truncate text-xs font-bold text-white">{item.name}</span>
-                  </div>
-                  <p className="text-[10px] text-[#94a3b8] truncate">{item.colorName} · {item.specs}</p>
-                  <p className="text-xs font-extrabold text-[#e0b15a] mt-0.5">{naira(item.price)}</p>
-                </div>
+                <span>🥤 Quench Thirst (Cold Drink)</span>
+                <span className="text-[11px] text-[#e0b15a]">₦300</span>
+              </button>
 
-                <div className="shrink-0 flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setInspectedItem(item)}
-                    className="rounded-lg bg-white/10 px-2 py-1 text-[11px] font-semibold text-[#cbd5e1] hover:bg-white/20"
-                  >
-                    Inspect
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handlePurchase(item)}
-                    className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition-all shadow ${
-                      isOwned
-                        ? "bg-[#16a34a] text-white"
-                        : "bg-[#e0b15a] text-[#0f172a] hover:bg-[#f2c14e] active:scale-95"
-                    }`}
-                  >
-                    {isOwned ? "✔ Owned" : "Purchase 💳"}
-                  </button>
-                </div>
+              <div className="grid grid-cols-3 gap-1">
+                <button
+                  type="button"
+                  onClick={() => setCategoryFilter("all")}
+                  className={`rounded-lg py-1 text-[10px] font-bold transition-all ${
+                    categoryFilter === "all"
+                      ? "bg-[#38bdf8] text-[#09111c] shadow"
+                      : "bg-white/5 text-[#cbd5e1] hover:bg-white/10"
+                  }`}
+                >
+                  All ({allItems.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCategoryFilter("phones")}
+                  className={`rounded-lg py-1 text-[10px] font-bold transition-all ${
+                    categoryFilter === "phones"
+                      ? "bg-[#38bdf8] text-[#09111c] shadow"
+                      : "bg-white/5 text-[#cbd5e1] hover:bg-white/10"
+                  }`}
+                >
+                  📱 Showcase
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCategoryFilter("cases")}
+                  className={`rounded-lg py-1 text-[10px] font-bold transition-all ${
+                    categoryFilter === "cases"
+                      ? "bg-[#38bdf8] text-[#09111c] shadow"
+                      : "bg-white/5 text-[#cbd5e1] hover:bg-white/10"
+                  }`}
+                >
+                  🛡 Wall Cases
+                </button>
               </div>
-            );
-          })}
-        </div>
+            </div>
+
+            {/* Scrollable Item List with Purchase Buttons */}
+            <div className="p-2 overflow-y-auto space-y-1.5 max-h-[50vh]">
+              {allItems
+                .filter((item) => {
+                  if (categoryFilter === "phones") return item.category === "Phone";
+                  if (categoryFilter === "cases") return item.category === "Case";
+                  return true;
+                })
+                .map((item) => {
+                  const isOwned = purchasedIds.has(item.id);
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between rounded-xl bg-white/5 p-2 hover:bg-white/10 transition-colors border border-white/5"
+                    >
+                      <div className="min-w-0 pr-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs">{item.category === "Phone" ? "📱" : "🛡"}</span>
+                          <span className="truncate text-xs font-bold text-white">{item.name}</span>
+                        </div>
+                        <p className="text-[10px] text-[#94a3b8] truncate">{item.colorName} · {item.specs}</p>
+                        <p className="text-xs font-extrabold text-[#e0b15a] mt-0.5">{naira(item.price)}</p>
+                      </div>
+
+                      <div className="shrink-0 flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setInspectedItem(item)}
+                          className="rounded-lg bg-white/10 px-2 py-1 text-[10px] font-semibold text-[#cbd5e1] hover:bg-white/20"
+                        >
+                          Inspect
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handlePurchase(item)}
+                          className={`rounded-lg px-2 py-1 text-[10px] font-bold transition-all shadow ${
+                            isOwned
+                              ? "bg-[#16a34a] text-white"
+                              : "bg-[#e0b15a] text-[#0f172a] hover:bg-[#f2c14e] active:scale-95"
+                          }`}
+                        >
+                          {isOwned ? "✔ Owned" : "Purchase 💳"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </>
+        ) : null}
       </div>
 
       {/* Item Inspection & Direct Purchase Modal */}

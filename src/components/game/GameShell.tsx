@@ -368,7 +368,7 @@ function AccountPage({
           <div className="flex justify-between gap-3"><dt className="text-[#5d6b62]">Home</dt><dd className="text-right font-semibold">{home.name}</dd></div>
           <div className="flex justify-between gap-3"><dt className="text-[#5d6b62]">Dream</dt><dd className="text-right font-semibold">{dream?.name}</dd></div>
           <div className="flex justify-between gap-3"><dt className="text-[#5d6b62]">Work</dt><dd className="text-right font-semibold">{jobTitle(me)}</dd></div>
-          <div className="flex justify-between gap-3"><dt className="text-[#5d6b62]">Car</dt><dd className="text-right font-semibold">{me.hasCar ? "Yes" : "No"}</dd></div>
+          <div className="flex justify-between items-center gap-3"><dt className="text-[#5d6b62]">Car</dt><dd className="text-right font-semibold flex items-center justify-end gap-1.5">{me.hasCar ? <><img src="/cars/car.jpg" alt="Car" className="h-5 w-5 rounded-full object-cover border border-[#e0b15a]" /><span>Executive Sedan</span></> : <span>No</span>}</dd></div>
           <div className="flex justify-between gap-3"><dt className="text-[#5d6b62]">Start</dt><dd className="text-right font-semibold">{me.lottery === "heir" ? "Heir" : "Struggle"}</dd></div>
         </dl>
         <p className="mt-3 text-sm text-[#5d6b62]">{me.traits.map((id) => TRAITS.find((trait) => trait.id === id)?.name).join(" · ")}</p>

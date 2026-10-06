@@ -9,6 +9,7 @@ import { naira } from "@/lib/game/format";
 import type { LookId } from "@/lib/game/types";
 import { HeroesStadiumScene } from "./HeroesStadiumScene";
 import { PhoneStoreScene } from "./PhoneStoreScene";
+import { SchoolClassroomScene } from "./SchoolClassroomScene";
 
 export function PersonFigure({
   look,
@@ -984,15 +985,140 @@ function frontBoard(title: string, line: string, fill: string, ink: string) {
 
 function parkedCar(color: number, x: number, z: number, rot = Math.PI) {
   const car = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.48, 0.95), new THREE.MeshLambertMaterial({ color }));
-  body.position.y = 0.48;
-  const cabin = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.38, 0.78), new THREE.MeshLambertMaterial({ color: 0xd7e7f5 }));
-  cabin.position.set(-0.05, 0.86, 0);
-  car.add(body, cabin);
+
+  // Materials
+  const paintMat = new THREE.MeshLambertMaterial({ color });
+  const darkChassisMat = new THREE.MeshLambertMaterial({ color: 0x111827 });
+  const glassMat = new THREE.MeshLambertMaterial({ color: 0x1e293b });
+  const chromeMat = new THREE.MeshLambertMaterial({ color: 0xf1f5f9 });
+  const tireMat = new THREE.MeshLambertMaterial({ color: 0x18181b });
+  const rimMat = new THREE.MeshLambertMaterial({ color: 0xe2e8f0 });
+  const headlightMat = new THREE.MeshBasicMaterial({ color: 0xf8fafc });
+  const taillightMat = new THREE.MeshBasicMaterial({ color: 0xdc2626 });
+
+  // 1. Lower Chassis & Underbody
+  const underbody = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.16, 1.08), darkChassisMat);
+  underbody.position.y = 0.22;
+  car.add(underbody);
+
+  // 2. Main Sculpted Body
+  // Central cabin lower base
+  const centerBody = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.42, 1.12), paintMat);
+  centerBody.position.set(0, 0.44, 0);
+  car.add(centerBody);
+
+  // Front hood / bonnet (sloping down toward front)
+  const hood = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.36, 1.08), paintMat);
+  hood.position.set(0.82, 0.4, 0);
+  car.add(hood);
+
+  // Front bumper / splitter
+  const frontBumper = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.3, 1.1), paintMat);
+  frontBumper.position.set(1.24, 0.32, 0);
+  car.add(frontBumper);
+
+  // Rear trunk
+  const trunk = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.38, 1.08), paintMat);
+  trunk.position.set(-0.84, 0.42, 0);
+  car.add(trunk);
+
+  // Rear bumper
+  const rearBumper = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.32, 1.1), paintMat);
+  rearBumper.position.set(-1.22, 0.33, 0);
+  car.add(rearBumper);
+
+  // 3. Cabin & Aerodynamic Glasshouse
+  // Roof
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.06, 0.92), paintMat);
+  roof.position.set(-0.06, 0.88, 0);
+  car.add(roof);
+
+  // Tinted cabin glasshouse
+  const glasshouse = new THREE.Mesh(new THREE.BoxGeometry(1.12, 0.36, 0.94), glassMat);
+  glasshouse.position.set(-0.06, 0.68, 0);
+  car.add(glasshouse);
+
+  // Raked front windshield
+  const windshield = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.42, 0.92), glassMat);
+  windshield.position.set(0.5, 0.7, 0);
+  windshield.rotation.z = -0.72;
+  car.add(windshield);
+
+  // Sloped rear window
+  const rearWindow = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.38, 0.92), glassMat);
+  rearWindow.position.set(-0.62, 0.7, 0);
+  rearWindow.rotation.z = 0.7;
+  car.add(rearWindow);
+
+  // Window pillars (A pillars)
+  const pillarA1 = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.38, 0.04), paintMat);
+  pillarA1.position.set(0.48, 0.7, 0.46);
+  pillarA1.rotation.z = -0.72;
+  const pillarA2 = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.38, 0.04), paintMat);
+  pillarA2.position.set(0.48, 0.7, -0.46);
+  pillarA2.rotation.z = -0.72;
+  car.add(pillarA1, pillarA2);
+
+  // 4. Wheels with Realistic Rubber Tires & 5-Spoke Alloy Rims
+  const wheelGeom = new THREE.CylinderGeometry(0.24, 0.24, 0.16, 16);
+  wheelGeom.rotateX(Math.PI / 2);
+  const rimGeom = new THREE.CylinderGeometry(0.16, 0.16, 0.17, 12);
+  rimGeom.rotateX(Math.PI / 2);
+  const capGeom = new THREE.CylinderGeometry(0.05, 0.05, 0.18, 8);
+  capGeom.rotateX(Math.PI / 2);
+
+  const wheelPositions: [number, number, number][] = [
+    [0.72, 0.24, 0.54],
+    [0.72, 0.24, -0.54],
+    [-0.72, 0.24, 0.54],
+    [-0.72, 0.24, -0.54],
+  ];
+
+  wheelPositions.forEach(([wx, wy, wz]) => {
+    const tire = new THREE.Mesh(wheelGeom, tireMat);
+    tire.position.set(wx, wy, wz);
+    const rim = new THREE.Mesh(rimGeom, rimMat);
+    rim.position.set(wx, wy, wz);
+    const cap = new THREE.Mesh(capGeom, chromeMat);
+    cap.position.set(wx, wy, wz);
+    car.add(tire, rim, cap);
+  });
+
+  // 5. Front Headlights & Radiator Grille
+  const hlRight = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.26), headlightMat);
+  hlRight.position.set(1.34, 0.42, 0.38);
+  const hlLeft = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.26), headlightMat);
+  hlLeft.position.set(1.34, 0.42, -0.38);
+  car.add(hlRight, hlLeft);
+
+  // Radiator grille with chrome surround
+  const grille = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.18, 0.48), darkChassisMat);
+  grille.position.set(1.34, 0.34, 0);
+  const emblem = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.06, 0.06), chromeMat);
+  emblem.position.set(1.37, 0.35, 0);
+  car.add(grille, emblem);
+
+  // 6. Rear Taillights & License Plate
+  const tlRight = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.08, 0.28), taillightMat);
+  tlRight.position.set(-1.32, 0.44, 0.36);
+  const tlLeft = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.08, 0.28), taillightMat);
+  tlLeft.position.set(-1.32, 0.44, -0.36);
+  const plate = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.08, 0.24), new THREE.MeshBasicMaterial({ color: 0x15803d }));
+  plate.position.set(-1.33, 0.3, 0);
+  car.add(tlRight, tlLeft, plate);
+
+  // 7. Side Mirrors
+  const mirrorR = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.08, 0.12), paintMat);
+  mirrorR.position.set(0.38, 0.65, 0.58);
+  const mirrorL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.08, 0.12), paintMat);
+  mirrorL.position.set(0.38, 0.65, -0.58);
+  car.add(mirrorR, mirrorL);
+
   car.position.set(x, 0, z);
   car.rotation.y = rot;
   return car;
 }
+
 
 const PHONE_SHOPS = new Set(["anonymous-gadgets", "sugar-gadgets", "buc-phones", "elion-phones", "ocha-gadgets", "maxii-gadgets", "easy-life", "gadgets-plug"]);
 
@@ -2124,6 +2250,8 @@ export function VenueInterior({
           <HeroesStadiumScene look={look} username={username} />
         ) : PHONE_SHOPS.has(place.id) ? (
           <PhoneStoreScene look={look} title={place.name} placeId={place.id} />
+        ) : place.kind === "school" ? (
+          <SchoolClassroomScene look={look} title={place.name} placeId={place.id} username={username} />
         ) : (
           <>
             <RoomScene look={look} kind={place.kind} people={people} besideId={besideId} selfId={selfId} onPick={onPickPerson} walkers={walkers} />
@@ -2275,9 +2403,21 @@ export function VenueInterior({
           </button>
         ) : null}
         {place.id === "car-stand" ? (
-          <button type="button" disabled={pending || hasCar || !onBuyCar} onClick={onBuyCar} className="rounded-full bg-[#143d2c] py-2 text-xs font-semibold text-white disabled:opacity-40">
-            {hasCar ? "You have a car" : `Buy a car · ${naira(CAR_PRICE)}`}
-          </button>
+          <div className="flex items-center gap-3 rounded-2xl bg-black/40 border border-[#e0b15a]/40 p-2.5 backdrop-blur-md">
+            <img src="/cars/car.jpg" alt="Executive Sedan" className="h-12 w-12 rounded-xl object-cover border border-[#e0b15a] shadow" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-white">Executive Luxury Sedan</p>
+              <p className="text-[10px] text-[#cbd5e1]">Owerri Big Boy Spec · Smooth Drive</p>
+              <button
+                type="button"
+                disabled={pending || hasCar || !onBuyCar}
+                onClick={onBuyCar}
+                className="mt-1 w-full rounded-full bg-[#143d2c] py-1.5 text-xs font-semibold text-white disabled:opacity-40 hover:bg-[#1a513b] transition-all"
+              >
+                {hasCar ? "✔ You Own This Car" : `Buy a Car · ${naira(CAR_PRICE)} 🚗`}
+              </button>
+            </div>
+          </div>
         ) : null}
         {extra}
         {onApply ? (
