@@ -514,8 +514,8 @@ export const PLACES: Place[] = [
     y: 38,
     hours: "Always open",
     tier: "Public",
-    summary: "The open square on Wetheral, beside Dan Anyiam Stadium. Rallies, hangouts, and evening crowds.",
-    activities: ["Hang out"],
+    summary: "The iconic stadium arena on Wetheral Road. Full football pitch, athletics track, grandstands, floodlights, matchdays, and evening rallies.",
+    activities: ["Hang out", "Watch Match", "Run Track"],
   },
   {
     id: "mbari",

@@ -7,6 +7,8 @@ import { CAR_PRICE, DORIME_AMOUNTS, FURNITURE, LOOKS, TREATMENT_FEE, npcsAt, pla
 import type { Place } from "@/lib/game/content";
 import { naira } from "@/lib/game/format";
 import type { LookId } from "@/lib/game/types";
+import { HeroesStadiumScene } from "./HeroesStadiumScene";
+import { PhoneStoreScene } from "./PhoneStoreScene";
 
 export function PersonFigure({
   look,
@@ -1072,13 +1074,69 @@ function BuildingFront({ placeId, look }: { placeId: string; look: LookId }) {
       tree(-16, 6);
       tree(16, 6);
       me.position.set(0.4, 0, 12);
+    } else if (place.id === "heroes-square") {
+      add(piece(0xc8d7b0, 36, 0.12, 28, 0, 0.06, 0));
+      // Paved forecourt plaza
+      add(piece(0xd5d3c8, 30, 0.14, 16, 0, 0.08, 4));
+      // Curved / faceted stadium outer wall
+      add(piece(0xe7e2d6, 26, 6.5, 12, 0, 3.25, -5));
+      // Accent blue/green stadium band
+      add(piece(0x1d4a66, 26.4, 0.8, 12.4, 0, 5.8, -5));
+      // Grand cantilevered roof canopy visible from outside
+      add(piece(0xf7fbfc, 28, 0.4, 14, 0, 7.2, -4));
+      // Arched grand stadium entrance portal
+      add(piece(0x1d4a66, 10, 4.8, 2, 0, 2.4, 1.2));
+      add(piece(0x0c1e28, 8, 3.8, 2.2, 0, 1.9, 1.2));
+      sign("IMO HEROES SQUARE", "DAN ANYIAM STADIUM COMPLEX", 0, 4.4, 2.25, 9.2, 1.4, "#0e2938", "#f2c14e");
+      // Turnstiles / gates
+      for (const gx of [-3, -1, 1, 3]) {
+        add(piece(0xe0b15a, 0.1, 2.2, 0.1, gx, 1.1, 2.3));
+      }
+      // Towering floodlight pylons on left and right
+      for (const lx of [-14, 14]) {
+        add(piece(0x718096, 0.6, 14, 0.6, lx, 7, -8));
+        add(piece(0x2d3748, 3.2, 1.6, 0.4, lx, 14.5, -8));
+        for (let row = 0; row < 2; row++) {
+          for (let col = 0; col < 4; col++) {
+            const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 6), new THREE.MeshBasicMaterial({ color: 0xfffde8 }));
+            bulb.position.set(lx - 1.2 + col * 0.8, 14.2 + row * 0.6, -7.7);
+            add(bulb);
+          }
+        }
+      }
+      // Flagpoles with Nigerian and Imo flags
+      add(piece(0xd1d5db, 0.1, 7, 0.1, -6, 3.5, 4));
+      add(piece(0x1f6b45, 1.4, 0.9, 0.04, -5.3, 6.2, 4));
+      add(piece(0xd1d5db, 0.1, 7, 0.1, 6, 3.5, 4));
+      add(piece(0x1d4a66, 1.4, 0.9, 0.04, 6.7, 6.2, 4));
+      // Team bus / parked cars
+      const bus = new THREE.Group();
+      bus.add(piece(0xc42032, 4.4, 1.4, 1.6, 0, 0.8, 0));
+      bus.add(piece(0x1a202c, 4.45, 0.35, 1.65, 0, 0.95, 0));
+      bus.add(piece(0xd7e7f5, 4.2, 0.5, 1.5, 0, 1.15, 0));
+      bus.position.set(-8, 0, 6.5);
+      add(bus);
+      add(parkedCar(0xf7fbfc, 7, 6.5, 0));
+      add(parkedCar(0x245c78, 10.5, 6.5, 0));
+      me.position.set(0, 0, 6.5);
     } else if (PHONE_SHOPS.has(place.id)) {
-      add(piece(0xd7d3cc, 10, 0.1, 7, 0, 0.06, 0));
-      add(piece(0xf7f1e6, 6.4, 3.2, 3.4, 0, 1.7, -0.4));
-      add(piece(0x17241e, 6.6, 0.28, 3.6, 0, 3.4, -0.4));
-      add(piece(0x9fd0ea, 4.2, 1.6, 0.08, 0, 1.8, 1.35));
-      sign(place.name, "TETLOW ROAD", 0, 2.8, 1.4, 4.8, 1.1, "#143d2c", "#f6f1e6");
-      me.position.set(0.2, 0, 3.2);
+      add(piece(0xd7d3cc, 12, 0.1, 9, 0, 0.06, 0));
+      // Modern storefront building
+      add(piece(0x0f172a, 8, 3.8, 4.2, 0, 1.9, -0.6));
+      add(piece(0x38bdf8, 8.2, 0.18, 4.4, 0, 3.85, -0.6));
+      // Large illuminated glass display windows
+      add(piece(0x93c5fd, 3.2, 2.2, 0.08, -1.8, 1.6, 1.52));
+      add(piece(0x93c5fd, 3.2, 2.2, 0.08, 1.8, 1.6, 1.52));
+      // Display showcases visible through windows inside
+      add(piece(0x1e293b, 2.8, 0.8, 0.6, -1.8, 0.8, 1.1));
+      add(piece(0x1e293b, 2.8, 0.8, 0.6, 1.8, 0.8, 1.1));
+      // Mini phones & cases visible in window display
+      for (let i = 0; i < 3; i++) {
+        add(piece(0x38bdf8, 0.18, 0.32, 0.04, -2.4 + i * 0.6, 1.35, 1.1));
+        add(piece([0xef4444, 0xfacc15, 0xa855f7][i], 0.18, 0.32, 0.04, 1.2 + i * 0.6, 1.35, 1.1));
+      }
+      sign(place.name, "PHONES · CASES · ACCESSORIES", 0, 3.2, 1.55, 6.4, 1.3, "#090d16", "#38bdf8");
+      me.position.set(0.2, 0, 3.6);
     } else if (place.id === "everyday") {
       add(piece(0xd7d3cc, 22, 0.12, 16, 0, 0.06, 0));
       add(piece(0xf7fbfc, 16, 4.6, 7, 0, 2.4, -1));
@@ -2062,8 +2120,10 @@ export function VenueInterior({
           <CathedralNave look={look} />
         ) : place.id === "everyday" ? (
           <EverydayAisle look={look} />
+        ) : place.id === "heroes-square" ? (
+          <HeroesStadiumScene look={look} username={username} />
         ) : PHONE_SHOPS.has(place.id) ? (
-          <PhoneCounter look={look} title={place.name} />
+          <PhoneStoreScene look={look} title={place.name} placeId={place.id} />
         ) : (
           <>
             <RoomScene look={look} kind={place.kind} people={people} besideId={besideId} selfId={selfId} onPick={onPickPerson} walkers={walkers} />

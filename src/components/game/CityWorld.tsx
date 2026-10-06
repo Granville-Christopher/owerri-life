@@ -1141,14 +1141,53 @@ export function CityWorld({
 
     function heroesYard(x: number, z: number) {
       const group = new THREE.Group();
-      group.add(block(30, 0.12, 24, 0xe7e2d6, 0, 0.1, 0));
-      fence(group, 30, 24, 1.8, 0xd9cfc0);
-      group.add(block(2.2, 7.2, 2.2, 0xf7f1e6, 0, 3.7, 0));
-      group.add(block(3.4, 0.4, 3.4, 0xe0b15a, 0, 7.4, 0));
-      group.add(block(8, 0.08, 6, 0x3d8a4a, -8, 0.2, -6));
-      group.add(block(8, 0.08, 6, 0x3d8a4a, 8, 0.2, -6));
-      group.add(block(8, 0.08, 6, 0x3d8a4a, -8, 0.2, 6));
-      group.add(block(8, 0.08, 6, 0x3d8a4a, 8, 0.2, 6));
+      // Ground base
+      group.add(block(36, 0.12, 28, 0xd8d4cb, 0, 0.08, 0));
+      // Red running track oval
+      group.add(block(26, 0.14, 18, 0xa83b24, 0, 0.12, 0));
+      // Green football pitch in center
+      group.add(block(18, 0.16, 12, 0x2e7d32, 0, 0.14, 0));
+      // Pitch markings (white strips)
+      group.add(block(0.18, 0.18, 12, 0xffffff, 0, 0.15, 0)); // Halfway line
+      group.add(block(18, 0.18, 0.18, 0xffffff, 0, 0.15, -6)); // Touchline N
+      group.add(block(18, 0.18, 0.18, 0xffffff, 0, 0.15, 6)); // Touchline S
+      group.add(block(0.18, 0.18, 12, 0xffffff, -9, 0.15, 0)); // Goal line W
+      group.add(block(0.18, 0.18, 12, 0xffffff, 9, 0.15, 0)); // Goal line E
+
+      // Stepped stadium grandstands surrounding the pitch:
+      // North & South stands (along X axis):
+      for (let step = 0; step < 4; step++) {
+        const h = 0.7 + step * 0.65;
+        const col = step % 2 === 0 ? 0x1d4a66 : 0x1f6b45;
+        group.add(block(24 + step * 1.5, 0.55, 1.3, col, 0, h, -(9.5 + step * 1.3)));
+        group.add(block(24 + step * 1.5, 0.55, 1.3, col, 0, h, 9.5 + step * 1.3));
+      }
+      // East & West stands (along Z axis):
+      for (let step = 0; step < 4; step++) {
+        const h = 0.7 + step * 0.65;
+        const col = step % 2 === 0 ? 0x1d4a66 : 0xf2c14e;
+        group.add(block(1.3, 0.55, 18 + step * 1.5, col, 13.5 + step * 1.3, h, 0));
+        group.add(block(1.3, 0.55, 18 + step * 1.5, col, -(13.5 + step * 1.3), h, 0));
+      }
+
+      // VIP grandstand roof canopy arching over the West stand
+      group.add(block(5, 0.35, 24, 0xf8fafc, -15.5, 4.2, 0));
+      group.add(block(0.35, 4.2, 0.35, 0x64748b, -17.5, 2.1, -9));
+      group.add(block(0.35, 4.2, 0.35, 0x64748b, -17.5, 2.1, 9));
+
+      // 4 Corner floodlight towers
+      for (const [lx, lz] of [[-16, -13], [16, -13], [-16, 13], [16, 13]]) {
+        group.add(block(0.65, 8.5, 0.65, 0x475569, lx, 4.25, lz));
+        group.add(block(2.2, 1.1, 0.45, 0x1e293b, lx, 8.8, lz));
+        const head = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.7, 0.25), new THREE.MeshBasicMaterial({ color: 0xfffde8 }));
+        head.position.set(lx, 8.8, lz + (lz > 0 ? -0.25 : 0.25));
+        group.add(head);
+      }
+
+      // Stadium entry portal and sign
+      group.add(block(7, 2.8, 1.6, 0x1d4a66, 0, 1.4, 14.8));
+      group.add(block(8, 0.45, 2.0, 0xe0b15a, 0, 3.0, 14.8));
+
       group.position.set(x, 0, z);
       scene.add(group);
       return group;
@@ -1517,6 +1556,28 @@ export function CityWorld({
       return group;
     }
 
+    function phoneShopfront(x: number, z: number) {
+      const group = new THREE.Group();
+      // Tech facade building
+      group.add(block(4.2, 2.4, 3.0, 0x0f172a, 0, 1.2, 0));
+      // Modern roof parapet with neon line
+      group.add(block(4.4, 0.16, 3.2, 0x38bdf8, 0, 2.48, 0));
+      // Illuminated glass display window in front
+      group.add(block(3.4, 1.4, 0.1, 0x38bdf8, 0, 1.1, 1.55));
+      // Display showcase inside the window
+      group.add(block(3.0, 0.65, 0.4, 0x1e293b, 0, 0.65, 1.3));
+      // Phones & cases visible in showcase
+      for (let i = 0; i < 3; i++) {
+        group.add(block(0.2, 0.35, 0.05, 0xffffff, -1.0 + i * 0.5, 1.15, 1.3));
+        group.add(block(0.2, 0.35, 0.05, [0xef4444, 0xfacc15, 0xa855f7][i], 0.2 + i * 0.5, 1.15, 1.3));
+      }
+      // Marquee tech sign above window
+      group.add(block(3.6, 0.5, 0.14, 0x1d4ed8, 0, 2.05, 1.56));
+      group.position.set(x, 0, z);
+      scene.add(group);
+      return group;
+    }
+
     function footHits(x: number, z: number, hx: number, hz: number) {
       for (const dx of [-hx, 0, hx]) {
         for (const dz of [-hz, 0, hz]) {
@@ -1678,9 +1739,9 @@ export function CityWorld({
         group = cathedralYard(at.x, at.z);
         labelY = 20;
       } else if (phoneShops.has(place.id)) {
-        group = shopfront(at.x, at.z);
+        group = phoneShopfront(at.x, at.z);
         group.rotation.y = tetlowAxis === "z" ? (at.x >= tetlowFixed ? -Math.PI / 2 : Math.PI / 2) : at.z >= tetlowFixed ? Math.PI : 0;
-        labelY = 3.4;
+        labelY = 3.6;
       } else if (place.id === "everyday") {
         group = groceryYard(at.x, at.z);
         labelY = 6.4;
