@@ -520,35 +520,34 @@ export function OwerriMarketScene({
         ) : null}
       </div>
 
-      {/* Mobile-Friendly Camera Presets (Bottom Center) */}
-      <div className="absolute inset-x-2 sm:inset-x-3 bottom-3 z-30 mx-auto flex max-w-sm sm:max-w-md items-center justify-center gap-1 rounded-2xl bg-[#09111c]/90 border border-white/10 p-1 backdrop-blur-md">
+      <div className="absolute left-2 top-1/2 z-30 flex -translate-y-1/2 flex-col gap-1 rounded-2xl border border-white/10 bg-[#09111c]/90 p-1 backdrop-blur-md">
         <button
           type="button"
           onClick={() => setViewPreset("player")}
-          className="flex-1 rounded-xl py-1 text-[10px] sm:text-[11px] font-bold text-[#cbd5e1] hover:bg-white/10 transition-all active:scale-95 text-center"
+          className="rounded-lg px-1.5 py-1 text-center text-[9px] font-bold leading-tight text-[#cbd5e1] transition-all hover:bg-white/10 active:scale-95 sm:px-2.5 sm:py-1.5 sm:text-[11px]"
         >
-          🛒 My Cart
+          🛒 Cart
         </button>
         <button
           type="button"
           onClick={() => setViewPreset("food")}
-          className="flex-1 rounded-xl py-1 text-[10px] sm:text-[11px] font-bold text-[#cbd5e1] hover:bg-white/10 transition-all active:scale-95 text-center"
+          className="rounded-lg px-1.5 py-1 text-center text-[9px] font-bold leading-tight text-[#cbd5e1] transition-all hover:bg-white/10 active:scale-95 sm:px-2.5 sm:py-1.5 sm:text-[11px]"
         >
-          🍠 Yams &amp; Fish
+          🍠 Food
         </button>
         <button
           type="button"
           onClick={() => setViewPreset("overview")}
-          className="flex-1 rounded-xl py-1 text-[10px] sm:text-[11px] font-bold text-[#e0b15a] bg-white/10 transition-all active:scale-95 text-center"
+          className="rounded-lg bg-white/10 px-1.5 py-1 text-center text-[9px] font-bold leading-tight text-[#e0b15a] transition-all active:scale-95 sm:px-2.5 sm:py-1.5 sm:text-[11px]"
         >
           🏪 Stalls
         </button>
         <button
           type="button"
           onClick={() => setViewPreset("topdown")}
-          className="flex-1 rounded-xl py-1 text-[10px] sm:text-[11px] font-bold text-[#cbd5e1] hover:bg-white/10 transition-all active:scale-95 text-center"
+          className="rounded-lg px-1.5 py-1 text-center text-[9px] font-bold leading-tight text-[#cbd5e1] transition-all hover:bg-white/10 active:scale-95 sm:px-2.5 sm:py-1.5 sm:text-[11px]"
         >
-          🦅 Top-Down
+          🦅 Top
         </button>
       </div>
 

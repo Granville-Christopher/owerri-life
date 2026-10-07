@@ -686,7 +686,7 @@ export function HeroesStadiumScene({
       </div>
 
       {/* Floating Stand Actions (Positioned above camera bar) */}
-      <div className="absolute right-2.5 sm:right-3 bottom-14 z-30 flex items-center gap-1.5">
+      <div className="absolute bottom-24 right-2.5 z-30 flex items-center gap-1.5 sm:right-3">
         <button
           type="button"
           onClick={handleChant}
@@ -707,8 +707,7 @@ export function HeroesStadiumScene({
         </button>
       </div>
 
-      {/* Responsive Camera Presets (Bottom Center) */}
-      <div className="absolute inset-x-2 sm:inset-x-3 bottom-3 z-30 mx-auto flex max-w-sm sm:max-w-md items-center justify-center gap-1 rounded-2xl bg-[#091e2b]/90 border border-white/10 p-1 backdrop-blur-md">
+      <div className="absolute left-2 top-1/2 z-30 flex -translate-y-1/2 flex-col gap-1 rounded-2xl border border-white/10 bg-[#091e2b]/90 p-1 backdrop-blur-md">
         {(
           [
             ["seat", "👑 VIP", "👑 My VIP Seat"],
@@ -721,9 +720,9 @@ export function HeroesStadiumScene({
             key={key}
             type="button"
             onClick={() => setCameraView(key)}
-            className={`flex-1 rounded-xl py-1 text-[10px] sm:text-[11px] font-semibold transition-all active:scale-95 text-center ${
+            className={`rounded-lg px-1.5 py-1 text-center text-[9px] font-semibold leading-tight transition-all active:scale-95 sm:px-2.5 sm:py-1.5 sm:text-[11px] ${
               cameraView === key
-                ? "bg-[#e0b15a] text-[#0f172a] font-bold shadow"
+                ? "bg-[#e0b15a] font-bold text-[#0f172a] shadow"
                 : "text-[#d1d5db] hover:bg-white/10"
             }`}
           >
