@@ -7,6 +7,7 @@ import { Avatar } from "@/components/Avatar";
 import { InstallButton } from "@/components/InstallApp";
 import { CityWorld } from "@/components/game/CityWorld";
 import { ArrivalScene, HouseRoom, VenueInterior } from "@/components/game/scenes";
+import { RideScene } from "@/components/game/RideScene";
 import {
   acceptFriendRequest,
   addFriend,
@@ -65,7 +66,7 @@ import { BET_STAKES, CAREERS, DREAMS, HOMES, LANDS, NPCS, PLACES, TOP_UPS, TRAIT
 import { POLICE_ID, multiplyOdds, travelOptions } from "@/lib/game/engine";
 import { clockLabel, dreamProgress, jobTitle, levelPay, moodLabel, naira, skillLabel, skillNeeded, weekday } from "@/lib/game/format";
 import type { GameView, PersonCard } from "@/lib/game/queries";
-import type { BetPick, WorkStyle } from "@/lib/game/types";
+import type { BetPick, TravelMode, WorkStyle } from "@/lib/game/types";
 
 type Run = (
   work: () => Promise<{ ok: true; notice?: string } | { ok: false; error: string }>,
@@ -81,9 +82,14 @@ const styles: Array<{ id: WorkStyle; name: string; detail: string }> = [
   { id: "leave", name: "Leave early", detail: "Half pay, four hours." },
 ];
 
+function driven(mode: TravelMode) {
+  return mode === "bus" || mode === "car" || mode === "cab";
+}
+
 export function GameShell({ view }: { view: GameView }) {
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>("home");
+  const [tab, setTab] = useState<Tab>(view.me.indoors ? "map" : "home");
+  const [ride, setRide] = useState<null | { placeId: string; mode: TravelMode; vehicle: "car" | "bus"; then: "map" | "home" }>(null);
   const [toast, setToast] = useState<{ id: number; text: string; bad: boolean } | null>(null);
   const [chatWith, setChatWith] = useState<string | null>(null);
   const [personId, setPersonId] = useState<string | null>(null);
@@ -105,6 +111,19 @@ export function GameShell({ view }: { view: GameView }) {
           resolve(failed);
         }
       });
+    });
+  }
+
+  function beginRide(placeId: string, mode: TravelMode, then: "map" | "home") {
+    setRide({ placeId, mode, vehicle: mode === "bus" ? "bus" : "car", then });
+  }
+
+  function finishRide() {
+    if (!ride) return;
+    const plan = ride;
+    setRide(null);
+    run(() => go(plan.placeId, plan.mode)).then((result) => {
+      if (result.ok) setTab(plan.then);
     });
   }
 
@@ -166,7 +185,7 @@ export function GameShell({ view }: { view: GameView }) {
         ) : null}
         <main className={`absolute inset-0 ${!account && (tab === "home" || tab === "room" || tab === "map") ? "overflow-hidden" : !account && tab === "phone" ? "overflow-hidden px-3 pb-24 pt-[4.5rem]" : "overflow-y-auto px-4 pb-28 pt-20"}`}>
           {account ? <AccountPage view={view} pending={pending} run={run} onBack={() => setAccount(false)} /> : null}
-          {!account && tab === "home" ? <HomePanel view={view} run={run} pending={pending} onOpenMap={() => setTab("map")} onOpenRoom={() => { setRoomEntry("look"); setTab("room"); }} /> : null}
+          {!account && tab === "home" ? <HomePanel view={view} run={run} pending={pending} onOpenMap={() => setTab("map")} onOpenRoom={() => { setRoomEntry("look"); setTab("room"); }} onRide={beginRide} /> : null}
           {!account && tab === "room" ? (
             <HouseRoom
               name={homeById(me.homeId).name}
@@ -178,13 +197,43 @@ export function GameShell({ view }: { view: GameView }) {
               onBuy={(itemId) => run(() => buyFurniture(itemId))}
             />
           ) : null}
-          {!account && tab === "map" ? <MapPanel view={view} run={run} pending={pending} onOpen={setPersonId} onCity={() => setTab("home")} sheetRoot={phone} /> : null}
+          {!account && tab === "map" ? (
+            <MapPanel
+              view={view}
+              run={run}
+              pending={pending}
+              onOpen={setPersonId}
+              onGoHome={() => {
+                const home = homeById(me.homeId);
+                if (me.locationId === home.areaId) {
+                  setRoomEntry("look");
+                  setTab("room");
+                  return;
+                }
+                const options = travelOptions(me.locationId, home.areaId, me.hasCar, view.balance);
+                const rideOption = options.find((option) => driven(option.mode) && option.available && option.affordable) ?? options.find((option) => option.available && option.affordable);
+                if (!rideOption) {
+                  setTab("home");
+                  return;
+                }
+                if (driven(rideOption.mode)) {
+                  beginRide(home.areaId, rideOption.mode, "home");
+                  return;
+                }
+                run(() => go(home.areaId, rideOption.mode)).then((result) => {
+                  if (result.ok) setTab("home");
+                });
+              }}
+              sheetRoot={phone}
+            />
+          ) : null}
           {!account && tab === "phone" ? (
             <PhonePanel
               view={view}
               run={run}
               pending={pending}
               onArrived={() => setTab("map")}
+              onRide={(placeId, mode) => beginRide(placeId, mode, "map")}
               onOpen={setPersonId}
               onMeet={(id) => {
                 run(() => goMeet(id)).then((result) => {
@@ -266,6 +315,7 @@ export function GameShell({ view }: { view: GameView }) {
           <button type="button" className={`flex w-16 flex-col items-center gap-0.5 rounded-2xl px-2 py-1.5 ${!account && tab === "room" ? "bg-[#17241e] text-white" : "text-[#5d6b62]"}`} onClick={() => { setAccount(false); setRoomEntry("look"); setTab("room"); }}><span className="text-base leading-none">⌂</span>Home</button>
           <button type="button" className={`flex w-16 flex-col items-center gap-0.5 rounded-2xl px-2 py-1.5 ${!account && tab === "phone" ? "bg-[#17241e] text-white" : "text-[#5d6b62]"}`} onClick={() => { setAccount(false); setTab("phone"); }}><span className="text-base leading-none">▢</span>Phone</button>
         </nav>
+        {ride ? <RideScene vehicle={ride.vehicle} onArrive={finishRide} /> : null}
         {person ? (
           <PersonSheet
             person={person}
@@ -415,6 +465,7 @@ function PlaceTrip({
   run,
   onClose,
   onEntered,
+  onRide,
 }: {
   placeId: string;
   view: GameView;
@@ -422,6 +473,7 @@ function PlaceTrip({
   run: Run;
   onClose: () => void;
   onEntered: () => void;
+  onRide: (placeId: string, mode: TravelMode) => void;
 }) {
   const place = placeById(placeId);
   const here = place.id === view.me.locationId;
@@ -471,6 +523,11 @@ function PlaceTrip({
                 type="button"
                 disabled={pending || !option.available || !option.affordable}
                 onClick={() => {
+                  if (driven(option.mode)) {
+                    onClose();
+                    onRide(place.id, option.mode);
+                    return;
+                  }
                   run(() => go(place.id, option.mode)).then((result) => {
                     if (!result.ok) return;
                   });
@@ -492,7 +549,7 @@ function PlaceTrip({
   );
 }
 
-function HomePanel({ view, run, pending, onOpenMap, onOpenRoom }: { view: GameView; run: Run; pending: boolean; onOpenMap: () => void; onOpenRoom: () => void }) {
+function HomePanel({ view, run, pending, onOpenMap, onOpenRoom, onRide }: { view: GameView; run: Run; pending: boolean; onOpenMap: () => void; onOpenRoom: () => void; onRide: (placeId: string, mode: TravelMode, then: "map" | "home") => void }) {
   const router = useRouter();
   const me = view.me;
   const home = homeById(me.homeId);
@@ -526,7 +583,7 @@ function HomePanel({ view, run, pending, onOpenMap, onOpenRoom }: { view: GameVi
           {lifeOpen ? "Hide" : "Your life"}
         </button>
       </section>
-      {pickedPlace ? <PlaceTrip placeId={pickedPlace} view={view} pending={pending} run={run} onClose={() => setPickedPlace(null)} onEntered={onOpenMap} /> : null}
+      {pickedPlace ? <PlaceTrip placeId={pickedPlace} view={view} pending={pending} run={run} onClose={() => setPickedPlace(null)} onEntered={onOpenMap} onRide={(id, mode) => onRide(id, mode, "map")} /> : null}
       {lifeOpen ? <div className="absolute bottom-24 left-3 top-32 z-20 w-[min(24rem,calc(100%-1.5rem))] space-y-4 overflow-y-auto">
       <section className="rounded-[1.6rem] bg-[#143d2c] p-5 text-[#f6f1e6]">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#e0b15a]">{moodLabel(me.needs, me.sick)}</p>
@@ -628,7 +685,10 @@ function HomePanel({ view, run, pending, onOpenMap, onOpenRoom }: { view: GameVi
                 key={option.mode}
                 type="button"
                 disabled={pending || !option.available || !option.affordable}
-                onClick={() => run(() => go(home.areaId, option.mode))}
+                onClick={() => {
+                  if (driven(option.mode)) onRide(home.areaId, option.mode, "home");
+                  else run(() => go(home.areaId, option.mode));
+                }}
                 className="flex items-center justify-between rounded-2xl border border-[#e4d8c4] px-3 py-3 text-left text-sm disabled:opacity-40"
               >
                 <span>
@@ -669,14 +729,14 @@ function MapPanel({
   run,
   pending,
   onOpen,
-  onCity,
+  onGoHome,
   sheetRoot,
 }: {
   view: GameView;
   run: Run;
   pending: boolean;
   onOpen: (id: string) => void;
-  onCity: () => void;
+  onGoHome: () => void;
   sheetRoot: HTMLDivElement | null;
 }) {
   const [visit, setVisit] = useState(0);
@@ -769,7 +829,7 @@ function MapPanel({
               if (result.ok && entering.kind === "school" && !already) setVisit((value) => value + 1);
             });
           }}
-          onLeave={onCity}
+          onLeave={onGoHome}
         />
       )}
       {view.me.indoors && !view.me.school && placeById(view.me.locationId).kind === "school" && visit !== closedVisit && sheetRoot
@@ -889,6 +949,7 @@ function PhonePanel({
   run,
   pending,
   onArrived,
+  onRide,
   onOpen,
   onMeet,
 }: {
@@ -896,6 +957,7 @@ function PhonePanel({
   run: Run;
   pending: boolean;
   onArrived: () => void;
+  onRide: (placeId: string, mode: TravelMode) => void;
   onOpen: (id: string) => void;
   onMeet: (id: string) => void;
 }) {
@@ -1138,6 +1200,11 @@ function PhonePanel({
                     type="button"
                     disabled={pending || !option.available || !option.affordable}
                     onClick={() => {
+                      if (driven(option.mode)) {
+                        setPicked(null);
+                        onRide(farePlace.id, option.mode);
+                        return;
+                      }
                       run(() => go(farePlace.id, option.mode)).then((result) => {
                         if (result.ok) onArrived();
                       });

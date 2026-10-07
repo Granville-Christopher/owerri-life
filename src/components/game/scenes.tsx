@@ -1361,6 +1361,30 @@ function BuildingFront({ placeId, look }: { placeId: string; look: LookId }) {
       sign(place.name, "HOSPITAL", -1, 3.3, 1.12, 4.8, 1.2, "#f7fbfc", "#c4552a");
       add(parkedCar(0xf7fbfc, 6, 6.4, 0.4));
       me.position.set(0.6, 0, 4);
+    } else if (place.id === "crunchies") {
+      add(piece(0xe7dcc8, 20, 0.12, 16, 0, 0.06, 0));
+      add(piece(0xc4552a, 12, 5.2, 7, 0, 2.7, -1));
+      add(piece(0xf2c14e, 12.6, 0.35, 7.4, 0, 5.45, -1));
+      add(piece(0xfff6d8, 8, 2.2, 0.08, 0, 2.5, 2.55));
+      add(piece(0x1a140c, 1.6, 2.4, 0.08, 0, 1.3, 2.58));
+      sign("CRUNCHIES", "FRIED CHICKEN", 0, 4.2, 2.62, 6.4, 1.3, "#17241e", "#f2c14e");
+      add(piece(0xc4552a, 5, 0.12, 2.4, 0, 2.1, 4.4));
+      [0x17241e, 0xf7fbfc, 0x245c78].forEach((color, index) => add(parkedCar(color, -5 + index * 4, 6.2)));
+      me.position.set(0.4, 0, 3.4);
+    } else if (place.id === "mbari") {
+      add(piece(0xd7e0c8, 26, 0.12, 20, 0, 0.06, 0));
+      add(piece(0xf7f1e6, 16, 6.2, 9, 0, 3.2, -1.4));
+      add(piece(0x1f6b45, 16.6, 0.35, 9.4, 0, 6.45, -1.4));
+      add(piece(0xe0b15a, 0.7, 6.6, 0.7, -6.6, 3.3, 3.2));
+      add(piece(0xe0b15a, 0.7, 6.6, 0.7, 6.6, 3.3, 3.2));
+      add(piece(0x8ec4de, 10, 2.4, 0.08, 0, 3.1, 3.2));
+      add(piece(0x1a140c, 1.8, 2.5, 0.08, 0, 1.3, 3.22));
+      sign("MBARI", "ART CENTRE", 0, 5.1, 3.24, 6.8, 1.4, "#143d2c", "#f6f1e6");
+      add(piece(0xc4552a, 4, 0.1, 3, -7, 0.16, 6.4));
+      add(piece(0x245c78, 4, 0.1, 3, 7, 0.16, 6.4));
+      tree(-10, 2);
+      tree(10, 2);
+      me.position.set(0.3, 0, 5);
     } else if (place.kind === "food") {
       add(piece(0xe7dcc8, 26, 0.12, 20, 0, 0.06, 0));
       add(piece(0xf7f1e6, 12, 5.4, 6, 0, 2.7, -2));
@@ -1538,7 +1562,7 @@ export function ArrivalScene({
           onClick={onLeave}
           className="flex-1 rounded-full bg-[#0e1c16]/80 py-3 text-sm font-semibold text-white disabled:opacity-40"
         >
-          Leave
+          Go home
         </button>
       </div>
     </section>

@@ -478,7 +478,7 @@ export function CityWorld({
     const markets = new Set(["eke-ukwu", "relief-market", "ikenegbu-market", "owerri-mall"]);
     const restaurants = new Set(["donalds", "dominos", "cold-stone", "kilimanjaro", "november-5", "mangrove-grill", "josephs-pot", "the-warehouse"]);
     const landmark = new Set(["sam-mbakwe", "state-cid", "imsu", "futo", "fedpoly-nekede", "eke-ukwu", "relief-market", "ikenegbu-market", "owerri-mall", "heroes-square", "cartel-beach", "heartland-resort", "nworie-park", "amusement-park", "city-bank", "teaching-hospital", "general-hospital", "umezuruike-hospital", "st-davids", "shelly-hospital", "imo-specialist"]);
-    const roadside = new Set(["mama-nkechi", "feedwell", "crunchies"]);
+    const roadside = new Set(["mama-nkechi", "feedwell"]);
     const phoneShops = new Set(["anonymous-gadgets", "sugar-gadgets", "buc-phones", "elion-phones", "ocha-gadgets", "maxii-gadgets", "easy-life", "gadgets-plug"]);
     const pinned = new Set(["car-stand", "assumpta-cathedral", "everyday", "wetheral-strip", ...phoneShops]);
     const hotels = new Set(PLACES.filter((place) => place.kind === "hotel").map((place) => place.id));
@@ -731,6 +731,10 @@ export function CityWorld({
         parkOffRoad(strip, 20, 16);
       }
     }
+    const crunch = laid.get("crunchies");
+    const gallery = laid.get("mbari");
+    if (crunch) parkOffRoad(crunch, 10, 8);
+    if (gallery) parkOffRoad(gallery, 12, 9);
     const airportAt = laid.get("sam-mbakwe");
     function nearAirport(x: number, z: number) {
       if (!airportAt) return false;
@@ -1423,6 +1427,42 @@ export function CityWorld({
       return group;
     }
 
+    function crunchiesYard(x: number, z: number) {
+      const group = new THREE.Group();
+      group.add(block(18, 0.12, 14, 0xe7dcc8, 0, 0.08, 0));
+      group.add(block(11, 5.4, 7, 0xc4552a, 0, 2.8, -1));
+      group.add(block(11.6, 0.4, 7.4, 0xf2c14e, 0, 5.6, -1));
+      group.add(block(8, 2.2, 0.1, 0xfff6d8, 0, 2.6, 2.55));
+      group.add(block(6.2, 0.7, 0.12, 0x17241e, 0, 4.3, 2.58));
+      group.add(block(4.2, 0.16, 3.2, 0xc4552a, 0, 2.2, 4.2));
+      const park = [0x17241e, 0xf7fbfc, 0x245c78, 0xf2c14e];
+      park.forEach((color, index) => {
+        const car = carMesh(color);
+        car.position.set(-6 + index * 3.6, 0, 5.6);
+        car.rotation.y = Math.PI;
+        group.add(car);
+      });
+      group.position.set(x, 0, z);
+      scene.add(group);
+      return group;
+    }
+
+    function mbariYard(x: number, z: number) {
+      const group = new THREE.Group();
+      group.add(block(24, 0.12, 18, 0xd7e0c8, 0, 0.08, 0));
+      group.add(block(16, 6.4, 9, 0xf7f1e6, 0, 3.3, -1.5));
+      group.add(block(16.6, 0.4, 9.4, 0x1f6b45, 0, 6.7, -1.5));
+      group.add(block(0.7, 6.8, 0.7, 0xe0b15a, -6.4, 3.4, 3.1));
+      group.add(block(0.7, 6.8, 0.7, 0xe0b15a, 6.4, 3.4, 3.1));
+      group.add(block(10, 2.4, 0.1, 0x8ec4de, 0, 3.2, 3.15));
+      group.add(block(7, 0.9, 0.12, 0x143d2c, 0, 5.2, 3.2));
+      group.add(block(5, 0.12, 4, 0xc4552a, -6, 0.2, 6));
+      group.add(block(5, 0.12, 4, 0x245c78, 6, 0.2, 6));
+      group.position.set(x, 0, z);
+      scene.add(group);
+      return group;
+    }
+
     const beachWalkers: Array<{
       mesh: THREE.Group;
       leftLeg: THREE.Group;
@@ -1755,6 +1795,12 @@ export function CityWorld({
         const scale = 2;
         group = clubYard(at.x, at.z, scale);
         labelY = 7.4 * scale;
+      } else if (place.id === "crunchies") {
+        group = crunchiesYard(at.x, at.z);
+        labelY = 7.2;
+      } else if (place.id === "mbari") {
+        group = mbariYard(at.x, at.z);
+        labelY = 8.4;
       } else if (roadside.has(place.id)) {
         group = shopfront(at.x, at.z);
         labelY = 3.2;

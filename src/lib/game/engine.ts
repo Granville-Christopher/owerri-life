@@ -355,7 +355,7 @@ export function meetPerson(
 
 export function enterPlace(player: Player, ledger: LedgerEntry[]): Step {
   const place = placeById(player.locationId);
-  if (player.indoors) return fail(player, ledger, `You are already inside ${place.name}.`);
+  if (player.indoors) return succeed(player, ledger, [`You are inside ${place.name}.`]);
   const next = structuredClone(player);
   next.indoors = true;
   next.besideId = null;
