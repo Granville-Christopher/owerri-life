@@ -410,18 +410,7 @@ export function OwerriMarketScene({
       {/* 3D Canvas Host */}
       <div
         ref={host}
-        className="h-full w-full cursor-grab active:cursor-grabbing"
-        onPointerDown={(event) => {
-          const surface = event.currentTarget;
-          surface.setPointerCapture(event.pointerId);
-          surface.dataset.x = String(event.clientX);
-        }}
-        onPointerMove={(event) => {
-          if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
-          const last = Number(event.currentTarget.dataset.x ?? event.clientX);
-          rig.current.yaw += (event.clientX - last) * 0.008;
-          event.currentTarget.dataset.x = String(event.clientX);
-        }}
+        className="absolute inset-0 touch-none"
       />
 
       {/* Mobile-Optimized Market Header Badge */}

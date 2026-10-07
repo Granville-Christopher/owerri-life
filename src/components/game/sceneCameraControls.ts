@@ -1,10 +1,7 @@
 /**
- * Reusable camera controls for Owerri Life 3D isometric scenes.
- * Supports:
- * - Touch pinch-and-zoom (2 fingers on mobile to zoom in or shrink)
- * - Single-finger touch drag (orbit yaw and pitch)
- * - Mouse wheel scrolling (smooth zoom in / shrink out on desktop)
- * - Pointer / mouse drag (orbit yaw and pitch)
+ * Camera controls for Owerri Life 3D rooms.
+ * Two fingers pinch to zoom. One finger drags to turn.
+ * The mouse wheel zooms on desktop.
  */
 
 export interface CameraRigState {
@@ -26,7 +23,7 @@ export interface CameraControlOptions {
 export function attachSceneCameraControls(
   element: HTMLElement,
   rig: { current: CameraRigState },
-  options: CameraControlOptions = {}
+  options: CameraControlOptions = {},
 ): () => void {
   const {
     minZoom = 0.35,
@@ -38,27 +35,51 @@ export function attachSceneCameraControls(
     onUpdate,
   } = options;
 
-  let isDragging = false;
+  element.style.touchAction = "none";
+  const canvas = element.querySelector("canvas");
+  if (canvas instanceof HTMLElement) canvas.style.touchAction = "none";
+  const htmlTouch = document.documentElement.style.touchAction;
+  const bodyTouch = document.body.style.touchAction;
+  document.documentElement.style.touchAction = "none";
+  document.body.style.touchAction = "none";
+
+  const pointers = new Map<number, { x: number; y: number }>();
+  let pinchDist = 0;
   let lastX = 0;
   let lastY = 0;
-  let pinchDist = 0;
 
-  // 1. Mouse Drag
-  const onMouseDown = (e: MouseEvent) => {
-    // Only left click
-    if (e.button !== 0) return;
-    isDragging = true;
-    lastX = e.clientX;
-    lastY = e.clientY;
+  const onPointerDown = (event: PointerEvent) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    if (event.pointerType === "mouse") element.setPointerCapture(event.pointerId);
+    pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (pointers.size === 1) {
+      lastX = event.clientX;
+      lastY = event.clientY;
+      pinchDist = 0;
+    } else if (pointers.size >= 2) {
+      const [a, b] = [...pointers.values()];
+      pinchDist = Math.hypot(a.x - b.x, a.y - b.y);
+    }
   };
 
-  const onMouseMove = (e: MouseEvent) => {
-    if (!isDragging) return;
-    const dx = e.clientX - lastX;
-    const dy = e.clientY - lastY;
-    lastX = e.clientX;
-    lastY = e.clientY;
-
+  const onPointerMove = (event: PointerEvent) => {
+    if (!pointers.has(event.pointerId)) return;
+    pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (pointers.size >= 2) {
+      if (event.cancelable) event.preventDefault();
+      const [a, b] = [...pointers.values()];
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      if (pinchDist > 8 && dist > 8) {
+        rig.current.zoom = Math.max(minZoom, Math.min(maxZoom, rig.current.zoom * (dist / pinchDist)));
+        pinchDist = dist;
+        onUpdate?.();
+      }
+      return;
+    }
+    const dx = event.clientX - lastX;
+    const dy = event.clientY - lastY;
+    lastX = event.clientX;
+    lastY = event.clientY;
     rig.current.yaw += dx * rotateSpeed;
     if (typeof rig.current.pitch === "number") {
       rig.current.pitch = Math.max(minPitch, Math.min(maxPitch, rig.current.pitch + dy * rotateSpeed));
@@ -66,89 +87,47 @@ export function attachSceneCameraControls(
     onUpdate?.();
   };
 
-  const onMouseUp = () => {
-    isDragging = false;
+  const onTouchMove = (event: TouchEvent) => {
+    if (pointers.size >= 2 && event.cancelable) event.preventDefault();
   };
 
-  // 2. Mouse Wheel Zoom (desktop / laptop trackpad)
-  const onWheel = (e: WheelEvent) => {
-    e.preventDefault();
-    const factor = e.deltaY < 0 ? 1 + zoomSpeed : 1 - zoomSpeed;
+  const onPointerUp = (event: PointerEvent) => {
+    pointers.delete(event.pointerId);
+    if (pointers.size === 1) {
+      const only = [...pointers.values()][0];
+      lastX = only.x;
+      lastY = only.y;
+    }
+    if (pointers.size >= 2) {
+      const [a, b] = [...pointers.values()];
+      pinchDist = Math.hypot(a.x - b.x, a.y - b.y);
+    } else {
+      pinchDist = 0;
+    }
+  };
+
+  const onWheel = (event: WheelEvent) => {
+    event.preventDefault();
+    const factor = event.deltaY < 0 ? 1 + zoomSpeed : 1 - zoomSpeed;
     rig.current.zoom = Math.max(minZoom, Math.min(maxZoom, rig.current.zoom * factor));
     onUpdate?.();
   };
 
-  // 3. Touch Gestures (Single finger drag & 2-finger pinch-to-zoom / shrink)
-  const onTouchStart = (e: TouchEvent) => {
-    if (e.touches.length === 1) {
-      isDragging = true;
-      lastX = e.touches[0].clientX;
-      lastY = e.touches[0].clientY;
-      pinchDist = 0;
-    } else if (e.touches.length === 2) {
-      isDragging = false;
-      const t0 = e.touches[0];
-      const t1 = e.touches[1];
-      pinchDist = Math.hypot(t0.clientX - t1.clientX, t0.clientY - t1.clientY);
-    }
-  };
-
-  const onTouchMove = (e: TouchEvent) => {
-    if (e.touches.length === 2) {
-      e.preventDefault(); // Prevent native mobile page zoom
-      const t0 = e.touches[0];
-      const t1 = e.touches[1];
-      const newDist = Math.hypot(t0.clientX - t1.clientX, t0.clientY - t1.clientY);
-      if (pinchDist > 5 && newDist > 5) {
-        const factor = newDist / pinchDist;
-        rig.current.zoom = Math.max(minZoom, Math.min(maxZoom, rig.current.zoom * factor));
-        pinchDist = newDist;
-        onUpdate?.();
-      }
-    } else if (e.touches.length === 1 && isDragging) {
-      const t = e.touches[0];
-      const dx = t.clientX - lastX;
-      const dy = t.clientY - lastY;
-      lastX = t.clientX;
-      lastY = t.clientY;
-
-      rig.current.yaw += dx * rotateSpeed * 1.2;
-      if (typeof rig.current.pitch === "number") {
-        rig.current.pitch = Math.max(minPitch, Math.min(maxPitch, rig.current.pitch + dy * rotateSpeed * 1.2));
-      }
-      onUpdate?.();
-    }
-  };
-
-  const onTouchEnd = (e: TouchEvent) => {
-    if (e.touches.length === 0) {
-      isDragging = false;
-      pinchDist = 0;
-    } else if (e.touches.length === 1) {
-      isDragging = true;
-      lastX = e.touches[0].clientX;
-      lastY = e.touches[0].clientY;
-      pinchDist = 0;
-    }
-  };
-
-  element.addEventListener("mousedown", onMouseDown);
-  window.addEventListener("mousemove", onMouseMove);
-  window.addEventListener("mouseup", onMouseUp);
+  element.addEventListener("pointerdown", onPointerDown);
+  window.addEventListener("pointermove", onPointerMove);
+  window.addEventListener("pointerup", onPointerUp);
+  window.addEventListener("pointercancel", onPointerUp);
+  window.addEventListener("touchmove", onTouchMove, { passive: false });
   element.addEventListener("wheel", onWheel, { passive: false });
-  element.addEventListener("touchstart", onTouchStart, { passive: true });
-  element.addEventListener("touchmove", onTouchMove, { passive: false });
-  element.addEventListener("touchend", onTouchEnd);
-  element.addEventListener("touchcancel", onTouchEnd);
 
   return () => {
-    element.removeEventListener("mousedown", onMouseDown);
-    window.removeEventListener("mousemove", onMouseMove);
-    window.removeEventListener("mouseup", onMouseUp);
+    document.documentElement.style.touchAction = htmlTouch;
+    document.body.style.touchAction = bodyTouch;
+    element.removeEventListener("pointerdown", onPointerDown);
+    window.removeEventListener("pointermove", onPointerMove);
+    window.removeEventListener("pointerup", onPointerUp);
+    window.removeEventListener("pointercancel", onPointerUp);
+    window.removeEventListener("touchmove", onTouchMove);
     element.removeEventListener("wheel", onWheel);
-    element.removeEventListener("touchstart", onTouchStart);
-    element.removeEventListener("touchmove", onTouchMove);
-    element.removeEventListener("touchend", onTouchEnd);
-    element.removeEventListener("touchcancel", onTouchEnd);
   };
 }

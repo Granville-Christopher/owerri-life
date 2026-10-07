@@ -560,6 +560,8 @@ export function HeroesStadiumScene({
     const detachControls = attachSceneCameraControls(root, rig, {
       minZoom: 0.35,
       maxZoom: 8.0,
+      minPitch: 0.12,
+      maxPitch: 1.4,
       zoomSpeed: 0.12,
     });
 
@@ -665,21 +667,6 @@ export function HeroesStadiumScene({
       <div
         ref={host}
         className="absolute inset-0 touch-none"
-        onPointerDown={(event) => {
-          const surface = event.currentTarget;
-          surface.setPointerCapture(event.pointerId);
-          surface.dataset.x = String(event.clientX);
-          surface.dataset.y = String(event.clientY);
-        }}
-        onPointerMove={(event) => {
-          if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
-          const lastX = Number(event.currentTarget.dataset.x ?? event.clientX);
-          const lastY = Number(event.currentTarget.dataset.y ?? event.clientY);
-          rig.current.yaw += (event.clientX - lastX) * 0.007;
-          rig.current.pitch = Math.max(0.12, Math.min(1.4, rig.current.pitch + (event.clientY - lastY) * 0.004));
-          event.currentTarget.dataset.x = String(event.clientX);
-          event.currentTarget.dataset.y = String(event.clientY);
-        }}
       />
 
       {/* Mobile-Optimized Stadium & VIP Seat Badge */}

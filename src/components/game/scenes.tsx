@@ -15,6 +15,7 @@ import { AssumptaCathedralScene } from "./AssumptaCathedralScene";
 import { CarStandScene } from "./CarStandScene";
 import { AirportTerminalScene } from "./AirportTerminalScene";
 import { WarehouseScene } from "./WarehouseScene";
+import { attachSceneCameraControls } from "./sceneCameraControls";
 
 export function PersonFigure({
   look,
@@ -490,12 +491,7 @@ function ClubHall({ name }: { name: string }) {
       camera.updateProjectionMatrix();
     };
     fit();
-    const onWheel = (event: WheelEvent) => {
-      event.preventDefault();
-      const factor = event.deltaY < 0 ? 1.08 : 1 / 1.08;
-      rig.current.zoom = Math.min(2.3, Math.max(0.7, rig.current.zoom * factor));
-    };
-    root.addEventListener("wheel", onWheel, { passive: false });
+    const detachControls = attachSceneCameraControls(root, rig, { minZoom: 0.7, maxZoom: 2.3, zoomSpeed: 0.08 });
     let frame = 0;
     let alive = true;
     const loop = () => {
@@ -513,7 +509,7 @@ function ClubHall({ name }: { name: string }) {
       alive = false;
       window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", onResize);
-      root.removeEventListener("wheel", onWheel);
+      detachControls();
       renderer.dispose();
       root.removeChild(renderer.domElement);
     };
@@ -531,17 +527,6 @@ function ClubHall({ name }: { name: string }) {
       <div
         ref={host}
         className="absolute inset-0 touch-none"
-        onPointerDown={(event) => {
-          const surface = event.currentTarget;
-          surface.setPointerCapture(event.pointerId);
-          surface.dataset.x = String(event.clientX);
-        }}
-        onPointerMove={(event) => {
-          if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
-          const last = Number(event.currentTarget.dataset.x ?? event.clientX);
-          rig.current.yaw += (event.clientX - last) * 0.008;
-          event.currentTarget.dataset.x = String(event.clientX);
-        }}
       />
       <div className="absolute right-3 top-24 z-30 flex flex-col gap-1">
         <button type="button" aria-label="Zoom in" onClick={() => dolly(1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">+</button>
@@ -1470,12 +1455,7 @@ function BuildingFront({ placeId, look }: { placeId: string; look: LookId }) {
       camera.updateProjectionMatrix();
     };
     fit();
-    const onWheel = (event: WheelEvent) => {
-      event.preventDefault();
-      const factor = event.deltaY < 0 ? 1.08 : 1 / 1.08;
-      rig.current.zoom = Math.min(2.1, Math.max(0.65, rig.current.zoom * factor));
-    };
-    root.addEventListener("wheel", onWheel, { passive: false });
+    const detachControls = attachSceneCameraControls(root, rig, { minZoom: 0.65, maxZoom: 2.1, zoomSpeed: 0.08 });
     let frame = 0;
     let alive = true;
     const loop = () => {
@@ -1493,7 +1473,7 @@ function BuildingFront({ placeId, look }: { placeId: string; look: LookId }) {
       alive = false;
       window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", onResize);
-      root.removeEventListener("wheel", onWheel);
+      detachControls();
       renderer.dispose();
       root.removeChild(renderer.domElement);
     };
@@ -1511,17 +1491,6 @@ function BuildingFront({ placeId, look }: { placeId: string; look: LookId }) {
       <div
         ref={host}
         className="absolute inset-0 touch-none"
-        onPointerDown={(event) => {
-          const surface = event.currentTarget;
-          surface.setPointerCapture(event.pointerId);
-          surface.dataset.x = String(event.clientX);
-        }}
-        onPointerMove={(event) => {
-          if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
-          const last = Number(event.currentTarget.dataset.x ?? event.clientX);
-          rig.current.yaw += (event.clientX - last) * 0.008;
-          event.currentTarget.dataset.x = String(event.clientX);
-        }}
       />
       <div className="absolute right-3 top-16 z-30 flex flex-col gap-1">
         <button type="button" aria-label="Zoom in" onClick={() => dolly(1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">+</button>
@@ -1687,12 +1656,7 @@ function HotelSuite({ look, pose, onLieDone }: { look: LookId; pose: "stand" | "
       camera.updateProjectionMatrix();
     };
     fit();
-    const onWheel = (event: WheelEvent) => {
-      event.preventDefault();
-      const factor = event.deltaY < 0 ? 1.08 : 1 / 1.08;
-      rig.current.zoom = Math.min(2.2, Math.max(0.7, rig.current.zoom * factor));
-    };
-    root.addEventListener("wheel", onWheel, { passive: false });
+    const detachControls = attachSceneCameraControls(root, rig, { minZoom: 0.7, maxZoom: 2.2, zoomSpeed: 0.08 });
     let frame = 0;
     let alive = true;
     const loop = () => {
@@ -1710,7 +1674,7 @@ function HotelSuite({ look, pose, onLieDone }: { look: LookId; pose: "stand" | "
       alive = false;
       window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", onResize);
-      root.removeEventListener("wheel", onWheel);
+      detachControls();
       renderer.dispose();
       root.removeChild(renderer.domElement);
     };
@@ -1728,17 +1692,6 @@ function HotelSuite({ look, pose, onLieDone }: { look: LookId; pose: "stand" | "
       <div
         ref={host}
         className="absolute inset-0 touch-none"
-        onPointerDown={(event) => {
-          const surface = event.currentTarget;
-          surface.setPointerCapture(event.pointerId);
-          surface.dataset.x = String(event.clientX);
-        }}
-        onPointerMove={(event) => {
-          if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
-          const last = Number(event.currentTarget.dataset.x ?? event.clientX);
-          rig.current.yaw += (event.clientX - last) * 0.008;
-          event.currentTarget.dataset.x = String(event.clientX);
-        }}
       />
       <div className="absolute right-3 top-24 z-30 flex flex-col gap-1">
         <button type="button" aria-label="Zoom in" onClick={() => dolly(1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">+</button>
@@ -1890,12 +1843,7 @@ function BeachHouse({ look }: { look: LookId }) {
       camera.updateProjectionMatrix();
     };
     fit();
-    const onWheel = (event: WheelEvent) => {
-      event.preventDefault();
-      const factor = event.deltaY < 0 ? 1.08 : 1 / 1.08;
-      rig.current.zoom = Math.min(2.2, Math.max(0.7, rig.current.zoom * factor));
-    };
-    root.addEventListener("wheel", onWheel, { passive: false });
+    const detachControls = attachSceneCameraControls(root, rig, { minZoom: 0.7, maxZoom: 2.2, zoomSpeed: 0.08 });
     let frame = 0;
     let alive = true;
     const loop = () => {
@@ -1913,7 +1861,7 @@ function BeachHouse({ look }: { look: LookId }) {
       alive = false;
       window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", onResize);
-      root.removeEventListener("wheel", onWheel);
+      detachControls();
       renderer.dispose();
       root.removeChild(renderer.domElement);
     };
@@ -1931,17 +1879,6 @@ function BeachHouse({ look }: { look: LookId }) {
       <div
         ref={host}
         className="absolute inset-0 touch-none"
-        onPointerDown={(event) => {
-          const surface = event.currentTarget;
-          surface.setPointerCapture(event.pointerId);
-          surface.dataset.x = String(event.clientX);
-        }}
-        onPointerMove={(event) => {
-          if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
-          const last = Number(event.currentTarget.dataset.x ?? event.clientX);
-          rig.current.yaw += (event.clientX - last) * 0.008;
-          event.currentTarget.dataset.x = String(event.clientX);
-        }}
       />
       <div className="absolute right-3 top-24 z-30 flex flex-col gap-1">
         <button type="button" aria-label="Zoom in" onClick={() => dolly(1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">+</button>
@@ -1990,11 +1927,7 @@ function OrbitRoom({
       camera.updateProjectionMatrix();
     };
     fit();
-    const onWheel = (event: WheelEvent) => {
-      event.preventDefault();
-      rig.current.zoom = Math.min(2.1, Math.max(0.7, rig.current.zoom * (event.deltaY < 0 ? 1.08 : 1 / 1.08)));
-    };
-    root.addEventListener("wheel", onWheel, { passive: false });
+    const detachControls = attachSceneCameraControls(root, rig, { minZoom: 0.7, maxZoom: 2.1, zoomSpeed: 0.08 });
     let frame = 0;
     let alive = true;
     const loop = () => {
@@ -2012,7 +1945,7 @@ function OrbitRoom({
       alive = false;
       window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", onResize);
-      root.removeEventListener("wheel", onWheel);
+      detachControls();
       renderer.dispose();
       root.removeChild(renderer.domElement);
     };
@@ -2028,17 +1961,6 @@ function OrbitRoom({
       <div
         ref={host}
         className="absolute inset-0 touch-none"
-        onPointerDown={(event) => {
-          const surface = event.currentTarget;
-          surface.setPointerCapture(event.pointerId);
-          surface.dataset.x = String(event.clientX);
-        }}
-        onPointerMove={(event) => {
-          if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
-          const last = Number(event.currentTarget.dataset.x ?? event.clientX);
-          rig.current.yaw += (event.clientX - last) * 0.008;
-          event.currentTarget.dataset.x = String(event.clientX);
-        }}
       />
       <div className="absolute right-3 top-24 z-30 flex flex-col gap-1">
         <button type="button" aria-label="Zoom in" onClick={() => dolly(1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">+</button>
@@ -2626,12 +2548,7 @@ function RoomView({ owned, look }: { owned: string[]; look: LookId }) {
       camera.updateProjectionMatrix();
     };
     fit();
-    const onWheel = (event: WheelEvent) => {
-      event.preventDefault();
-      const factor = event.deltaY < 0 ? 1.08 : 1 / 1.08;
-      rig.current.zoom = Math.min(2.3, Math.max(0.7, rig.current.zoom * factor));
-    };
-    root.addEventListener("wheel", onWheel, { passive: false });
+    const detachControls = attachSceneCameraControls(root, rig, { minZoom: 0.7, maxZoom: 2.3, zoomSpeed: 0.08 });
     let frame = 0;
     let alive = true;
     const loop = () => {
@@ -2649,7 +2566,7 @@ function RoomView({ owned, look }: { owned: string[]; look: LookId }) {
       alive = false;
       window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", onResize);
-      root.removeEventListener("wheel", onWheel);
+      detachControls();
       renderer.dispose();
       root.removeChild(renderer.domElement);
     };
@@ -2667,17 +2584,6 @@ function RoomView({ owned, look }: { owned: string[]; look: LookId }) {
       <div
         ref={host}
         className="absolute inset-0 touch-none"
-        onPointerDown={(event) => {
-          const surface = event.currentTarget;
-          surface.setPointerCapture(event.pointerId);
-          surface.dataset.x = String(event.clientX);
-        }}
-        onPointerMove={(event) => {
-          if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
-          const last = Number(event.currentTarget.dataset.x ?? event.clientX);
-          rig.current.yaw += (event.clientX - last) * 0.008;
-          event.currentTarget.dataset.x = String(event.clientX);
-        }}
       />
       <div className="absolute right-3 top-32 z-10 flex flex-col gap-1">
         <button type="button" aria-label="Zoom in" onClick={() => dolly(1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold shadow">+</button>

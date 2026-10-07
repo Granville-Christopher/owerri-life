@@ -415,17 +415,6 @@ export function WarehouseScene({
       <div
         ref={host}
         className="absolute inset-0 touch-none"
-        onPointerDown={(event) => {
-          const surface = event.currentTarget;
-          surface.setPointerCapture(event.pointerId);
-          surface.dataset.x = String(event.clientX);
-        }}
-        onPointerMove={(event) => {
-          if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
-          const last = Number(event.currentTarget.dataset.x ?? event.clientX);
-          rig.current.yaw += (event.clientX - last) * 0.007;
-          event.currentTarget.dataset.x = String(event.clientX);
-        }}
       />
 
       {/* Warehouse Title Header */}
