@@ -228,7 +228,7 @@ function applyBills(player: Player, ledger: LedgerEntry[]) {
       player.homeId = "ikenegbu-room";
       if (!player.homes) player.homes = [];
       if (!player.homes.includes("ikenegbu-room")) player.homes.push("ikenegbu-room");
-      notes.push("More than two weeks of rent went unpaid. You were moved to an Ikenegbu room.");
+      notes.push("More than two weeks of rent went unpaid. You were moved to an Ekwema Crescent room.");
     }
   }
   for (const id of player.lands) {
@@ -1336,14 +1336,14 @@ export function createNewPlayer(input: CreateInput, id: string, rng: () => numbe
           lottery,
           title: "Heir",
           cash: 180000,
-          home: "New Owerri mini-flat",
+          home: "Harmony Heights mini-flat",
           perk: "A car and a level 3 job, starting today.",
         }
       : {
           lottery,
           title: "Struggle",
           cash: 8000,
-          home: "Ikenegbu room",
+          home: "Ekwema Crescent room",
           perk: "A ₦20,000 starter loan, Hustle 2, and skills that rise 25% faster.",
         };
   ledger = credit(ledger, player, reveal.cash, "gifted", `Birth lottery · ${reveal.title}`, stamp(1, 8));
@@ -1356,7 +1356,7 @@ export function createNewPlayer(input: CreateInput, id: string, rng: () => numbe
   player.log = [
     lottery === "heir"
       ? `Birth lottery: Heir. ${reveal.home}, a car, and ${careerById(input.careerId).name} at level 3.`
-      : "Birth lottery: Struggle. Ikenegbu room, a small loan, and faster skill gain.",
+      : "Birth lottery: Struggle. Ekwema Crescent room, a small loan, and faster skill gain.",
     `Dream locked in: ${dream.name}.`,
   ];
   return { player, ledger, reveal };

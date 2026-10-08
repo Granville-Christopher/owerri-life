@@ -170,6 +170,7 @@ export function createRealisticHuman(options: HumanOptions = {}): THREE.Group {
 
   // 3. SHOULDERS, ARMS & HANDS
   const armY = seated ? 1.28 : 1.54;
+  const limbs: { legs: THREE.Group[]; arms: THREE.Group[] } = { legs: [], arms: [] };
 
   for (const side of [-1, 1]) {
     const armGroup = new THREE.Group();
@@ -218,6 +219,7 @@ export function createRealisticHuman(options: HumanOptions = {}): THREE.Group {
 
     armGroup.position.set(side * 0.26, armY, 0);
     person.add(armGroup);
+    limbs.arms.push(armGroup);
   }
 
   // 4. PELVIS, LEGS & SNEAKERS
@@ -281,6 +283,7 @@ export function createRealisticHuman(options: HumanOptions = {}): THREE.Group {
       leg.add(thigh, knee, calf, sneakerUpper, sneakerSole);
       leg.position.set(side * 0.12, 1.02, 0);
       person.add(leg);
+      limbs.legs.push(leg);
     }
   }
 
@@ -293,6 +296,7 @@ export function createRealisticHuman(options: HumanOptions = {}): THREE.Group {
   shadow.position.set(0, 0.02, seated ? 0.35 : 0);
   person.add(shadow);
 
+  person.userData.limbs = limbs;
   person.scale.setScalar(scale);
   return person;
 }

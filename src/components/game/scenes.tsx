@@ -18,6 +18,8 @@ import { AirportTerminalScene } from "./AirportTerminalScene";
 import { WarehouseScene } from "./WarehouseScene";
 import { attachSceneCameraControls } from "./sceneCameraControls";
 import { RestaurantScene } from "./RestaurantScene";
+import { createRealisticHuman } from "@/lib/game/humanModel";
+import { HospitalScene } from "./HospitalScene";
 
 export function PersonFigure({
   look,
@@ -2250,6 +2252,8 @@ export function VenueInterior({
           <PhoneStoreScene look={look} title={place.name} placeId={place.id} />
         ) : place.kind === "school" ? (
           <SchoolClassroomScene look={look} title={place.name} placeId={place.id} username={username} />
+        ) : place.kind === "health" ? (
+          <HospitalScene look={look} title={place.name} placeId={place.id} />
         ) : place.kind === "market" ? (
           <OwerriMarketScene look={look} title={place.name} placeId={place.id} username={username} />
         ) : place.kind === "food" ? (
@@ -2460,39 +2464,65 @@ function citizen(lookId: LookId) {
   const shoe = new THREE.MeshLambertMaterial({ color: 0x16120f });
   const eye = new THREE.MeshBasicMaterial({ color: 0x1a1410 });
   const mouth = new THREE.MeshBasicMaterial({ color: 0x8d4d48 });
-  const put = (mesh: THREE.Mesh, x: number, y: number, z: number) => {
-    mesh.castShadow = true;
-    mesh.position.set(x, y, z);
-    person.add(mesh);
-    return mesh;
+  const mesh = (geometry: THREE.BufferGeometry, material: THREE.Material, parent: THREE.Object3D, x: number, y: number, z: number) => {
+    const part = new THREE.Mesh(geometry, material);
+    part.castShadow = true;
+    part.position.set(x, y, z);
+    parent.add(part);
+    return part;
   };
-  const limb = (radius: number, length: number, material: THREE.Material) =>
-    new THREE.Mesh(new THREE.CapsuleGeometry(radius, length, 6, 10), material);
-  put(limb(0.075, 0.58, pants), -0.1, 0.46, 0);
-  put(limb(0.075, 0.58, pants), 0.1, 0.46, 0);
-  const leftShoe = put(limb(0.08, 0.06, shoe), -0.1, 0.1, 0.05);
-  const rightShoe = put(limb(0.08, 0.06, shoe), 0.1, 0.1, 0.05);
-  leftShoe.rotation.x = Math.PI / 2;
-  rightShoe.rotation.x = Math.PI / 2;
-  leftShoe.scale.z = 1.35;
-  rightShoe.scale.z = 1.35;
-  put(limb(0.16, 0.38, cloth), 0, 1.12, 0);
-  const shoulders = put(limb(0.07, 0.32, cloth), 0, 1.32, 0);
-  shoulders.rotation.z = Math.PI / 2;
-  const leftArm = put(limb(0.05, 0.42, cloth), -0.28, 1.02, 0);
-  const rightArm = put(limb(0.05, 0.42, cloth), 0.28, 1.02, 0);
-  leftArm.rotation.z = 0.12;
-  rightArm.rotation.z = -0.12;
-  put(new THREE.Mesh(new THREE.SphereGeometry(0.055, 12, 10), skin), -0.3, 0.74, 0.02);
-  put(new THREE.Mesh(new THREE.SphereGeometry(0.055, 12, 10), skin), 0.3, 0.74, 0.02);
-  put(limb(0.05, 0.06, skin), 0, 1.42, 0);
-  put(new THREE.Mesh(new THREE.SphereGeometry(0.17, 24, 18), skin), 0, 1.64, 0);
-  const hair = put(new THREE.Mesh(new THREE.SphereGeometry(0.175, 20, 14), hairM), 0, 1.74, -0.03);
-  hair.scale.set(1.04, 0.55, 0.92);
-  put(new THREE.Mesh(new THREE.SphereGeometry(0.02, 10, 8), eye), -0.05, 1.66, 0.162);
-  put(new THREE.Mesh(new THREE.SphereGeometry(0.02, 10, 8), eye), 0.05, 1.66, 0.162);
-  const lips = put(new THREE.Mesh(new THREE.SphereGeometry(0.024, 8, 6), mouth), 0, 1.55, 0.162);
-  lips.scale.set(1.5, 0.4, 0.35);
+  const limbGeo = (radius: number, length: number) => new THREE.CapsuleGeometry(radius, length, 6, 10);
+
+  // legs hang from the hips so they can swing when walking
+  const leg = (side: number) => {
+    const hip = new THREE.Group();
+    hip.position.set(side * 0.085, 0.92, 0);
+    mesh(limbGeo(0.068, 0.66), pants, hip, 0, -0.41, 0);
+    const foot = mesh(new THREE.BoxGeometry(0.1, 0.07, 0.24), shoe, hip, 0, -0.84, 0.05);
+    foot.scale.set(1, 1, 1);
+    person.add(hip);
+    return hip;
+  };
+  const leftLeg = leg(-1);
+  const rightLeg = leg(1);
+
+  // hips, torso, shoulders
+  const pelvis = mesh(new THREE.SphereGeometry(0.17, 18, 12), pants, person, 0, 0.95, 0);
+  pelvis.scale.set(1, 0.7, 0.62);
+  const torso = mesh(new THREE.CylinderGeometry(0.19, 0.15, 0.56, 20), cloth, person, 0, 1.22, 0);
+  torso.scale.set(1, 1, 0.6);
+  const chest = mesh(new THREE.SphereGeometry(0.19, 18, 12), cloth, person, 0, 1.43, 0);
+  chest.scale.set(1.05, 0.55, 0.62);
+
+  // arms hang from the shoulders
+  const arm = (side: number) => {
+    const shoulder = new THREE.Group();
+    shoulder.position.set(side * 0.235, 1.43, 0);
+    mesh(limbGeo(0.046, 0.5), cloth, shoulder, 0, -0.3, 0).scale.set(1, 1, 1);
+    mesh(new THREE.SphereGeometry(0.052, 12, 10), skin, shoulder, 0, -0.63, 0);
+    shoulder.rotation.z = side * 0.07;
+    person.add(shoulder);
+    return shoulder;
+  };
+  const leftArm = arm(-1);
+  const rightArm = arm(1);
+
+  // neck and head
+  mesh(new THREE.CylinderGeometry(0.052, 0.058, 0.12, 12), skin, person, 0, 1.56, 0);
+  const head = mesh(new THREE.SphereGeometry(0.118, 24, 18), skin, person, 0, 1.68, 0.01);
+  head.scale.set(0.9, 1.12, 1);
+  mesh(new THREE.SphereGeometry(0.026, 8, 6), skin, person, -0.105, 1.68, 0).scale.set(0.5, 1, 0.8);
+  mesh(new THREE.SphereGeometry(0.026, 8, 6), skin, person, 0.105, 1.68, 0).scale.set(0.5, 1, 0.8);
+  mesh(new THREE.SphereGeometry(0.022, 8, 6), skin, person, 0, 1.665, 0.118).scale.set(0.9, 1.1, 1);
+  mesh(new THREE.SphereGeometry(0.014, 8, 6), eye, person, -0.042, 1.7, 0.106);
+  mesh(new THREE.SphereGeometry(0.014, 8, 6), eye, person, 0.042, 1.7, 0.106);
+  mesh(new THREE.SphereGeometry(0.02, 8, 6), mouth, person, 0, 1.628, 0.108).scale.set(1.5, 0.4, 0.4);
+  const hair = mesh(new THREE.SphereGeometry(0.124, 20, 14), hairM, person, 0, 1.74, -0.015);
+  hair.scale.set(0.97, 0.6, 1.02);
+  const back = mesh(new THREE.SphereGeometry(0.12, 16, 12), hairM, person, 0, 1.69, -0.04);
+  back.scale.set(0.95, 0.95, 0.8);
+
+  person.userData.limbs = { leftLeg, rightLeg, leftArm, rightArm };
   person.position.set(0, 0.12, 0.15);
   return person;
 }
@@ -2901,7 +2931,7 @@ function RoomView({
     let span = 0;
     let walkPts: Array<[number, number]> | null = null;
     let walkFail = false;
-    const me = citizen(look);
+    const me = createRealisticHuman({ lookId: look, scale: 0.92 });
 
     if (house) {
       const studio = beds <= 1 && !upstairs;
@@ -3119,7 +3149,7 @@ function RoomView({
       const home = nodes.get(locKey(at)) ?? everyRoom[0];
       const first = stand(home);
       me.position.set(first[0], 0.14, first[1]);
-      me.scale.setScalar(1.9);
+      me.scale.setScalar(0.78);
       board.add(me);
       if (walkTo) {
         const frontKey = studio ? "room:1" : "parlour";
@@ -3302,6 +3332,14 @@ function RoomView({
         const [bx, bz] = walkPts[i + 1];
         me.position.set(ax + (bx - ax) * t, 0.14 + Math.abs(Math.sin(walked * 3.2)) * 0.07, az + (bz - az) * t);
         if (bx !== ax || bz !== az) me.rotation.y = Math.atan2(bx - ax, bz - az);
+        const limbs = me.userData.limbs as { legs: THREE.Group[]; arms: THREE.Group[] } | undefined;
+        if (limbs && limbs.legs.length === 2 && limbs.arms.length === 2) {
+          const swing = walked < walkTotal ? Math.sin(walked * 3.2) * 0.55 : 0;
+          limbs.legs[0].rotation.x = swing;
+          limbs.legs[1].rotation.x = -swing;
+          limbs.arms[0].rotation.x = -swing * 0.8;
+          limbs.arms[1].rotation.x = swing * 0.8;
+        }
         if (walked >= walkTotal && !walkSent) {
           walkSent = true;
           cbs.current.walked();

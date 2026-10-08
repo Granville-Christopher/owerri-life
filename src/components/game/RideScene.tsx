@@ -409,30 +409,41 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
       scene.add(cloud);
     }
 
+    // Corners are rounded with a curve so every car, including traffic, sweeps through a turn instead of snapping round.
+    const CORNER_R = 11;
+    const cornerAt: number[] = [];
+    {
+      let acc = 0;
+      for (let k = 1; k < CORNERS.length - 1; k += 1) {
+        acc += lengths[k - 1];
+        cornerAt.push(acc);
+      }
+    }
     function pose(distance: number) {
       const clamped = Math.min(total - 0.001, Math.max(0.001, distance));
+      for (let k = 1; k < CORNERS.length - 1; k += 1) {
+        const d = clamped - cornerAt[k - 1];
+        if (Math.abs(d) > CORNER_R) continue;
+        const prev = CORNERS[k].clone().sub(CORNERS[k - 1]).normalize();
+        const next = CORNERS[k + 1].clone().sub(CORNERS[k]).normalize();
+        const u = (d + CORNER_R) / (2 * CORNER_R);
+        const p0 = CORNERS[k].clone().addScaledVector(prev, -CORNER_R);
+        const p2 = CORNERS[k].clone().addScaledVector(next, CORNER_R);
+        const point = new THREE.Vector3()
+          .addScaledVector(p0, (1 - u) * (1 - u))
+          .addScaledVector(CORNERS[k], 2 * u * (1 - u))
+          .addScaledVector(p2, u * u);
+        const tangent = new THREE.Vector3().addScaledVector(prev, 1 - u).addScaledVector(next, u).normalize();
+        return { point, heading: Math.atan2(tangent.x, tangent.z), dir: tangent };
+      }
       let walked = 0;
       for (let i = 0; i < lengths.length; i += 1) {
         const len = lengths[i];
         if (walked + len >= clamped || i === lengths.length - 1) {
           const along = Math.min(1, Math.max(0, (clamped - walked) / len));
-          const from = CORNERS[i];
-          const to = CORNERS[i + 1];
-          const dir = to.clone().sub(from).normalize();
-          const point = from.clone().lerp(to, along);
-          let heading = Math.atan2(dir.x, dir.z);
-          const into = clamped - walked;
-          const left = walked + len - clamped;
-          if (into < 5 && i > 0) {
-            const prev = CORNERS[i].clone().sub(CORNERS[i - 1]).normalize();
-            const blend = into / 5;
-            heading = Math.atan2(prev.x * (1 - blend) + dir.x * blend, prev.z * (1 - blend) + dir.z * blend);
-          } else if (left < 5 && i < lengths.length - 1) {
-            const next = CORNERS[i + 2].clone().sub(CORNERS[i + 1]).normalize();
-            const blend = left / 5;
-            heading = Math.atan2(dir.x * blend + next.x * (1 - blend), dir.z * blend + next.z * (1 - blend));
-          }
-          return { point, heading, dir };
+          const dir = CORNERS[i + 1].clone().sub(CORNERS[i]).normalize();
+          const point = CORNERS[i].clone().lerp(CORNERS[i + 1], along);
+          return { point, heading: Math.atan2(dir.x, dir.z), dir };
         }
         walked += len;
       }
@@ -543,7 +554,7 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
       const dh = Math.atan2(Math.sin(here.heading - prevHeading), Math.cos(here.heading - prevHeading));
       prevHeading = here.heading;
       const target = Math.max(-1, Math.min(1, (dt > 0 ? dh / dt : 0) * 0.28));
-      steer += (target - steer) * Math.min(1, dt * 8);
+      steer += (target - steer) * Math.min(1, dt * 5);
       cockpit.steer.rotation.z = steer;
 
       const velocity = span / (RIDE_MS / 1000);
