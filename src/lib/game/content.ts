@@ -59,6 +59,10 @@ export interface Career {
 }
 
 export const CAREERS: Career[] = [
+  { id: "police", name: "Police officer", skill: "fitness", placeId: "state-cid", l1: 5500, l5: 90000 },
+  { id: "software", name: "Software developer", skill: "coding", placeId: "gadgets-plug", l1: 9000, l5: 180000 },
+  { id: "it-support", name: "IT support", skill: "coding", placeId: "easy-life", l1: 5000, l5: 95000 },
+  { id: "phone-tech", name: "Phone technician", skill: "coding", placeId: "sugar-gadgets", l1: 3500, l5: 72000 },
   { id: "club-dj", name: "Club DJ", skill: "music", placeId: "cartel-lounge", l1: 3000, l5: 60000 },
   { id: "trading", name: "Trading", skill: "hustle", placeId: "eke-ukwu", l1: 3000, l5: 42000 },
   { id: "banking", name: "Banking", skill: "charisma", placeId: "city-bank", l1: 4200, l5: 48000 },
@@ -1734,6 +1738,12 @@ export const NPCS: Npc[] = [
   { id: "npc-peace", name: "Peace", placeId: "hospital-junction", role: "Listed", mood: "Bright", bio: "Opted in. The lowest price on this junction.", home: "Ikenegbu", asking: 5000 },
   { id: "npc-nneka", name: "Nneka", placeId: "hospital-junction", role: "Listed", mood: "Tight", bio: "Opted in for in-game offers only. Fade to black.", home: "World Bank", asking: 12000 },
   { id: "npc-kemi", name: "Kemi", placeId: "hospital-junction", role: "Listed", mood: "Alright", bio: "Opted in. She set a mid price and stays if you cannot meet it.", home: "Aladinma", asking: 25000 },
+  { id: "npc-blessing", name: "Blessing", placeId: "concord-avenue", role: "Listed", mood: "Bright", bio: "Opted in. Standing on Concord Avenue. Fade to black.", home: "New Owerri", asking: 18000 },
+  { id: "npc-chika", name: "Chika", placeId: "concord-avenue", role: "Listed", mood: "Alright", bio: "Opted in. Her price is on her head.", home: "Aladinma", asking: 35000 },
+  { id: "npc-oma", name: "Oma", placeId: "works-layout", role: "Listed", mood: "Bright", bio: "Opted in. Works Layout after dark.", home: "World Bank", asking: 7000 },
+  { id: "npc-sandra", name: "Sandra", placeId: "works-layout", role: "Listed", mood: "On top", bio: "Opted in. A higher price on this street.", home: "New Owerri", asking: 45000 },
+  { id: "npc-rita", name: "Rita", placeId: "hospital-junction", role: "Listed", mood: "Alright", bio: "Opted in. Hospital Junction after visiting hours.", home: "Ikenegbu", asking: 9000 },
+  { id: "npc-lillian", name: "Lillian", placeId: "hospital-junction", role: "Listed", mood: "Tight", bio: "Opted in. She waits by the junction lamps.", home: "Aladinma", asking: 40000 },
 ];
 
 export function lookById(id: string) {

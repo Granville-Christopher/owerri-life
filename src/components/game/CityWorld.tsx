@@ -20,6 +20,7 @@ function mark(kind: Place["kind"]) {
   if (kind === "market") return "▦";
   if (kind === "hotel") return "⌂";
   if (kind === "airport") return "✈";
+  if (kind === "pickup") return "◇";
   return "·";
 }
 
@@ -959,6 +960,43 @@ export function CityWorld({
       return group;
     }
 
+    function pickupYard(x: number, z: number) {
+      const group = new THREE.Group();
+      group.add(block(36, 0.1, 14, 0x4a514c, 0, 0.06, 0));
+      group.add(block(36, 0.16, 2.4, 0xcfcac0, 0, 0.12, -5.6));
+      group.add(block(36, 0.16, 2.2, 0xcfcac0, 0, 0.12, 5.4));
+      group.add(block(0.18, 0.04, 13, 0xf2c14e, 0, 0.14, 0));
+      for (let d = -15; d <= 15; d += 3.2) group.add(block(1.6, 0.03, 0.14, 0xf4efe4, d, 0.14, 0));
+      const shopColors = [0xc4552a, 0x1f6b45, 0x245c78, 0x8c2438, 0xe0b15a, 0x7a3e6d];
+      for (let i = 0; i < 6; i += 1) {
+        const sx = -14 + i * 5.6;
+        group.add(block(4.6, 3.4, 3.2, 0xf4efe4, sx, 1.8, -7.4));
+        group.add(block(4.8, 0.22, 3.4, shopColors[i], sx, 3.6, -7.4));
+        group.add(block(2.2, 1.2, 0.08, 0x9fd0ea, sx, 2.1, -5.76));
+        group.add(block(0.9, 1.8, 0.08, 0x1a140c, sx - 1.4, 1.0, -5.76));
+        group.add(block(0.12, 3.4, 0.12, 0x2a2a31, sx, 1.8, -4.2));
+        group.add(block(0.5, 0.12, 0.5, 0xffe0a0, sx, 3.55, -4.2));
+      }
+      const paints = [0xc4552a, 0x17241e, 0xf2c14e, 0x245c78];
+      paints.forEach((color, i) => {
+        const car = carMesh(color);
+        car.position.set(-12 + i * 7.4, 0, 3.4);
+        car.rotation.y = Math.PI / 2;
+        group.add(car);
+      });
+      const shirts = [0xc4552a, 0x7a3e6d, 0xf2c14e, 0x8c2438, 0x1f6b45, 0x245c78];
+      shirts.forEach((shirt, i) => {
+        const girl = beachPerson(shirt, [0xf0c7a4, 0xe0b08a, 0xf3d0b5][i % 3], 0x1a140c, 0x1a1a1a);
+        girl.person.position.set(-13 + i * 5.2, 0, -3.6);
+        girl.person.rotation.y = 0.2;
+        group.add(girl.person);
+      });
+      group.scale.setScalar(3.1);
+      group.position.set(x, 0, z);
+      scene.add(group);
+      return group;
+    }
+
     function airportYard(x: number, z: number) {
       const group = new THREE.Group();
       group.add(block(48, 0.1, 34, 0xd5d8dc, 0, 0.08, 0));
@@ -1817,6 +1855,9 @@ export function CityWorld({
       } else if (place.id === "heartland-resort" || place.id === "nworie-park" || place.id === "amusement-park") {
         group = parkYard(at.x, at.z, place.id === "heartland-resort");
         labelY = 5.4;
+      } else if (place.kind === "pickup") {
+        group = pickupYard(at.x, at.z);
+        labelY = 14;
       } else if (hotel) {
         group = tower(at.x, at.z, mine ? 0xfffaf2 : 0xf3efe4);
         labelY = 10.4;

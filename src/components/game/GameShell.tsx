@@ -1028,6 +1028,11 @@ function PhoneDeck({
           <p className="mt-1 text-sm">{weekday(view.me.day)} · Owerri</p>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-6">
+          <button type="button" onClick={() => onPick("jobs")} className="mb-4 w-full rounded-2xl bg-[#143d2c] px-3 py-3 text-left shadow">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#e0b15a]">Apply</p>
+            <p className="font-display text-2xl leading-tight">Jobs</p>
+            <p className="mt-0.5 text-xs text-white/80">Police, software, IT, and the rest of the board.</p>
+          </button>
           <div className="grid grid-cols-4 gap-x-2 gap-y-4">
             {apps.map((app) => (
               <button
@@ -1195,24 +1200,39 @@ function PhonePanel({
             <button className="text-sm font-semibold text-[#b5523a]" disabled={pending} onClick={() => run(leaveJob)}>Quit</button>
           ) : null}
         </div>
-        <div className="mt-2 grid gap-2">
-          {CAREERS.map((career) => (
-            <div key={career.id} className="rounded-2xl bg-white px-3 py-3 text-sm">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-semibold">{career.name}</p>
-                  <p className="text-[#5d6b62]">{skillLabel(career.skill)} · {placeById(career.placeId).name}</p>
-                  <p className="text-[#5d6b62]">L1 {naira(career.l1)} · L5 {naira(levelPay(5, career.l1, career.l5))}</p>
-                </div>
-                <button
-                  disabled={pending || Boolean(me.job || me.pendingJob)}
-                  className="rounded-full bg-[#1f6b45] px-3 py-1 text-xs font-semibold text-[#f6f1e6] disabled:opacity-40"
-                  onClick={() => run(() => takeJob(career.id))}
-                >
-                  {me.job?.careerId === career.id ? "Yours" : me.pendingJob?.careerId === career.id ? "Soon" : "Apply"}
-                </button>
+        <div className="mt-2 grid gap-4">
+          {([
+            ["Police", ["police"]],
+            ["Tech", ["software", "it-support", "phone-tech"]],
+            ["Town", ["club-dj", "trading", "banking", "nursing", "chef", "content"]],
+          ] as const).map(([heading, ids]) => (
+            <section key={heading}>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#a9782a]">{heading}</p>
+              <div className="mt-2 grid gap-2">
+                {ids.map((id) => {
+                  const career = CAREERS.find((item) => item.id === id);
+                  if (!career) return null;
+                  return (
+                    <div key={career.id} className="rounded-2xl bg-white px-3 py-3 text-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold">{career.name}</p>
+                          <p className="text-[#5d6b62]">{skillLabel(career.skill)} · {placeById(career.placeId).name}</p>
+                          <p className="text-[#5d6b62]">L1 {naira(career.l1)} · L5 {naira(levelPay(5, career.l1, career.l5))}</p>
+                        </div>
+                        <button
+                          disabled={pending || Boolean(me.job || me.pendingJob)}
+                          className="rounded-full bg-[#1f6b45] px-3 py-1 text-xs font-semibold text-[#f6f1e6] disabled:opacity-40"
+                          onClick={() => run(() => takeJob(career.id))}
+                        >
+                          {me.job?.careerId === career.id ? "Yours" : me.pendingJob?.careerId === career.id ? "Soon" : "Apply"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            </div>
+            </section>
           ))}
         </div>
       </section></> : null}

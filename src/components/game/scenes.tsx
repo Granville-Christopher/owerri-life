@@ -18,6 +18,7 @@ import { AirportTerminalScene } from "./AirportTerminalScene";
 import { WarehouseScene } from "./WarehouseScene";
 import { attachSceneCameraControls } from "./sceneCameraControls";
 import { RestaurantScene } from "./RestaurantScene";
+import { PickupStreetScene } from "./PickupStreetScene";
 import { createRealisticHuman } from "@/lib/game/humanModel";
 import { HospitalScene } from "./HospitalScene";
 
@@ -2219,7 +2220,9 @@ export function VenueInterior({
         ) : club ? (
           <ClubFloor name={place.name} username={username} people={people} shout={shout} service={service} besideId={besideId} selfId={selfId} dancing={dancing} onPick={onPickPerson} />
         ) : acts.pickup ? (
-          <PickupStreet
+          <PickupStreetScene
+            look={look}
+            title={place.name}
             people={listed.map((npc) => ({ id: npc.id, name: npc.name, asking: npc.asking ?? 0 }))}
             spendable={spendable}
             pending={pending}
