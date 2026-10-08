@@ -6,7 +6,12 @@ const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Satur
 const WEEKDAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export function naira(amount: number) {
-  return `₦${Math.round(amount).toLocaleString("en-NG")}`;
+  const value = Math.round(amount);
+  const abs = Math.abs(value);
+  const trim = (n: number) => n.toFixed(2).replace(/\.?0+$/, "");
+  if (abs >= 1e12) return `${value < 0 ? "-" : ""}₦${trim(abs / 1e12)}T`;
+  if (abs >= 1e9) return `${value < 0 ? "-" : ""}₦${trim(abs / 1e9)}B`;
+  return `₦${value.toLocaleString("en-NG")}`;
 }
 
 export function weekday(day: number) {
