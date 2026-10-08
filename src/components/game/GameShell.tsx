@@ -919,7 +919,7 @@ function MapPanel({
   );
 }
 
-type PhoneApp = "jobs" | "messages" | "bets" | "houses" | "land" | "wallet" | "bus" | "food" | "campus" | "market" | "night" | "club" | "health" | "fly" | "skills" | "settings";
+type PhoneApp = "jobs" | "messages" | "bets" | "houses" | "properties" | "land" | "wallet" | "bus" | "food" | "campus" | "market" | "night" | "club" | "health" | "fly" | "skills" | "settings";
 
 function PhoneDeck({
   view,
@@ -933,6 +933,7 @@ function PhoneDeck({
     { name: "Messages", icon: "💬", tone: "bg-[#3d7ea6]", pick: "messages" },
     { name: "Bets", icon: "⚽", tone: "bg-[#1f6b45]", pick: "bets" },
     { name: "Houses", icon: "🏠", tone: "bg-[#a9782a]", pick: "houses" },
+    { name: "Properties", icon: "🔑", tone: "bg-[#143d2c]", pick: "properties" },
     { name: "Plots", icon: "🌿", tone: "bg-[#3d6b4f]", pick: "land" },
     { name: "Wallet", icon: "💰", tone: "bg-[#c48a2a]", pick: "wallet" },
     { name: "Food", icon: "🍲", tone: "bg-[#b5523a]", pick: "food" },
@@ -1023,6 +1024,7 @@ function PhonePanel({
     messages: "Messages",
     bets: "Bets",
     houses: "Houses",
+    properties: "Properties",
     land: "Plots",
     wallet: "Wallet",
     bus: "Bus",
@@ -1145,15 +1147,18 @@ function PhonePanel({
       </section></> : null}
       {app === "houses" ? (
         <div className="grid gap-4">
-          <p className="text-sm text-[#5d6b62]">Houses for sale. Pick a 2-bed, 3-bed, or 4-bed flat, or a duplex. The ones with an upstairs show the stairs in your room.</p>
+          <p className="text-sm text-[#5d6b62]">Houses for sale. Buying one keeps the others. Open Properties to choose where you sleep and to go there.</p>
           {["new-owerri", "ikenegbu", "world-bank", "aladinma"].map((areaId) => (
             <section key={areaId}>
               <h2 className="font-display text-2xl">{placeById(areaId).name}</h2>
               <div className="mt-2 grid gap-2">
-                {HOMES.filter((home) => home.areaId === areaId).map((home) => (
+                {HOMES.filter((home) => home.areaId === areaId).map((home) => {
+                  const owned = me.homes.includes(home.id);
+                  const sleeping = home.id === me.homeId;
+                  return (
                   <button
                     key={home.id}
-                    disabled={pending || home.id === me.homeId}
+                    disabled={pending || sleeping}
                     onClick={() => run(() => changeHome(home.id))}
                     className="flex items-center justify-between rounded-2xl bg-white px-3 py-3 text-left text-sm disabled:opacity-60"
                   >
@@ -1162,18 +1167,91 @@ function PhonePanel({
                       <span className="text-[#5d6b62]">
                         {home.beds === 1 ? "1 room" : `${home.beds}-bed`}
                         {home.upstairs ? " · upstairs, stairs inside" : ""}
-                        {home.id === me.homeId ? " · you live here" : ""}
+                        {sleeping ? " · you sleep here" : owned ? " · yours" : ""}
                       </span>
                     </span>
                     <span className="text-right font-semibold">
-                      <span className="block">{home.price ? naira(home.price) : "Move in"}</span>
+                      <span className="block">{sleeping ? "Sleeping" : owned ? "Sleep here" : home.price ? naira(home.price) : "Move in"}</span>
                       <span className="block text-xs text-[#5d6b62]">{naira(home.rent)}/wk</span>
                     </span>
                   </button>
-                ))}
+                  );
+                })}
               </div>
             </section>
           ))}
+        </div>
+      ) : null}
+      {app === "properties" ? (
+        <div className="grid gap-4">
+          <section>
+            <h2 className="font-display text-2xl">Houses</h2>
+            <p className="mt-1 text-sm text-[#5d6b62]">Pick the house you sleep in. Go there when you are somewhere else. Saturday rent is only for that house.</p>
+            <div className="mt-2 grid gap-2">
+              {me.homes.map((id) => {
+                const home = HOMES.find((item) => item.id === id);
+                if (!home) return null;
+                const here = me.locationId === home.areaId;
+                const sleeping = me.homeId === home.id;
+                return (
+                  <div key={home.id} className="rounded-2xl bg-white px-3 py-3 text-sm">
+                    <p className="font-semibold">{home.name}</p>
+                    <p className="text-[#5d6b62]">{placeById(home.areaId).name} · {home.beds === 1 ? "1 room" : `${home.beds}-bed`}{home.upstairs ? " · upstairs" : ""}</p>
+                    <p className="text-[#5d6b62]">{naira(home.rent)}/wk{sleeping ? " · you sleep here" : ""}{here ? " · you are in this area" : ""}</p>
+                    <div className="mt-2 flex gap-2">
+                      {sleeping ? null : (
+                        <button type="button" disabled={pending} onClick={() => run(() => changeHome(home.id))} className="rounded-full bg-[#17241e] px-3 py-1 text-xs font-semibold text-white disabled:opacity-40">Sleep here</button>
+                      )}
+                      {here ? null : (
+                        <button
+                          type="button"
+                          disabled={pending}
+                          onClick={() => {
+                            const options = travelOptions(me.locationId, home.areaId, me.hasCar, view.balance);
+                            const ride = options.find((option) => driven(option.mode) && option.available && option.affordable) ?? options.find((option) => option.available && option.affordable);
+                            if (!ride) return;
+                            if (driven(ride.mode)) onRide(home.areaId, ride.mode);
+                            else run(() => go(home.areaId, ride.mode)).then((result) => {
+                              if (result.ok) onArrived();
+                            });
+                          }}
+                          className="rounded-full bg-[#1f6b45] px-3 py-1 text-xs font-semibold text-[#f6f1e6] disabled:opacity-40"
+                        >
+                          Go there
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+          <section>
+            <h2 className="font-display text-2xl">Land</h2>
+            {me.lands.length === 0 ? <p className="mt-1 text-sm text-[#5d6b62]">No plots, farms, or boards yet. Buy them under Plots.</p> : (
+              <div className="mt-2 grid gap-2">
+                {me.lands.map((plot) => (
+                  <div key={plot.id} className="rounded-2xl bg-white px-3 py-3 text-sm">
+                    <p className="font-semibold">{plot.name}</p>
+                    <p className="text-[#5d6b62]">{plot.area} · {naira(plot.rent)} every Saturday</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+          <section>
+            <h2 className="font-display text-2xl">Cars</h2>
+            {(me.cars ?? []).length === 0 ? <p className="mt-1 text-sm text-[#5d6b62]">No car yet. The stand is behind the river bank.</p> : (
+              <div className="mt-2 grid gap-2">
+                {(me.cars ?? []).map((name, index) => (
+                  <div key={`${name}-${index}`} className="rounded-2xl bg-white px-3 py-3 text-sm">
+                    <p className="font-semibold">{name}</p>
+                    <p className="text-[#5d6b62]">In your garage. You can drive it.</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         </div>
       ) : null}
       {app === "land" ? <section>

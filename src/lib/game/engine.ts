@@ -220,6 +220,8 @@ function applyBills(player: Player, ledger: LedgerEntry[]) {
     if (player.weeksUnpaid > 2 && player.homeId !== "ikenegbu-room") {
       if (player.locationId === home.areaId) player.locationId = "ikenegbu";
       player.homeId = "ikenegbu-room";
+      if (!player.homes) player.homes = [];
+      if (!player.homes.includes("ikenegbu-room")) player.homes.push("ikenegbu-room");
       notes.push("More than two weeks of rent went unpaid. You were moved to an Ikenegbu room.");
     }
   }
@@ -722,15 +724,24 @@ export function quitJob(player: Player, ledger: LedgerEntry[]): Step {
 
 export function moveHome(player: Player, ledger: LedgerEntry[], homeId: string): Step {
   const home = homeById(homeId);
-  if (player.homeId === home.id) return fail(player, ledger, "You already live there.");
-  const cost = home.price ?? home.rent;
-  const charged = debit(ledger, player, cost, home.price ? `Bought ${home.name}` : `First week rent · ${home.name}`, stamp(player.day, player.hour));
-  if (!charged) return fail(player, ledger, home.price ? `You need ${naira(cost)} to buy ${home.name}.` : "You need the first week's rent in the wallet.");
+  const owned = (player.homes ?? []).includes(home.id);
+  if (player.homeId === home.id) return fail(player, ledger, "You already sleep there.");
+  let book = ledger;
+  if (!owned) {
+    const cost = home.price ?? home.rent;
+    const charged = debit(ledger, player, cost, home.price ? `Bought ${home.name}` : `First week rent · ${home.name}`, stamp(player.day, player.hour));
+    if (!charged) return fail(player, ledger, home.price ? `You need ${naira(cost)} to buy ${home.name}.` : "You need the first week's rent in the wallet.");
+    book = charged;
+  }
   const next = structuredClone(player);
+  next.homes = [...new Set([...(player.homes ?? [player.homeId]), home.id])];
   next.homeId = home.id;
-  next.locationId = home.areaId;
   next.weeksUnpaid = player.arrears > 0 ? player.weeksUnpaid : 0;
-  return succeed(next, charged, [home.price ? `You bought ${home.name}. Rent is ${naira(home.rent)} a week.` : `You moved into ${home.name}.`]);
+  return succeed(next, book, [
+    owned
+      ? `You sleep at ${home.name}. Go there from Properties if you are not already in ${placeById(home.areaId).name}.`
+      : `You bought ${home.name}. It stays on your Properties list. Rent is ${naira(home.rent)} a week on the house you sleep in.`,
+  ]);
 }
 
 export function payArrears(player: Player, ledger: LedgerEntry[]): Step {
@@ -1221,7 +1232,9 @@ export function createNewPlayer(input: CreateInput, id: string, rng: () => numbe
     dream: input.dream,
     lottery,
     homeId: lottery === "heir" ? "new-owerri-flat" : "ikenegbu-room",
+    homes: [lottery === "heir" ? "new-owerri-flat" : "ikenegbu-room"],
     hasCar: lottery === "heir",
+    cars: lottery === "heir" ? ["Executive Sedan"] : [],
     loanRemaining: lottery === "struggle" ? 20000 : 0,
     loanWeekly: lottery === "struggle" ? 2000 : 0,
     arrears: 0,

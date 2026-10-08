@@ -63,6 +63,9 @@ function hydrate(parsed: Partial<DB> | null): DB {
     if (player.school === undefined) player.school = null;
     if (player.room === undefined) player.room = null;
     if (!player.lands) player.lands = [];
+    if (!player.homes?.length) player.homes = [player.homeId];
+    if (!player.homes.includes(player.homeId)) player.homes.push(player.homeId);
+    if (!player.cars) player.cars = player.hasCar ? ["Executive Sedan"] : [];
     if (player.besideId === undefined) player.besideId = null;
     if (player.gender !== "male" && player.gender !== "female") player.gender = null;
     if (!player.furniture) player.furniture = player.lottery === "heir" ? ["bed", "sofa", "television"] : [];

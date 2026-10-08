@@ -60,6 +60,7 @@ export interface Player {
   dream: DreamId;
   lottery: Lottery;
   homeId: string;
+  homes: string[];
   hasCar: boolean;
   cars?: string[];
   loanRemaining: number;
