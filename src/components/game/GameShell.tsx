@@ -92,8 +92,9 @@ function driven(mode: TravelMode) {
 export function GameShell({ view }: { view: GameView }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>(view.me.indoors ? "map" : "home");
-  const [ride, setRide] = useState<null | { placeId: string; mode: TravelMode; vehicle: "car" | "bus" | "cab"; carId?: string; then: "map" | "home" }>(null);
+  const [ride, setRide] = useState<null | { placeId: string; mode: TravelMode; vehicle: "car" | "bus" | "cab"; carId?: string; then: "map" | "home" | "room" }>(null);
   const [toast, setToast] = useState<{ id: number; text: string; bad: boolean } | null>(null);
+  const [homeSheet, setHomeSheet] = useState(false);
   const [chatWith, setChatWith] = useState<string | null>(null);
   const [personId, setPersonId] = useState<string | null>(null);
   const [account, setAccount] = useState(false);
@@ -117,7 +118,7 @@ export function GameShell({ view }: { view: GameView }) {
     });
   }
 
-  function beginRide(placeId: string, mode: TravelMode, then: "map" | "home") {
+  function beginRide(placeId: string, mode: TravelMode, then: "map" | "home" | "room") {
     setRide({ placeId, mode, vehicle: mode === "bus" ? "bus" : mode === "cab" ? "cab" : "car", carId: mode === "car" ? view.me.activeCar : undefined, then });
   }
 
@@ -126,7 +127,10 @@ export function GameShell({ view }: { view: GameView }) {
     const plan = ride;
     setRide(null);
     run(() => go(plan.placeId, plan.mode)).then((result) => {
-      if (result.ok) setTab(plan.then);
+      if (result.ok) {
+        setTab(plan.then);
+        flash(`You got to ${placeById(plan.placeId).name}.`, false);
+      }
     });
   }
 
@@ -237,6 +241,10 @@ export function GameShell({ view }: { view: GameView }) {
               onBuy={(itemId) => run(() => buyFurniture(itemId))}
               onMove={(key, placement) => run(() => moveFurniture(key, placement))} onSell={(key) => run(() => sellFurniturePiece(key))}
               onToilet={() => run(useRestroom)}
+              onOutside={() => {
+                setTab("home");
+                flash(`You stepped outside ${homeById(me.homeId).name}.`, false);
+              }}
             />
           ) : null}
           {!account && tab === "map" ? (
@@ -356,10 +364,62 @@ export function GameShell({ view }: { view: GameView }) {
           >
             <span className="text-base leading-none">▣</span>Buy
           </button>
-          <button type="button" className={`flex w-16 flex-col items-center gap-0.5 rounded-2xl px-2 py-1.5 ${!account && tab === "room" ? "bg-[#17241e] text-white" : "text-[#5d6b62]"}`} onClick={() => { setAccount(false); setRoomEntry("look"); setTab("room"); }}><span className="text-base leading-none">⌂</span>Home</button>
+          <button type="button" className={`flex w-16 flex-col items-center gap-0.5 rounded-2xl px-2 py-1.5 ${!account && tab === "room" ? "bg-[#17241e] text-white" : "text-[#5d6b62]"}`} onClick={() => {
+            setAccount(false);
+            if (view.me.locationId !== homeById(view.me.homeId).areaId) {
+              setHomeSheet(true);
+              return;
+            }
+            setRoomEntry("look");
+            setTab("room");
+          }}><span className="text-base leading-none">⌂</span>Home</button>
           <button type="button" className={`flex w-16 flex-col items-center gap-0.5 rounded-2xl px-2 py-1.5 ${!account && tab === "phone" ? "bg-[#17241e] text-white" : "text-[#5d6b62]"}`} onClick={() => { setAccount(false); setTab("phone"); }}><span className="text-base leading-none">▢</span>Phone</button>
         </nav>
         {ride ? <RideScene vehicle={ride.vehicle} carId={ride.carId} onArrive={finishRide} /> : null}
+        {homeSheet && !ride ? (
+          <div className="absolute inset-0 z-[60]" onClick={() => setHomeSheet(false)}>
+            <div className="absolute inset-x-3 bottom-24 mx-auto max-w-md rounded-[1.6rem] bg-white p-4 text-[#17241e] shadow-2xl" onClick={(event) => event.stopPropagation()}>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#a9782a]">Go home</p>
+                  <p className="font-display text-2xl leading-tight">{homeById(me.homeId).name}</p>
+                  <p className="mt-1 text-xs text-[#5d6b62]">You are at {placeById(me.locationId).name}. Pick a ride.</p>
+                </div>
+                <button type="button" aria-label="Close" onClick={() => setHomeSheet(false)} className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#f4efe4] text-lg leading-none">×</button>
+              </div>
+              <div className="mt-3 grid gap-2">
+                {travelOptions(me.locationId, homeById(me.homeId).areaId, me.hasCar, view.balance).map((option) => (
+                  <button
+                    key={option.mode}
+                    type="button"
+                    disabled={pending || !option.available || !option.affordable}
+                    onClick={() => {
+                      const homeArea = homeById(me.homeId).areaId;
+                      setHomeSheet(false);
+                      if (driven(option.mode)) {
+                        beginRide(homeArea, option.mode, "room");
+                        return;
+                      }
+                      run(() => go(homeArea, option.mode)).then((result) => {
+                        if (result.ok) {
+                          setRoomEntry("look");
+                          setTab("room");
+                        }
+                      });
+                    }}
+                    className="flex items-center justify-between rounded-2xl border border-[#e4d8c4] px-3 py-3 text-left text-sm disabled:opacity-40"
+                  >
+                    <span>
+                      <span className="block font-semibold">{option.label}</span>
+                      <span className="text-[#5d6b62]">{option.hours}h{option.reason ? ` · ${option.reason}` : ""}</span>
+                    </span>
+                    <span className="font-semibold">{option.cost === 0 ? "Free" : naira(option.cost)}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : null}
         {person ? (
           <PersonSheet
             person={person}
@@ -1278,11 +1338,12 @@ function PhonePanel({
       ) : null}
       {app === "land" ? <section>
         <h2 className="font-display text-2xl">Land</h2>
-        <p className="mt-1 text-sm text-[#5d6b62]">Plots, farmland, and ad boards. Farmland opens as your career level rises. Every Saturday the payment is earned, so it can pay a meet-up.</p>
+        <p className="mt-1 text-sm text-[#5d6b62]">Plots, farmland, ad boards, and businesses. Start small, then grow into billions and trillions. Farmland opens as your career level rises. Every Saturday the payment is earned, so it can pay a meet-up.</p>
         {([
           ["land", "Plots"],
           ["farm", "Farmland"],
           ["board", "Ad boards"],
+          ["business", "Businesses"],
         ] as const).map(([kind, title]) => (
           <div key={kind} className="mt-4">
             <h3 className="font-semibold">{title}</h3>

@@ -2500,7 +2500,7 @@ function citizen(lookId: LookId) {
 type HomeSpot = FurnitureSpot | "bathroom" | "landing" | "house";
 
 interface Loc {
-  spot: HomeSpot;
+  spot: HomeSpot | "door";
   roomNo: number;
 }
 
@@ -2730,6 +2730,29 @@ function RoomView({
       add(piece(0x6a4630, 2.1, 0.22, 1.9, x, 0.25, z));
       add(piece(0xd9d2c4, 1.95, 0.2, 1.75, x, 0.46, z));
       add(piece(0xd9d2c4, 0.7, 0.14, 0.4, x, 0.63, z - 0.6));
+    };
+    const frontDoor = (width: number, depth: number, open: boolean) => {
+      const dx = -width / 2;
+      const dz = Math.min(3.3, depth / 2 - 2);
+      const wood2 = 0x7a4a2a;
+      add(piece(0x6a4630, 0.3, 2.5, 0.2, dx + 0.08, 1.25, dz - 1.05));
+      add(piece(0x6a4630, 0.3, 2.5, 0.2, dx + 0.08, 1.25, dz + 1.05));
+      add(piece(0x6a4630, 0.3, 0.22, 2.4, dx + 0.08, 2.5, dz));
+      add(piece(0x2f7a4a, 1.0, 0.03, 1.7, dx + 0.75, 0.16, dz));
+      add(piece(0xd9b77d, 0.5, 0.05, 2.0, dx, 0.165, dz));
+      if (open) {
+        const leaf = new THREE.Group();
+        leaf.position.set(dx + 0.05, 0, dz - 0.95);
+        leaf.rotation.y = 1.15;
+        const door = piece(wood2, 0.1, 2.3, 1.9, 0, 1.2, 0.95);
+        leaf.add(door);
+        leaf.add(piece(gold, 0.1, 0.1, 0.1, 0.1, 1.15, 1.6));
+        target.add(leaf);
+      } else {
+        add(piece(wood2, 0.1, 2.3, 1.9, dx + 0.12, 1.2, dz));
+        add(piece(gold, 0.1, 0.1, 0.1, dx + 0.22, 1.15, dz + 0.65));
+        add(piece(0xe7dcc8, 0.04, 0.5, 0.5, dx + 0.19, 1.6, dz - 0.4));
+      }
     };
     const flight = (x: number, z0: number, down: boolean) => {
       const steps = 12;
@@ -3028,11 +3051,14 @@ function RoomView({
         room.position.set(entry.x0 + entry.w / 2, 0, entry.z0 + entry.d / 2);
         board.add(room);
         target = room;
+        const frontEntry = studio ? entry.kind === "room" && entry.roomNo === 1 : entry.kind === "parlour";
+        if (frontEntry) entry.doors.w.push(Math.min(3.3, entry.d / 2 - 2));
         floorSlab(entry.kind === "bathroom" ? 0xd5e8f0 : entry.kind === "kitchen" ? 0xe4dcc6 : wood, entry.w, entry.d);
         wallRun(true, -entry.d / 2, entry.w, entry.doors.n);
         wallRun(true, entry.d / 2, entry.w, entry.doors.s);
         wallRun(false, -entry.w / 2, entry.d, entry.doors.w);
         wallRun(false, entry.w / 2, entry.d, entry.doors.e);
+        if (frontEntry) frontDoor(entry.w, entry.d, true);
         if (entry.kind === "kitchen") kitchenFixtures();
         if (entry.kind === "bathroom") bathFixtures();
         if (entry.kind === "parlour" && upstairs) flight(3.6, 2.4, false);
@@ -3096,7 +3122,14 @@ function RoomView({
       me.scale.setScalar(1.9);
       board.add(me);
       if (walkTo) {
-        const pts = route(nodes.has(locKey(at)) ? locKey(at) : keyOf(home), locKey(walkTo));
+        const frontKey = studio ? "room:1" : "parlour";
+        const toDoor = walkTo.spot === "door";
+        const pts = route(nodes.has(locKey(at)) ? locKey(at) : keyOf(home), toDoor ? frontKey : locKey(walkTo));
+        const front = nodes.get(frontKey);
+        if (pts && toDoor && front) {
+          const doorZ = front.z0 + front.d / 2 + Math.min(3.3, front.d / 2 - 2);
+          pts.push([front.x0 + 1.4, doorZ], [front.x0 - 2.2, doorZ]);
+        }
         if (pts && pts.length > 1) walkPts = pts;
         else walkFail = true;
       }
@@ -3132,6 +3165,7 @@ function RoomView({
     } else if (spot === "room") {
       const size = roomSize("room", beds, upstairs, duplex);
       shell(size.w, size.d, 3.5);
+      if (beds <= 1 && !upstairs) frontDoor(size.w, size.d, false);
       const mine = items.filter((entry) => entry.spot === "room" && entry.roomNo === roomNo);
       if (!hasBedIn(mine)) mattress(-(size.w / 2 - 2), -(size.d / 2 - 2.2));
       const curtain = [0x1f6b45, 0xc4552a, 0x245c78, 0x7a3e6d][(roomNo - 1) % 4];
@@ -3144,6 +3178,7 @@ function RoomView({
     } else {
       const size = roomSize("parlour", beds, upstairs, duplex);
       shell(size.w, size.d, 3.6);
+      frontDoor(size.w, size.d, false);
       if (upstairs) flight(3.6, 2.4, false);
       dropItems(items.filter((entry) => entry.spot === "parlour"), true);
       span = size.w * 0.74;
@@ -3425,6 +3460,7 @@ export function HouseRoom({
   onSleep,
   onShower,
   onToilet,
+  onOutside,
   entry = "look",
   shopNonce = 0,
 }: {
@@ -3444,6 +3480,7 @@ export function HouseRoom({
   onSleep?: () => void;
   onShower?: () => void;
   onToilet?: () => void;
+  onOutside?: () => void;
   entry?: "look" | "shop";
   shopNonce?: number;
 }) {
@@ -3456,7 +3493,7 @@ export function HouseRoom({
   const [at, setAt] = useState<Loc>({ spot: studio ? "room" : "parlour", roomNo: 1 });
   const [walk, setWalk] = useState<{ to: Loc; then?: () => void } | null>(null);
   const sameLoc = (a: Loc, b: Loc) => a.spot === b.spot && (a.spot !== "room" || a.roomNo === b.roomNo);
-  const placeName = (loc: Loc) => (loc.spot === "room" ? (studio ? "the room" : `Room ${loc.roomNo}`) : loc.spot === "landing" ? "the landing" : `the ${loc.spot}`);
+  const placeName = (loc: Loc) => (loc.spot === "door" ? "the front door" : loc.spot === "room" ? (studio ? "the room" : `Room ${loc.roomNo}`) : loc.spot === "landing" ? "the landing" : `the ${loc.spot}`);
   function lookAt(s: HomeSpot, no = 1) {
     setWalk(null);
     setSpot(s);
@@ -3464,7 +3501,7 @@ export function HouseRoom({
   }
   function walkTo(to: Loc, then?: () => void) {
     if (sameLoc(at, to)) {
-      lookAt(to.spot, to.roomNo);
+      if (to.spot !== "door") lookAt(to.spot, to.roomNo);
       then?.();
       return;
     }
@@ -3474,9 +3511,14 @@ export function HouseRoom({
   function arrived() {
     if (!walk) return;
     const done = walk;
+    if (done.to.spot === "door") {
+      setWalk(null);
+      done.then?.();
+      return;
+    }
     setAt(done.to);
     setWalk(null);
-    setSpot(done.to.spot);
+    setSpot(done.to.spot as HomeSpot);
     setRoomNo(done.to.roomNo);
     done.then?.();
   }
@@ -3575,6 +3617,16 @@ export function HouseRoom({
           >
             Toilet
           </button>
+        ) : null}
+        {onOutside ? (
+          <button type="button" disabled={pending || Boolean(walk)} onClick={() => walkTo({ spot: "door", roomNo: 1 }, onOutside)} className="rounded-full bg-[#a9782a] px-3 py-1 text-[10px] font-semibold text-white shadow disabled:opacity-40">Step outside</button>
+        ) : null}
+        {upstairs ? (
+          at.spot === "landing" || at.spot === "room" ? (
+            <button type="button" disabled={pending || Boolean(walk)} onClick={() => walkTo({ spot: "parlour", roomNo: 1 })} className="rounded-full bg-[#e0b15a] px-3 py-1 text-[10px] font-semibold text-[#17241e] shadow disabled:opacity-40">Go downstairs</button>
+          ) : (
+            <button type="button" disabled={pending || Boolean(walk)} onClick={() => walkTo({ spot: "landing", roomNo: 1 })} className="rounded-full bg-[#e0b15a] px-3 py-1 text-[10px] font-semibold text-[#17241e] shadow disabled:opacity-40">Go upstairs</button>
+          )
         ) : null}
         <button type="button" onClick={() => lookAt("house")} className={chip(spot === "house")}>Full house</button>
         {!studio ? (

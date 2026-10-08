@@ -1491,7 +1491,7 @@ export interface Plot {
   price: number;
   rent: number;
   blurb: string;
-  kind?: "land" | "farm" | "board";
+  kind?: "land" | "farm" | "board" | "business";
   needLevel?: number;
 }
 
@@ -1508,6 +1508,20 @@ export const LANDS: Plot[] = [
   { id: "wetheral-board", name: "Wetheral billboard", area: "Wetheral Road", price: 180000, rent: 15000, kind: "board", blurb: "A weekly ad slot on the night road. The payment is earned." },
   { id: "ph-road-board", name: "Port Harcourt Road board", area: "New Owerri", price: 320000, rent: 24000, kind: "board", blurb: "The busy frontage. Advertisers pay you every Saturday." },
   { id: "airport-board", name: "Airport road board", area: "Sam Mbakwe", price: 260000, rent: 18000, kind: "board", blurb: "Everyone leaving town sees this one." },
+  { id: "pure-water", name: "Pure water kiosk", area: "Ikenegbu", price: 250_000, rent: 50_000, kind: "business", blurb: "A kiosk on the junction. Every sachet is yours. Pays every Saturday." },
+  { id: "provision-shop", name: "Provision shop", area: "Aladinma", price: 1_000_000, rent: 200_000, kind: "business", blurb: "Noodles, Indomie and cold drinks. People buy daily. Pays every Saturday." },
+  { id: "bakery", name: "Owerri bakery", area: "World Bank", price: 4_000_000, rent: 800_000, kind: "business", blurb: "Hot bread before sunrise. The queue is long. Pays every Saturday." },
+  { id: "filling-station", name: "Filling station", area: "Wetheral Road", price: 18_000_000, rent: 3_600_000, kind: "business", blurb: "Four pumps on the road to Port Harcourt. Pays every Saturday." },
+  { id: "supermarket", name: "Supermarket chain", area: "New Owerri", price: 80_000_000, rent: 16_000_000, kind: "business", blurb: "Three branches across town. Pays every Saturday." },
+  { id: "hotel-chain", name: "Hotel chain", area: "Works Layout", price: 350_000_000, rent: 70_000_000, kind: "business", blurb: "Rooms full from Friday to Sunday. Pays every Saturday." },
+  { id: "shopping-mall", name: "Shopping mall", area: "Egbu", price: 1_500_000_000, rent: 300_000_000, kind: "business", blurb: "A whole mall with your name on the front. Pays every Saturday." },
+  { id: "estate-towers", name: "Estate towers", area: "New Owerri", price: 7_000_000_000, rent: 1_400_000_000, kind: "business", blurb: "Tenants queue to rent the penthouses. Pays every Saturday." },
+  { id: "bank-licence", name: "Commercial bank", area: "Wetheral Road", price: 35_000_000_000, rent: 7_000_000_000, kind: "business", blurb: "A bank with branches in every state. Pays every Saturday." },
+  { id: "oil-block", name: "Oil block", area: "Niger Delta", price: 160_000_000_000, rent: 32_000_000_000, kind: "business", blurb: "Barrels pour in day and night. Pays every Saturday." },
+  { id: "telecom", name: "Telecom network", area: "Lagos", price: 800_000_000_000, rent: 160_000_000_000, kind: "business", blurb: "Every phone in Owerri runs on your towers. Pays every Saturday." },
+  { id: "airline", name: "Private airline", area: "Sam Mbakwe", price: 4_000_000_000_000, rent: 800_000_000_000, kind: "business", blurb: "Your jets fly out of Sam Mbakwe. Pays every Saturday." },
+  { id: "refinery", name: "Oil refinery", area: "Port Harcourt", price: 20_000_000_000_000, rent: 4_000_000_000_000, kind: "business", blurb: "Petrol for the whole country. Pays every Saturday." },
+  { id: "empire", name: "Owerri Life Group", area: "Everywhere", price: 100_000_000_000_000, rent: 20_000_000_000_000, kind: "business", blurb: "The empire. Everybody works for you. Pays every Saturday." },
 ];
 
 export interface Course {

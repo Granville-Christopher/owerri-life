@@ -105,11 +105,11 @@ export function buyLand(player: Player, ledger: LedgerEntry[], plotId: string): 
   if ((plot.needLevel ?? 0) > level) {
     return fail(player, ledger, `${plot.name} opens at career level ${plot.needLevel}. You are on level ${level}.`);
   }
-  const charged = debit(ledger, player, plot.price, `${plot.kind === "board" ? "Ad board" : plot.kind === "farm" ? "Farm" : "Land"} · ${plot.name}`, stamp(player.day, player.hour));
+  const charged = debit(ledger, player, plot.price, `${plot.kind === "board" ? "Ad board" : plot.kind === "farm" ? "Farm" : plot.kind === "business" ? "Business" : "Land"} · ${plot.name}`, stamp(player.day, player.hour));
   if (!charged) return fail(player, ledger, "Your balance cannot cover that plot.");
   const next = structuredClone(player);
   next.lands = [...player.lands, plot.id];
-  const pay = plot.kind === "board" ? "The advertisers pay" : plot.kind === "farm" ? "The harvest pays" : "The tenants pay";
+  const pay = plot.kind === "board" ? "The advertisers pay" : plot.kind === "farm" ? "The harvest pays" : plot.kind === "business" ? "The profit pays" : "The tenants pay";
   return succeed(next, charged, [`You bought ${plot.name}. ${pay} ${naira(plot.rent)} every Saturday. It is earned naira.`]);
 }
 
@@ -233,7 +233,7 @@ function applyBills(player: Player, ledger: LedgerEntry[]) {
   }
   for (const id of player.lands) {
     const plot = plotById(id);
-    const rentName = plot.kind === "board" ? "Ad board" : plot.kind === "farm" ? "Farm" : "Land rent";
+    const rentName = plot.kind === "board" ? "Ad board" : plot.kind === "farm" ? "Farm" : plot.kind === "business" ? "Business profit" : "Land rent";
     ledger = credit(ledger, player, plot.rent, "earned", `${rentName} · ${plot.name}`, at);
     notes.push(`${plot.name} paid ${naira(plot.rent)}.`);
   }

@@ -335,7 +335,14 @@ export function CityWorld({
       const top = new THREE.Mesh(new THREE.ConeGeometry(1.25, 0.7, 4), new THREE.MeshLambertMaterial({ color: roof }));
       top.position.y = tall + 0.28;
       top.rotation.y = Math.PI / 4;
-      group.add(body, top);
+      const door = new THREE.Mesh(new THREE.BoxGeometry(0.4, Math.min(0.8, tall * 0.55), 0.06), new THREE.MeshLambertMaterial({ color: 0x6a4630 }));
+      door.position.set(0, Math.min(0.8, tall * 0.55) / 2, 0.86);
+      const glassMat = new THREE.MeshLambertMaterial({ color: 0x9fd0ea });
+      const winL = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.3, 0.05), glassMat);
+      winL.position.set(-0.55, tall * 0.62, 0.86);
+      const winR = winL.clone();
+      winR.position.x = 0.55;
+      group.add(body, top, door, winL, winR);
       group.position.set(x, 0, z);
       scene.add(group);
       return group;
@@ -1816,8 +1823,11 @@ export function CityWorld({
       } else {
         const height = mine ? 2.8 : 1.7;
         const roof = mine ? 0xc4552a : 0x245c3a;
+        const grow = mine ? 4.5 : 2.4;
         group = house(at.x, at.z, mine ? 0xfffaf2 : 0xf7f1e8, height, roof);
-        labelY = height + 1.4;
+        group.scale.setScalar(grow);
+        group.userData.baseScale = grow;
+        labelY = (height + 0.7) * grow + 0.8;
       }
       group.userData.placeId = place.id;
       buildings.push(group);
@@ -1989,7 +1999,7 @@ export function CityWorld({
         walker.leftArm.rotation.x = -swing * 0.5;
         walker.rightArm.rotation.x = swing * 0.5;
       }
-      for (const home of homes) home.scale.setScalar(pulse);
+      for (const home of homes) home.scale.setScalar(pulse * (home.userData.baseScale ?? 1));
       for (const car of traffic) {
         car.along += car.speed;
         if (car.along > car.max) car.along = car.min;
