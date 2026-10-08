@@ -2713,20 +2713,103 @@ function RoomView({
         add(piece(gold, 0.08, 0.08, 1.2, x + wide / 2, 1.35, z0 + 0.2));
       }
     };
+    const cyl = (color: number, r: number, h: number, x: number, y: number, z: number, sx = 1, sz = 1) => {
+      const mesh = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 20), new THREE.MeshLambertMaterial({ color }));
+      mesh.position.set(x, y, z);
+      mesh.scale.set(sx, 1, sz);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      add(mesh);
+      return mesh;
+    };
+    const glass = (w: number, h: number, d: number, x: number, y: number, z: number) => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ color: 0xbfe3f2, transparent: true, opacity: 0.35 }));
+      mesh.position.set(x, y, z);
+      add(mesh);
+    };
+    const tiles = (w: number, d: number, cols: number, rows: number, a: number, b: number) => {
+      const cw = w / cols;
+      const cd = d / rows;
+      for (let i = 0; i < cols; i += 1) {
+        for (let j = 0; j < rows; j += 1) {
+          add(piece((i + j) % 2 === 0 ? a : b, cw - 0.03, 0.03, cd - 0.03, -w / 2 + cw * (i + 0.5), 0.155, -d / 2 + cd * (j + 0.5)));
+        }
+      }
+    };
     const kitchenFixtures = () => {
-      add(piece(0xf7f1e6, 12, 0.12, 0.75, 0, 1.05, -4.35));
-      add(piece(0xe7dcc8, 12, 0.85, 0.7, 0, 1.55, -4.45));
-      add(piece(0xd9cdb3, 12, 0.9, 0.7, 0, 0.59, -4.45));
-      add(piece(0x9fd0ea, 1.15, 0.08, 0.5, -2.1, 1.16, -4.15));
-      add(piece(0x3a3a3a, 0.95, 0.08, 0.7, 2.3, 1.14, -4.3));
+      const f = 0.14;
+      tiles(14, 10, 8, 6, 0xf1ebdd, 0xd8cdb4);
+      for (let i = 0; i < 5; i += 1) {
+        const x = -6.2 + i * 1.2;
+        add(piece(0x7b5438, 1.2, 0.9, 0.62, x, f + 0.45, -4.58));
+        add(piece(0xb98a56, 1.06, 0.7, 0.05, x, f + 0.5, -4.25));
+        add(piece(gold, 0.34, 0.05, 0.05, x, f + 0.78, -4.21));
+      }
+      add(piece(0x2f3a40, 6.2, 0.08, 0.76, -3.8, f + 0.94, -4.55));
+      add(piece(0xe9f0ee, 6.2, 0.75, 0.05, -3.8, f + 1.4, -4.86));
+      add(piece(0xb8c0c8, 1.35, 0.03, 0.5, -3.2, f + 0.99, -4.5));
+      add(piece(0x8f98a0, 0.58, 0.04, 0.4, -3.55, f + 1.0, -4.5));
+      add(piece(0x8f98a0, 0.58, 0.04, 0.4, -2.85, f + 1.0, -4.5));
+      cyl(0xb8c0c8, 0.04, 0.55, -3.2, f + 1.28, -4.8);
+      add(piece(0xb8c0c8, 0.06, 0.06, 0.34, -3.2, f + 1.54, -4.65));
+      add(piece(0xd9d2c4, 0.5, 0.05, 0.38, -5.3, f + 1.01, -4.5));
+      for (let i = 0; i < 4; i += 1) {
+        const x = -6.0 + i * 1.3;
+        add(piece(0xc9a574, 1.22, 0.9, 0.4, x, f + 2.35, -4.7));
+        add(piece(0xe0c496, 1.08, 0.74, 0.04, x, f + 2.35, -4.47));
+        add(piece(gold, 0.05, 0.3, 0.05, x + 0.4, f + 2.2, -4.43));
+      }
+      add(piece(0x6a4630, 5.4, 0.08, 0.42, -3.35, f + 2.84, -4.7));
+      add(piece(0xf7f1e6, 0.5, 0.05, 0.34, -1.35, f + 0.99, -4.5));
     };
     const bathFixtures = () => {
-      add(piece(0xd5e8f0, 2.3, 0.08, 1.6, -2.3, 0.16, -1.4));
-      add(piece(0xd7e4ea, 0.08, 2.15, 1.7, -3.4, 1.15, -1.4));
-      add(piece(0xd7e4ea, 0.08, 2.15, 1.7, -1.2, 1.15, -1.4));
-      add(piece(0xf7fbfc, 0.55, 0.45, 0.75, 2.3, 0.42, -2.5));
-      add(piece(0xf7fbfc, 1.4, 0.16, 0.55, 2.5, 0.95, -3.2));
-      add(piece(0x9fd0ea, 0.28, 0.18, 0.28, 2.5, 1.16, -3.05));
+      const f = 0.14;
+      tiles(9, 7.5, 6, 5, 0xf0f6f8, 0xcfe3ec);
+      add(piece(0xcfe3ec, 8.8, 1.4, 0.05, 0, f + 0.7, -3.62));
+      add(piece(0xcfe3ec, 0.05, 1.4, 7.3, -4.37, f + 0.7, 0));
+      add(piece(gold, 8.8, 0.05, 0.07, 0, f + 1.42, -3.6));
+      add(piece(gold, 0.07, 0.05, 7.3, -4.35, f + 1.42, 0));
+      // shower cubicle
+      add(piece(0xf4f8fa, 2.8, 0.14, 2.7, -2.95, f + 0.07, -2.3));
+      cyl(0x6b747c, 0.12, 0.03, -2.95, f + 0.16, -2.3);
+      glass(1.9, 2.15, 0.05, -3.4, f + 1.2, -0.97);
+      glass(0.05, 2.15, 2.7, -1.55, f + 1.2, -2.3);
+      add(piece(0xb8c0c8, 0.07, 2.2, 0.07, -2.45, f + 1.2, -0.97));
+      add(piece(0xb8c0c8, 0.07, 2.2, 0.07, -1.55, f + 1.2, -0.97));
+      add(piece(0xb8c0c8, 0.07, 2.2, 0.07, -1.55, f + 1.2, -3.6));
+      add(piece(0xb8c0c8, 2.9, 0.06, 0.06, -3.0, f + 2.3, -0.97));
+      cyl(0xb8c0c8, 0.035, 2.0, -3.6, f + 1.25, -3.56);
+      add(piece(0xb8c0c8, 0.06, 0.06, 0.6, -3.6, f + 2.2, -3.28));
+      cyl(0xb8c0c8, 0.26, 0.05, -3.6, f + 2.16, -2.95);
+      cyl(0xb8c0c8, 0.07, 0.06, -2.8, f + 1.2, -3.58).rotation.x = Math.PI / 2;
+      add(piece(0x9fd0ea, 0.2, 0.08, 0.04, -2.8, f + 1.0, -3.58));
+      // toilet
+      add(piece(0xf7fbfc, 0.5, 0.42, 0.55, 0.6, f + 0.21, -3.15));
+      cyl(0xf7fbfc, 0.36, 0.24, 0.6, f + 0.5, -2.8, 1, 1.4);
+      cyl(0xe9eef1, 0.3, 0.05, 0.6, f + 0.64, -2.8, 1, 1.35);
+      cyl(0xf7fbfc, 0.36, 0.05, 0.6, f + 0.68, -2.8, 1, 1.4);
+      add(piece(0xf7fbfc, 0.85, 0.72, 0.3, 0.6, f + 0.84, -3.42));
+      add(piece(0xe9eef1, 0.9, 0.05, 0.34, 0.6, f + 1.22, -3.42));
+      cyl(gold, 0.06, 0.05, 0.6, f + 1.27, -3.42);
+      add(piece(0xf7f1e6, 0.14, 0.14, 0.14, 1.45, f + 0.9, -3.55));
+      cyl(0xc4a574, 0.16, 0.45, 1.4, f + 0.23, -2.5);
+      // vanity, basin and mirror
+      add(piece(0xf0eadb, 1.9, 0.82, 0.62, 3.4, f + 0.41, -3.3));
+      add(piece(0xd9cdb3, 0.85, 0.66, 0.04, 3.0, f + 0.42, -2.97));
+      add(piece(0xd9cdb3, 0.85, 0.66, 0.04, 3.8, f + 0.42, -2.97));
+      add(piece(gold, 0.05, 0.25, 0.05, 3.4, f + 0.5, -2.95));
+      add(piece(0xe8e8e8, 2.0, 0.07, 0.68, 3.4, f + 0.85, -3.3));
+      cyl(0xffffff, 0.3, 0.1, 3.4, f + 0.9, -3.25, 1.3, 1);
+      cyl(0xbfd3dc, 0.22, 0.02, 3.4, f + 0.96, -3.25, 1.3, 1);
+      cyl(0xb8c0c8, 0.03, 0.3, 3.4, f + 1.05, -3.55);
+      add(piece(0xb8c0c8, 0.05, 0.05, 0.22, 3.4, f + 1.18, -3.45));
+      add(piece(gold, 1.35, 1.05, 0.03, 3.4, f + 1.95, -3.62));
+      add(piece(0xcfe7f0, 1.2, 0.9, 0.04, 3.4, f + 1.95, -3.59));
+      // towel, mat and basket
+      add(piece(0xb8c0c8, 0.05, 0.05, 1.5, -4.3, f + 1.35, 1.3));
+      add(piece(0x245c78, 0.07, 0.9, 1.2, -4.3, f + 0.85, 1.3));
+      add(piece(0x2f7a4a, 1.7, 0.03, 0.95, -2.7, f + 0.04, -0.2));
+      cyl(0xc4a574, 0.38, 0.8, 3.7, f + 0.4, 1.2);
     };
     const doorFrames = (wide: number) => {
       for (let i = 0; i < beds; i += 1) {
@@ -2930,7 +3013,7 @@ function RoomView({
       const size = roomSize("kitchen", beds, upstairs, duplex);
       shell(size.w, size.d, 3.5);
       kitchenFixtures();
-      span = size.w * 0.74;
+      span = size.w * 0.88;
       dropItems(items.filter((entry) => entry.spot === "kitchen"), true);
       standX = 0.2;
       standZ = 1.8;
@@ -2938,7 +3021,7 @@ function RoomView({
     } else if (spot === "bathroom") {
       shell(9, 7.5, 3.2);
       bathFixtures();
-      span = 9 * 0.74;
+      span = 9 * 1.05;
       standX = 0;
       standZ = 1.3;
       roomDistance = 16;
