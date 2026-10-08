@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { CAR_CATALOG, carById } from "@/lib/game/content";
 import { buildCabMesh, buildDetailedCarMesh } from "./carModels";
+import { loadAllRealCars, makeEnvironment, makeRealCar, realKindFor } from "./realCars";
 
 type RideVehicle = "car" | "bus" | "cab";
 
@@ -218,6 +219,9 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(root.clientWidth || 1, root.clientHeight || 1);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
     root.appendChild(renderer.domElement);
     const scene = new THREE.Scene();
     scene.background = new THREE.Color("#a9cdea");
@@ -226,6 +230,7 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
     const sun = new THREE.DirectionalLight(0xfff3dd, 1.1);
     sun.position.set(30, 40, 10);
     scene.add(sun);
+    const envTarget = makeEnvironment(renderer, scene, 0.75);
 
     const lengths: number[] = [];
     let total = 0;
@@ -479,6 +484,12 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
     } else {
       rig.add(buildDetailedCarMesh(deal, undefined, true));
     }
+    const placeholder = rig.children[rig.children.length - 1];
+    // the real car model for the one you are in; `seatEye` is the camera position in the car's own space
+    const real: { eye: THREE.Vector3 | null; steer: THREE.Object3D | null } = { eye: null, steer: null };
+    const cabin = new THREE.PointLight(0xffe4c4, 2.6, 6);
+    cabin.position.set(0.2, 1.15, 0.15);
+    rig.add(cabin);
 
     // ── Other traffic ────────────────────────────────────────────────
     const trafficDeals = CAR_CATALOG.filter((c) => c.id !== "bugatti");
@@ -515,6 +526,33 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
       scene.add(person);
       walkers.push({ mesh: person, s0: 12 + i * 21, speed: (i % 2 === 0 ? 1 : -1) * (0.012 + rand() * 0.01), lane: (i % 2 === 0 ? 1 : -1) * (ROAD / 2 + 0.7 + rand() * 0.6) });
     }
+
+    // swap in the real car models once they have loaded
+    void loadAllRealCars().then(() => {
+      if (!alive) return;
+      if (vehicle !== "bus") {
+        const kind = vehicle === "cab" ? "sedan" : realKindFor(deal);
+        if (kind) {
+          const made = makeRealCar(kind, { color: vehicle === "cab" ? 0xf2c14e : deal.defaultColor });
+          if (made) {
+            rig.remove(placeholder);
+            rig.add(made.group);
+            real.eye = vehicle === "cab" ? made.rear : made.driver;
+            real.steer = made.steer;
+          }
+        }
+      }
+      // some of the traffic becomes real cars too
+      flow.forEach((item, index) => {
+        const deal2 = trafficDeals[(index * 5 + 3) % trafficDeals.length];
+        const kind = realKindFor(deal2);
+        const made = makeRealCar(kind, { color: paints[(index * 3) % paints.length], plain: true });
+        if (!made) return;
+        scene.remove(item.mesh);
+        item.mesh = made.group;
+        scene.add(made.group);
+      });
+    });
 
     // ── Cockpit shown on the camera ──────────────────────────────────
     const cockpit = vehicle === "car" ? carCockpit() : vehicle === "cab" ? cabCockpit() : busCockpit();
@@ -575,7 +613,22 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
         person.mesh.rotation.y = at.heading + (person.speed < 0 ? Math.PI : 0);
       });
 
-      if (view.current === "inside") {
+      rig.updateMatrixWorld(true);
+      if (real.steer) real.steer.rotation.z = steer * 1.1;
+      if (view.current === "inside" && real.eye) {
+        rig.visible = true;
+        cockpit.group.visible = false;
+        if (camera.fov !== 70) {
+          camera.fov = 70;
+          camera.updateProjectionMatrix();
+        }
+        const bob = Math.sin(now / 55) * 0.004;
+        const eye = rig.localToWorld(real.eye.clone());
+        eye.y += bob;
+        camera.position.copy(eye);
+        camera.lookAt(eye.clone().addScaledVector(fwd, 12).add(new THREE.Vector3(0, -0.05, 0)));
+        camReady = false;
+      } else if (view.current === "inside") {
         rig.visible = false;
         cockpit.group.visible = true;
         const bob = Math.sin(now / 55) * (vehicle === "bus" ? 0.014 : 0.006);
@@ -607,6 +660,7 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
     window.addEventListener("resize", onResize);
     return () => {
       alive = false;
+      envTarget.dispose();
       window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", onResize);
       renderer.dispose();

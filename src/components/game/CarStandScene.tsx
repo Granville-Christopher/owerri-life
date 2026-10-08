@@ -8,6 +8,7 @@ import { naira } from "@/lib/game/format";
 import { attachSceneCameraControls } from "./sceneCameraControls";
 import { CAR_CATALOG, type CarDeal } from "@/lib/game/content";
 import { buildDetailedCarMesh } from "./carModels";
+import { loadRealCar, makeEnvironment, makeRealCar, realKindFor } from "./realCars";
 
 export type { CarDeal };
 export { CAR_CATALOG };
@@ -59,7 +60,7 @@ export function CarStandScene({
   onBuy?: (carId: string) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
-  const rig = useRef({ yaw: 0.35, zoom: 1.1 });
+  const rig = useRef({ yaw: 0.95, zoom: 1 });
   const turntableRef = useRef<THREE.Group | null>(null);
 
   const [selectedCar, setSelectedCar] = useState<CarDeal>(CAR_CATALOG[0]);
@@ -84,10 +85,29 @@ export function CarStandScene({
     renderer.setSize(root.clientWidth, root.clientHeight);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
     root.appendChild(renderer.domElement);
 
     const showroom = new THREE.Group();
     scene.add(showroom);
+    const envTarget = makeEnvironment(renderer, scene, 0.85);
+    let alive = true;
+    // real car models replace the quick placeholder cars as soon as they finish loading
+    const swapReal = (placeholder: THREE.Group, car: CarDeal, parent: THREE.Object3D) => {
+      const kind = realKindFor(car);
+      if (!kind) return;
+      void loadRealCar(kind).then(() => {
+        if (!alive) return;
+        const real = makeRealCar(kind, { color: car.defaultColor });
+        if (!real) return;
+        real.group.position.copy(placeholder.position);
+        real.group.rotation.copy(placeholder.rotation);
+        parent.remove(placeholder);
+        parent.add(real.group);
+      });
+    };
 
     // ─────────────────────────────────────────────────────────────
     // LIGHTING: Showroom Spotlights & Reflections
@@ -186,6 +206,7 @@ export function CarStandScene({
 
     const featuredCarMesh = buildDetailedCarMesh(selectedCar);
     turntable.add(featuredCarMesh);
+    swapReal(featuredCarMesh, selectedCar, turntable);
 
     // ─────────────────────────────────────────────────────────────
     // 2. SHOWROOM DISPLAY LOT CARS (Surrounding Rows)
@@ -204,6 +225,7 @@ export function CarStandScene({
       lot.position.set(lx, 0, lz);
       lot.rotation.y = ry;
       showroom.add(lot);
+      swapReal(lot, pick, showroom);
     });
 
     // ─────────────────────────────────────────────────────────────
@@ -257,8 +279,8 @@ export function CarStandScene({
     // ─────────────────────────────────────────────────────────────
     // ELEVATED ISOMETRIC CAMERA & RENDER LOOP
     // ─────────────────────────────────────────────────────────────
-    const camera = new THREE.PerspectiveCamera(35, root.clientWidth / root.clientHeight, 0.1, 100);
-    const target = new THREE.Vector3(0, 0.9, 0);
+    const camera = new THREE.PerspectiveCamera(32, root.clientWidth / root.clientHeight, 0.1, 100);
+    const target = new THREE.Vector3(0, -1.15, 0);
 
     let frame = 0;
     const animate = () => {
@@ -269,13 +291,13 @@ export function CarStandScene({
         turntableRef.current.rotation.y += isTestDriving ? 0.04 : 0.005;
       }
 
-      const r = Math.min(42, Math.max(16, 6.2 / (0.315 * Math.min(camera.aspect, 1.7)))) / rig.current.zoom;
-      const phi = 0.64; // High angle elevated view
+      const r = 12.4 / rig.current.zoom;
+      const phi = 1.04;
       const theta = rig.current.yaw;
 
       camera.position.set(
         target.x + r * Math.sin(phi) * Math.sin(theta),
-        target.y + r * Math.cos(phi) + 2.2,
+        2.35 + r * Math.cos(phi),
         target.z + r * Math.sin(phi) * Math.cos(theta)
       );
       camera.lookAt(target);
@@ -300,9 +322,11 @@ export function CarStandScene({
     window.addEventListener("resize", onResize);
 
     return () => {
+      alive = false;
       cancelAnimationFrame(frame);
       window.removeEventListener("resize", onResize);
       detachControls();
+      envTarget.dispose();
       renderer.dispose();
       if (root.contains(renderer.domElement)) {
         root.removeChild(renderer.domElement);
