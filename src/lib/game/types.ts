@@ -49,6 +49,17 @@ export interface Job {
   workedOnDay: number | null;
 }
 
+export type FurnitureSpot = "parlour" | "kitchen" | "room";
+
+export interface Placement {
+  homeId: string;
+  spot: FurnitureSpot;
+  roomNo: number;
+  x: number;
+  z: number;
+  rot: number;
+}
+
 export interface Player {
   id: string;
   username: string;
@@ -96,6 +107,7 @@ export interface Player {
   room: { stay: "hour" | "night"; placeId: string } | null;
   lands: string[];
   furniture: string[];
+  layout: Record<string, Placement>;
   besideId: string | null;
   dmToday: number;
   lastChatKey: string;

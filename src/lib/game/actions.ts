@@ -16,6 +16,7 @@ import {
   eat,
   enterPlace,
   furnish,
+  placeFurniture,
   flyAway,
   hangOut,
   honourInvite,
@@ -58,7 +59,7 @@ import { stamp } from "./format";
 import { authBlocked, authCleared, authFailed, burnPasswordCheck, clearSession, hashPassword, needsUpgrade, sessionPlayerId, setSession, verifyPassword } from "./auth";
 import { passwordProblem } from "./password";
 import { mutate, readDb } from "./store";
-import type { BetPick, ChatQuote, CreateInput, Gender, LookId, NetWorthVisibility, Reveal, TraitId, TravelMode, WorkStyle } from "./types";
+import type { BetPick, ChatQuote, CreateInput, Gender, LookId, NetWorthVisibility, Placement, Reveal, TraitId, TravelMode, WorkStyle } from "./types";
 
 export type ActionResult = { ok: true; notice?: string } | { ok: false; error: string };
 export type CreateResult =
@@ -376,6 +377,9 @@ export async function showerAtHome() {
 }
 export async function buyFurniture(itemId: string) {
   return withPlayer((id) => simple(id, (player, ledger) => furnish(player, ledger, itemId)));
+}
+export async function moveFurniture(key: string, placement: Placement) {
+  return withPlayer((id) => simple(id, (player, ledger) => placeFurniture(player, ledger, key, placement)));
 }
 export async function useRestroom() {
   return withPlayer((id) => simple(id, restroom));

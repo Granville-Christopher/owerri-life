@@ -7,6 +7,11 @@ import {
   PLATE,
   COURSES,
   FURNITURE,
+  clampPlacement,
+  defaultPlacement,
+  fillLayout,
+  furnitureById,
+  furnitureInstances,
   careerById,
   courseById,
   dreamById,
@@ -32,6 +37,7 @@ import {
   type Fixture,
   type LedgerEntry,
   type MoneySource,
+  type Placement,
   type Player,
   type Reveal,
   type SkillKey,
@@ -806,12 +812,32 @@ export function furnish(player: Player, ledger: LedgerEntry[], itemId: string): 
   const item = FURNITURE.find((piece) => piece.id === itemId);
   if (!item) return fail(player, ledger, "That piece is not for sale.");
   const home = homeById(player.homeId);
-  if (player.furniture.includes(item.id)) return fail(player, ledger, `You already have a ${item.name.toLowerCase()}.`);
+  const count = player.furniture.filter((id) => id === item.id).length;
+  if (count >= 6) return fail(player, ledger, `Six ${item.name.toLowerCase()}s is plenty.`);
   const paid = debit(ledger, player, item.cost, `Furniture · ${item.name}`, stamp(player.day, player.hour));
   if (!paid) return fail(player, ledger, "Your wallet cannot cover that.");
   const next = structuredClone(player);
   next.furniture = [...player.furniture, item.id];
-  return succeed(next, paid, [`You bought a ${item.name.toLowerCase()} for ${home.name}.`]);
+  next.layout = { ...fillLayout(player.furniture, player.layout, player.homeId) };
+  next.layout[`${item.id}:${count}`] = defaultPlacement(item, home, count);
+  return succeed(next, paid, [`You bought a ${item.name.toLowerCase()} for ${home.name}. Tap Move furniture to put it where you want.`]);
+}
+
+export function placeFurniture(player: Player, ledger: LedgerEntry[], key: string, wanted: Placement): Step {
+  const piece = furnitureInstances(player.furniture).find((entry) => entry.key === key);
+  const item = piece ? furnitureById(piece.id) : null;
+  if (!piece || !item) return fail(player, ledger, "You do not own that piece.");
+  if (!(player.homes ?? [player.homeId]).includes(wanted.homeId)) return fail(player, ledger, "That is not your house.");
+  const home = homeById(wanted.homeId);
+  const studio = home.beds <= 1 && !home.upstairs;
+  if (wanted.spot !== "parlour" && wanted.spot !== "kitchen" && wanted.spot !== "room") return fail(player, ledger, "Furniture goes in a room, the parlour, or the kitchen.");
+  if (studio && wanted.spot !== "room") return fail(player, ledger, "This flat is one room.");
+  const roomNo = wanted.spot === "room" ? Math.min(Math.max(1, Math.round(wanted.roomNo)), Math.max(home.beds, 1)) : 1;
+  if (![wanted.x, wanted.z, wanted.rot].every(Number.isFinite)) return fail(player, ledger, "That spot is not valid.");
+  const placed = clampPlacement(item, home, { homeId: home.id, spot: wanted.spot, roomNo, x: wanted.x, z: wanted.z, rot: wanted.rot });
+  const next = structuredClone(player);
+  next.layout = { ...fillLayout(player.furniture, player.layout, player.homeId), [key]: placed };
+  return succeed(next, ledger, [`Moved your ${item.name.toLowerCase()}.`]);
 }
 
 export function shower(player: Player, ledger: LedgerEntry[]): Step {
@@ -1261,6 +1287,7 @@ export function createNewPlayer(input: CreateInput, id: string, rng: () => numbe
     room: null,
     lands: [],
     furniture: lottery === "heir" ? ["bed", "sofa", "television"] : [],
+    layout: lottery === "heir" ? fillLayout(["bed", "sofa", "television"], {}, "new-owerri-flat") : {},
     besideId: null,
     dmToday: 0,
     lastChatKey: "",

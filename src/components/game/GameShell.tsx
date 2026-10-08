@@ -34,6 +34,7 @@ import {
   addTopUp,
   buyCar,
   buyFurniture,
+  moveFurniture,
   buyPlot,
   goMeet,
   logout,
@@ -216,7 +217,9 @@ export function GameShell({ view }: { view: GameView }) {
             <HouseRoom
               name={homeById(me.homeId).name}
               look={me.look}
-              owned={me.furniture}
+              homeId={me.homeId}
+              furniture={me.furniture}
+              layout={me.layout}
               beds={homeById(me.homeId).beds}
               upstairs={homeById(me.homeId).upstairs}
               duplex={homeById(me.homeId).id.includes("duplex")}
@@ -230,6 +233,8 @@ export function GameShell({ view }: { view: GameView }) {
               onSleep={() => run(sleepAtHome)}
               onShower={() => run(showerAtHome)}
               onBuy={(itemId) => run(() => buyFurniture(itemId))}
+              onMove={(key, placement) => run(() => moveFurniture(key, placement))}
+              onToilet={() => run(useRestroom)}
             />
           ) : null}
           {!account && tab === "map" ? (
@@ -824,7 +829,9 @@ function MapPanel({
             place.kind === "home" && place.id === homeById(view.me.homeId).areaId
               ? {
                   name: homeById(view.me.homeId).name,
-                  owned: view.me.furniture,
+                  homeId: view.me.homeId,
+                  furniture: view.me.furniture,
+                  layout: view.me.layout,
                   beds: homeById(view.me.homeId).beds,
                   upstairs: homeById(view.me.homeId).upstairs,
                   duplex: homeById(view.me.homeId).id.includes("duplex"),
@@ -832,6 +839,8 @@ function MapPanel({
               : null
           }
           onBuyFurniture={(itemId) => run(() => buyFurniture(itemId))}
+          onMoveFurniture={(key, placement) => run(() => moveFurniture(key, placement))}
+          onHomeToilet={() => run(useRestroom)}
           onHomeSleep={() => run(sleepAtHome)}
           onHomeShower={() => run(showerAtHome)}
           fill

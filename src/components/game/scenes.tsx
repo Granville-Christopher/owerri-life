@@ -3,10 +3,11 @@
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import * as THREE from "three";
-import { CAR_PRICE, DORIME_AMOUNTS, FURNITURE, LOOKS, TREATMENT_FEE, npcsAt, placeActs, placeById, sprayFloor } from "@/lib/game/content";
-import type { Place } from "@/lib/game/content";
+import { CAR_PRICE, DORIME_AMOUNTS, FURNITURE, FURNITURE_GROUPS, LOOKS, TREATMENT_FEE, clampPlacement, furnitureById, furnitureInstances, homeById, npcsAt, placeActs, placeById, placeIn, roomSize, sprayFloor } from "@/lib/game/content";
+import type { FurnitureGroup, Home, Place } from "@/lib/game/content";
 import { naira } from "@/lib/game/format";
-import type { LookId } from "@/lib/game/types";
+import type { FurnitureSpot, LookId, Placement } from "@/lib/game/types";
+import { buildFurniture } from "./furnitureModels";
 import { HeroesStadiumScene } from "./HeroesStadiumScene";
 import { PhoneStoreScene } from "./PhoneStoreScene";
 import { SchoolClassroomScene } from "./SchoolClassroomScene";
@@ -2079,8 +2080,10 @@ export function VenueInterior({
   sick,
   house = null,
   onBuyFurniture,
+  onMoveFurniture,
   onHomeSleep,
   onHomeShower,
+  onHomeToilet,
   fill = false,
   extra = null,
   onApply,
@@ -2111,10 +2114,12 @@ export function VenueInterior({
   onLeaveRoom: () => void;
   onTreat: () => void;
   sick: "none" | "mild" | "severe";
-  house?: { name: string; owned: string[]; beds: number; upstairs: boolean; duplex: boolean } | null;
+  house?: { name: string; homeId: string; furniture: string[]; layout: Record<string, Placement>; beds: number; upstairs: boolean; duplex: boolean } | null;
   onBuyFurniture?: (itemId: string) => void;
+  onMoveFurniture?: (key: string, placement: Placement) => void;
   onHomeSleep?: () => void;
   onHomeShower?: () => void;
+  onHomeToilet?: () => void;
   fill?: boolean;
   extra?: ReactNode;
   onApply?: () => void;
@@ -2195,7 +2200,7 @@ export function VenueInterior({
             }}
           />
         ) : place.kind === "home" && house ? (
-          <HouseRoom name={house.name} owned={house.owned} beds={house.beds} upstairs={house.upstairs} duplex={house.duplex} look={look} pending={pending} onBuy={onBuyFurniture ?? (() => undefined)} onSleep={onHomeSleep} onShower={onHomeShower} />
+          <HouseRoom name={house.name} homeId={house.homeId} furniture={house.furniture} layout={house.layout} beds={house.beds} upstairs={house.upstairs} duplex={house.duplex} look={look} pending={pending} onBuy={onBuyFurniture ?? (() => undefined)} onMove={onMoveFurniture ?? (() => undefined)} onSleep={onHomeSleep} onShower={onHomeShower} onToilet={onHomeToilet} />
         ) : beach ? (
           <BeachHouse look={look} />
         ) : place.id === "assumpta-cathedral" ? (
@@ -2478,68 +2483,196 @@ function citizen(lookId: LookId) {
   return person;
 }
 
+type HomeSpot = FurnitureSpot | "bathroom" | "landing" | "house";
+
+interface PlacedPiece {
+  key: string;
+  id: string;
+  spot: FurnitureSpot;
+  roomNo: number;
+  x: number;
+  z: number;
+  rot: number;
+}
+
+interface OtherPiece {
+  key: string;
+  id: string;
+  label: string;
+}
+
+interface Draft {
+  key: string;
+  x: number;
+  z: number;
+  rot: number;
+}
+
+function labelSprite(text: string) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 384;
+  canvas.height = 96;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    ctx.fillStyle = "rgba(23,36,30,0.9)";
+    ctx.fillRect(6, 10, 372, 76);
+    ctx.fillStyle = "#e0b15a";
+    ctx.fillRect(6, 10, 372, 6);
+    ctx.fillStyle = "#f6f1e6";
+    ctx.font = "bold 44px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, 192, 54);
+  }
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), depthTest: false, transparent: true }));
+  sprite.scale.set(7.2, 1.8, 1);
+  sprite.renderOrder = 10;
+  return sprite;
+}
+
 function RoomView({
-  owned,
+  placed,
+  others,
   look,
   beds,
   upstairs,
   duplex,
   spot,
   roomNo,
+  edit,
+  pending,
+  onKeep,
+  onBring,
+  onDone,
 }: {
-  owned: string[];
+  placed: PlacedPiece[];
+  others: OtherPiece[];
   look: LookId;
   beds: number;
   upstairs: boolean;
   duplex: boolean;
-  spot: "parlour" | "kitchen" | "bathroom" | "landing" | "room";
+  spot: HomeSpot;
   roomNo: number;
+  edit: boolean;
+  pending: boolean;
+  onKeep: (key: string, at: { x: number; z: number; rot: number }) => void;
+  onBring: (key: string) => void;
+  onDone: () => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const rig = useRef({ yaw: 0.55, zoom: 1.15 });
-  const ownedKey = owned.join(",");
+  const placedKey = JSON.stringify(placed);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [seenKey, setSeenKey] = useState(placedKey);
+  if (seenKey !== placedKey) {
+    setSeenKey(placedKey);
+    setDraft(null);
+  }
+  const live = useRef({ edit, selected });
+  const furnRef = useRef<Map<string, THREE.Group>>(new Map());
+  const taps = useRef<{ select: (key: string) => void; drop: (x: number, z: number) => void }>({ select: () => undefined, drop: () => undefined });
+  const homeStub = { id: duplex ? "duplex" : "home", beds, upstairs } as Home;
+
+  function currentOf(key: string): Draft | null {
+    if (draft && draft.key === key) return draft;
+    const piece = placed.find((entry) => entry.key === key);
+    return piece ? { key, x: piece.x, z: piece.z, rot: piece.rot } : null;
+  }
+
+  function push(key: string, x: number, z: number, rot: number) {
+    const piece = placed.find((entry) => entry.key === key);
+    const item = piece ? furnitureById(piece.id) : null;
+    if (!piece || !item) return;
+    const fitted = clampPlacement(item, homeStub, { homeId: "", spot: piece.spot, roomNo: piece.roomNo, x, z, rot });
+    setDraft({ key, x: fitted.x, z: fitted.z, rot: fitted.rot });
+  }
+
+  useEffect(() => {
+    live.current = { edit, selected };
+    taps.current = {
+      select: (key) => setSelected(key),
+      drop: (x, z) => {
+        if (!selected) return;
+        const cur = currentOf(selected);
+        if (cur) push(selected, x, z, cur.rot);
+      },
+    };
+  });
+
+  useEffect(() => {
+    if (!edit) {
+      setSelected(null);
+      setDraft(null);
+    }
+  }, [edit]);
+
+  useEffect(() => {
+    setSelected(null);
+    setDraft(null);
+  }, [spot, roomNo]);
+
+  useEffect(() => {
+    if (!draft) return;
+    const group = furnRef.current.get(draft.key);
+    if (!group) return;
+    group.position.x = draft.x;
+    group.position.z = draft.z;
+    group.rotation.y = draft.rot;
+  }, [draft]);
 
   useEffect(() => {
     const root = host.current;
     if (!root) return;
+    const items: PlacedPiece[] = JSON.parse(placedKey);
+    const house = spot === "house";
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(root.clientWidth, root.clientHeight);
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     root.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color("#cfe0c2");
     scene.add(new THREE.HemisphereLight(0xfff6e8, 0x8fbf98, 0.72));
     const sun = new THREE.DirectionalLight(0xfff3dd, 1.35);
-    sun.position.set(4, 12, 6);
+    const ext = house ? 62 : 18;
+    sun.position.set(house ? 14 : 4, house ? 44 : 12, house ? 24 : 6);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
     sun.shadow.camera.near = 1;
-    sun.shadow.camera.far = 32;
-    sun.shadow.camera.left = -18;
-    sun.shadow.camera.right = 18;
-    sun.shadow.camera.top = 18;
-    sun.shadow.camera.bottom = -18;
-    sun.shadow.camera.far = 48;
+    sun.shadow.camera.left = -ext;
+    sun.shadow.camera.right = ext;
+    sun.shadow.camera.top = ext;
+    sun.shadow.camera.bottom = -ext;
+    sun.shadow.camera.far = house ? 160 : 48;
     sun.shadow.bias = -0.0012;
     scene.add(sun);
     scene.add(sun.target);
 
     const spin = new THREE.Group();
     scene.add(spin);
-    const yard = new THREE.Mesh(new THREE.PlaneGeometry(42, 32), new THREE.MeshLambertMaterial({ color: 0xcfe0c2 }));
+    const yard = new THREE.Mesh(new THREE.PlaneGeometry(house ? 300 : 42, house ? 240 : 32), new THREE.MeshLambertMaterial({ color: 0xcfe0c2 }));
     yard.rotation.x = -Math.PI / 2;
     spin.add(yard);
 
     const wall = 0xf4efe4;
     const gold = 0xe0b15a;
     const wood = 0xc4a574;
-    const add = (mesh: THREE.Object3D) => spin.add(mesh);
-    const has = (id: string) => ownedKey.split(",").includes(id);
+    let target: THREE.Object3D = spin;
+    const add = (mesh: THREE.Object3D) => target.add(mesh);
+    const floors: THREE.Object3D[] = [];
+    const furn = new Map<string, THREE.Group>();
+    furnRef.current = furn;
+
+    const floorSlab = (color: number, width: number, depth: number) => {
+      const slab = piece(color, width, 0.14, depth, 0, 0.07, 0);
+      floors.push(slab);
+      add(slab);
+    };
     const shell = (width: number, depth: number, rise: number, floor = true) => {
-      if (floor) add(piece(wood, width, 0.14, depth, 0, 0.07, 0));
+      if (floor) floorSlab(wood, width, depth);
       add(piece(wall, width, rise, 0.18, 0, rise / 2, -depth / 2));
       add(piece(wall, 0.18, rise, depth, -width / 2, rise / 2, 0));
       add(piece(wall, 0.18, rise, depth * 0.42, width / 2, rise / 2, -depth * 0.29));
@@ -2555,28 +2688,10 @@ function RoomView({
       add(piece(0xf7f1e6, 0.08, 1.7, 0.1, wx - 1.34, wy, wz));
       add(piece(0xf7f1e6, 0.08, 1.7, 0.1, wx + 1.34, wy, wz));
     };
-    const rug = (x: number, z: number, w: number, d: number) => {
-      add(piece(0x1f6b45, w, 0.03, d, x, 0.16, z));
-      add(piece(gold, w + 0.3, 0.02, 0.1, x, 0.18, z - d / 2));
-      add(piece(gold, w + 0.3, 0.02, 0.1, x, 0.18, z + d / 2));
-    };
-    const sofa = (x: number, z: number) => {
-      const group = new THREE.Group();
-      group.add(piece(has("sofa") ? 0x1f6b45 : 0x245c3a, 3.1, 0.42, 1.15, 0, 0.46, 0));
-      group.add(piece(has("sofa") ? 0x174f34 : 0x1a3d28, 3.1, 0.72, 0.18, 0, 0.95, -0.48));
-      group.add(piece(0x174f34, 0.18, 0.55, 1.15, -1.46, 0.62, 0));
-      group.add(piece(0x174f34, 0.18, 0.55, 1.15, 1.46, 0.62, 0));
-      group.position.set(x, 0, z);
-      group.rotation.y = 0;
-      add(group);
-    };
-    const bed = (x: number, z: number) => {
-      add(piece(0x6a4630, 2.4, 0.28, 2, x, 0.3, z));
-      add(piece(has("bed") ? 0xf7f1e6 : 0xe7dcc8, 2.2, 0.32, 1.75, x, 0.55, z + 0.06));
-      add(piece(0x8c3d2f, 2.4, 1.15, 0.14, x, 0.95, z - 0.95));
-      add(piece(0xf7f1e6, 0.72, 0.16, 0.42, x - 0.48, 0.78, z - 0.4));
-      add(piece(0xf7f1e6, 0.72, 0.16, 0.42, x + 0.48, 0.78, z - 0.4));
-      add(piece(0x6a4630, 0.55, 0.55, 0.48, x + 1.55, 0.4, z - 0.4));
+    const mattress = (x: number, z: number) => {
+      add(piece(0x6a4630, 2.1, 0.22, 1.9, x, 0.25, z));
+      add(piece(0xd9d2c4, 1.95, 0.2, 1.75, x, 0.46, z));
+      add(piece(0xd9d2c4, 0.7, 0.14, 0.4, x, 0.63, z - 0.6));
     };
     const flight = (x: number, z0: number, down: boolean) => {
       const steps = 12;
@@ -2598,28 +2713,137 @@ function RoomView({
         add(piece(gold, 0.08, 0.08, 1.2, x + wide / 2, 1.35, z0 + 0.2));
       }
     };
-    let roomDistance = 26;
-    let standX = 0;
-    let standZ = 2.2;
-    if (spot === "kitchen") {
-      shell(14, 10, 3.5);
+    const kitchenFixtures = () => {
       add(piece(0xf7f1e6, 12, 0.12, 0.75, 0, 1.05, -4.35));
       add(piece(0xe7dcc8, 12, 0.85, 0.7, 0, 1.55, -4.45));
+      add(piece(0xd9cdb3, 12, 0.9, 0.7, 0, 0.59, -4.45));
       add(piece(0x9fd0ea, 1.15, 0.08, 0.5, -2.1, 1.16, -4.15));
       add(piece(0x3a3a3a, 0.95, 0.08, 0.7, 2.3, 1.14, -4.3));
-      add(piece(has("fridge") ? 0xd7e7f5 : 0xc5ced6, 0.95, 2.1, 0.8, 5.5, 1.15, -3.5));
-      add(piece(0x6a4630, 1.7, 0.1, 0.95, 0.2, 0.85, -1));
-      standX = 0.2;
-      standZ = 1.8;
-      roomDistance = 24;
-    } else if (spot === "bathroom") {
-      shell(9, 7.5, 3.2);
+    };
+    const bathFixtures = () => {
       add(piece(0xd5e8f0, 2.3, 0.08, 1.6, -2.3, 0.16, -1.4));
       add(piece(0xd7e4ea, 0.08, 2.15, 1.7, -3.4, 1.15, -1.4));
       add(piece(0xd7e4ea, 0.08, 2.15, 1.7, -1.2, 1.15, -1.4));
       add(piece(0xf7fbfc, 0.55, 0.45, 0.75, 2.3, 0.42, -2.5));
       add(piece(0xf7fbfc, 1.4, 0.16, 0.55, 2.5, 0.95, -3.2));
       add(piece(0x9fd0ea, 0.28, 0.18, 0.28, 2.5, 1.16, -3.05));
+    };
+    const doorFrames = (wide: number) => {
+      for (let i = 0; i < beds; i += 1) {
+        const span = beds <= 1 ? 0 : (wide - 4.4) / (beds - 1);
+        const x = beds <= 1 ? 0 : -wide / 2 + 2.2 + i * span;
+        add(piece(0xf7f1e6, 1.2, 2.35, 0.1, x, 1.25, -4.15));
+        add(piece(0x6a4630, 1.4, 0.1, 0.12, x, 2.48, -4.1));
+        add(piece(gold, 0.08, 0.08, 0.08, x + 0.38, 1.2, -4.02));
+      }
+    };
+    const dropItems = (list: PlacedPiece[], tracked: boolean) => {
+      for (const entry of list) {
+        const model = buildFurniture(entry.id);
+        model.position.set(entry.x, 0.14, entry.z);
+        model.rotation.y = entry.rot;
+        model.userData.key = entry.key;
+        model.userData.id = entry.id;
+        target.add(model);
+        if (tracked) furn.set(entry.key, model);
+      }
+    };
+    const hasBedIn = (list: PlacedPiece[]) => list.some((entry) => entry.id === "bed" || entry.id === "double-bed");
+
+    let roomDistance = 26;
+    let lookY = 1.35;
+    let standX = 0;
+    let standZ = 2.2;
+    let span = 0;
+    const me = citizen(look);
+
+    if (house) {
+      const studio = beds <= 1 && !upstairs;
+      type Plan = { kind: "parlour" | "kitchen" | "bathroom" | "landing" | "room"; roomNo: number; label: string; w: number; d: number };
+      const plan = (kind: Plan["kind"], no: number, label: string): Plan => ({ kind, roomNo: no, label, ...roomSize(kind, beds, upstairs, duplex) });
+      const bedrooms = () => Array.from({ length: Math.max(beds, 1) }, (_, i) => plan("room", i + 1, studio ? "Room" : `Room ${i + 1}`));
+      const ground = [plan("parlour", 1, "Parlour"), plan("kitchen", 1, "Kitchen"), plan("bathroom", 1, "Bathroom")];
+      const blocks: Array<{ title: string; rows: Plan[][] }> = studio
+        ? [{ title: "", rows: [[...bedrooms(), plan("bathroom", 1, "Bathroom")]] }]
+        : upstairs
+          ? [
+              { title: "UPSTAIRS", rows: [bedrooms(), [plan("landing", 1, "Landing")]] },
+              { title: "DOWNSTAIRS", rows: [ground] },
+            ]
+          : [{ title: "", rows: [bedrooms(), ground] }];
+      const board = new THREE.Group();
+      spin.add(board);
+      target = board;
+      let cursor = 0;
+      let widest = 0;
+      for (const block of blocks) {
+        if (block.title) {
+          const sign = labelSprite(block.title);
+          sign.position.set(0, 3.2, cursor + 1);
+          board.add(sign);
+          cursor += 2.4;
+        }
+        block.rows.forEach((row, rowIndex) => {
+          const rowW = row.reduce((sum, entry) => sum + entry.w, 0) + (row.length - 1) * 0.4;
+          const rowD = Math.max(...row.map((entry) => entry.d));
+          widest = Math.max(widest, rowW);
+          let cx = -rowW / 2;
+          for (const entry of row) {
+            const room = new THREE.Group();
+            room.position.set(cx + entry.w / 2, 0, cursor + rowD / 2);
+            board.add(room);
+            target = room;
+            const color = entry.kind === "bathroom" ? 0xd5e8f0 : entry.kind === "kitchen" ? 0xe4dcc6 : wood;
+            floorSlab(color, entry.w, entry.d);
+            const h = 1.3;
+            const gap = block.rows.length > 1 && entry.kind !== "landing" ? (rowIndex === 0 ? "s" : "n") : "";
+            const half = entry.w / 2;
+            add(piece(wall, entry.w, h, 0.2, 0, h / 2, -entry.d / 2));
+            add(piece(wall, entry.w, h, 0.2, 0, h / 2, entry.d / 2));
+            add(piece(wall, 0.2, h, entry.d, -half, h / 2, 0));
+            add(piece(wall, 0.2, h, entry.d, half, h / 2, 0));
+            if (gap) {
+              const doorZ = gap === "s" ? entry.d / 2 : -entry.d / 2;
+              add(piece(wood, 2.6, 0.2, 0.3, 0, 0.2, doorZ));
+            }
+            if (entry.kind === "kitchen") kitchenFixtures();
+            if (entry.kind === "bathroom") bathFixtures();
+            if (entry.kind === "landing") doorFrames(entry.w);
+            if (entry.kind === "parlour" && upstairs) flight(3.6, 2.4, false);
+            const mine = items.filter((piece2) => (entry.kind === "room" ? piece2.spot === "room" && piece2.roomNo === entry.roomNo : piece2.spot === entry.kind));
+            if (entry.kind === "room" && !hasBedIn(mine)) mattress(-(entry.w / 2 - 2), -(entry.d / 2 - 2.2));
+            dropItems(mine, false);
+            if ((entry.kind === "parlour" && !studio) || (studio && entry.kind === "room")) {
+              me.position.set(entry.w / 2 - 3, 0.14, entry.d / 2 - 2);
+              room.add(me);
+            }
+            const tag = labelSprite(entry.label);
+            tag.scale.set(4.6, 1.15, 1);
+            tag.position.set(0, 2.6, entry.d / 2 - 0.4);
+            room.add(tag);
+            target = board;
+            cx += entry.w + 0.4;
+          }
+          cursor += rowD + 0.4;
+        });
+        cursor += 3.5;
+      }
+      board.position.z = -cursor / 2;
+      span = Math.max(widest, cursor);
+      lookY = 0.4;
+    } else if (spot === "kitchen") {
+      const size = roomSize("kitchen", beds, upstairs, duplex);
+      shell(size.w, size.d, 3.5);
+      kitchenFixtures();
+      span = size.w * 0.74;
+      dropItems(items.filter((entry) => entry.spot === "kitchen"), true);
+      standX = 0.2;
+      standZ = 1.8;
+      roomDistance = 24;
+    } else if (spot === "bathroom") {
+      shell(9, 7.5, 3.2);
+      bathFixtures();
+      span = 9 * 0.74;
       standX = 0;
       standZ = 1.3;
       roomDistance = 16;
@@ -2628,56 +2852,45 @@ function RoomView({
       shell(wide, 9, 3.4, false);
       add(piece(wood, 10, 0.14, 9, -4, 0.07, 0));
       flight(2.4, 1.2, true);
-      standX = -3.2;
-      for (let i = 0; i < beds; i += 1) {
-        const span = beds <= 1 ? 0 : (wide - 4.4) / (beds - 1);
-        const x = beds <= 1 ? 0 : -wide / 2 + 2.2 + i * span;
-        add(piece(0xf7f1e6, 1.2, 2.35, 0.1, x, 1.25, -4.15));
-        add(piece(0x6a4630, 1.4, 0.1, 0.12, x, 2.48, -4.1));
-        add(piece(gold, 0.08, 0.08, 0.08, x + 0.38, 1.2, -4.02));
-      }
+      doorFrames(wide);
+      span = wide * 0.74;
       standX = -3.2;
       standZ = 1.4;
       roomDistance = 28;
     } else if (spot === "room") {
-      shell(13, 10, 3.5);
-      rug(0.2, 0.6, 4.4, 2.8);
-      bed(-1.8, -2.3);
+      const size = roomSize("room", beds, upstairs, duplex);
+      shell(size.w, size.d, 3.5);
+      const mine = items.filter((entry) => entry.spot === "room" && entry.roomNo === roomNo);
+      if (!hasBedIn(mine)) mattress(-(size.w / 2 - 2), -(size.d / 2 - 2.2));
       const curtain = [0x1f6b45, 0xc4552a, 0x245c78, 0x7a3e6d][(roomNo - 1) % 4];
-      add(piece(curtain, 0.35, 1.45, 0.06, 1.6, 2.05, -4.85));
-      add(piece(0x6a4630, 1.35, 2.25, 0.6, 4.7, 1.2, -3.3));
-      standX = 2.2;
-      standZ = 2;
-      roomDistance = 22;
+      add(piece(curtain, 0.35, 1.45, 0.06, size.w * 0.16 + 1.6, 2.05, -size.d / 2 + 0.15));
+      dropItems(mine, true);
+      span = size.w * 0.74;
+      standX = size.w * 0.2;
+      standZ = size.d / 2 - 1.6;
+      roomDistance = beds <= 1 && !upstairs ? 26 : 22;
     } else {
-      const wide = duplex ? 18 : beds > 1 ? 16 : 14;
-      const deep = duplex ? 12 : 10.5;
-      shell(wide, deep, 3.6);
-      if (beds <= 1 && !upstairs) {
-        rug(-1.2, 0.4, 5, 3);
-        bed(-3.6, -2.6);
-        sofa(2.4, 1.6);
-        standX = 0.2;
-        standZ = 3.2;
-      } else {
-        rug(0, 0.5, duplex ? 6.2 : 5, 3.2);
-        sofa(0, 2);
-        add(piece(has("table") ? 0x6a4630 : 0x8c5a32, 1.6, 0.1, 0.9, 0, 0.5, 0.35));
-        add(piece(0x6a4630, 1.9, 0.5, 0.5, -wide / 2 + 1.6, 0.4, -1.4));
-        add(piece(0x17241e, 1.7, 1, 0.08, -wide / 2 + 1.6, 1.25, -1.4));
-        add(piece(has("television") ? 0x9fd0ea : 0x243044, 1.45, 0.8, 0.04, -wide / 2 + 1.6, 1.25, -1.32));
-        standX = 2.4;
-        standZ = 3.4;
-      }
+      const size = roomSize("parlour", beds, upstairs, duplex);
+      shell(size.w, size.d, 3.6);
       if (upstairs) flight(3.6, 2.4, false);
+      dropItems(items.filter((entry) => entry.spot === "parlour"), true);
+      span = size.w * 0.74;
+      standX = size.w / 2 - 3;
+      standZ = size.d / 2 - 1.6;
       roomDistance = duplex ? 34 : 28;
     }
 
-    const me = citizen(look);
-    me.position.set(standX, 0, standZ);
-    spin.add(me);
+    const baseDistance = roomDistance;
+    if (!house) {
+      me.position.set(standX, 0.0, standZ);
+      spin.add(me);
+    }
 
-    const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 80);
+    const marker = new THREE.Mesh(new THREE.BoxGeometry(1, 0.06, 1), new THREE.MeshBasicMaterial({ color: gold, transparent: true, opacity: 0.65 }));
+    marker.visible = false;
+    spin.add(marker);
+
+    const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 420);
     const aim = new THREE.Vector3(9, 11, 12).normalize();
     const fit = () => {
       const width = root.clientWidth || 1;
@@ -2685,16 +2898,83 @@ function RoomView({
       renderer.setSize(width, height);
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
+      if (house) roomDistance = Math.max((span * 1.25) / (0.536 * Math.min(camera.aspect, 1.7)), span * 1.1);
+      else roomDistance = Math.min(58, Math.max(baseDistance, span / (0.536 * Math.min(camera.aspect, 1.7))));
     };
     fit();
     const detachControls = attachSceneCameraControls(root, rig, { minZoom: 0.7, maxZoom: 2.3, zoomSpeed: 0.08 });
+
+    const ray = new THREE.Raycaster();
+    const ndc = new THREE.Vector2();
+    const pointers = new Set<number>();
+    let down: { x: number; y: number; t: number; multi: boolean } | null = null;
+    const tap = (cx: number, cy: number) => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      ndc.set(((cx - rect.left) / rect.width) * 2 - 1, -((cy - rect.top) / rect.height) * 2 + 1);
+      ray.setFromCamera(ndc, camera);
+      spin.updateMatrixWorld(true);
+      const hits = ray.intersectObjects([...furn.values()], true);
+      const picked = hits
+        .map((hit) => {
+          let node: THREE.Object3D | null = hit.object;
+          while (node && !node.userData.key) node = node.parent;
+          return node;
+        })
+        .filter((node): node is THREE.Object3D => Boolean(node));
+      const chosen = picked.find((node) => node.userData.id !== "rug") ?? (live.current.selected ? null : picked[0] ?? null);
+      if (chosen) {
+        taps.current.select(chosen.userData.key as string);
+        return;
+      }
+      if (!live.current.selected) return;
+      const ground = ray.intersectObjects(floors, false)[0];
+      if (!ground) return;
+      const local = spin.worldToLocal(ground.point.clone());
+      taps.current.drop(local.x, local.z);
+    };
+    const onDown = (event: PointerEvent) => {
+      pointers.add(event.pointerId);
+      if (pointers.size > 1) {
+        if (down) down.multi = true;
+      } else {
+        down = { x: event.clientX, y: event.clientY, t: performance.now(), multi: false };
+      }
+    };
+    const onUp = (event: PointerEvent) => {
+      pointers.delete(event.pointerId);
+      const start = down;
+      if (pointers.size === 0) down = null;
+      if (!start || start.multi || !live.current.edit) return;
+      if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > 8 || performance.now() - start.t > 650) return;
+      tap(event.clientX, event.clientY);
+    };
+    const onCancel = (event: PointerEvent) => {
+      pointers.delete(event.pointerId);
+      if (pointers.size === 0) down = null;
+    };
+    root.addEventListener("pointerdown", onDown);
+    root.addEventListener("pointerup", onUp);
+    root.addEventListener("pointercancel", onCancel);
+
     let frame = 0;
     let alive = true;
     const loop = () => {
       if (!alive) return;
       spin.rotation.y = rig.current.yaw;
       camera.position.copy(aim).multiplyScalar(roomDistance / rig.current.zoom);
-      camera.lookAt(0, 1.35, 0);
+      camera.lookAt(0, lookY, 0);
+      const group = live.current.edit && live.current.selected ? furn.get(live.current.selected) : null;
+      if (group) {
+        const item = furnitureById(String(group.userData.id));
+        marker.visible = Boolean(item);
+        if (item) {
+          marker.position.set(group.position.x, 0.17, group.position.z);
+          marker.rotation.y = group.rotation.y;
+          marker.scale.set(item.w + 0.4, 1, item.d + 0.4);
+        }
+      } else {
+        marker.visible = false;
+      }
       renderer.render(scene, camera);
       frame = window.requestAnimationFrame(loop);
     };
@@ -2705,11 +2985,14 @@ function RoomView({
       alive = false;
       window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", onResize);
+      root.removeEventListener("pointerdown", onDown);
+      root.removeEventListener("pointerup", onUp);
+      root.removeEventListener("pointercancel", onCancel);
       detachControls();
       renderer.dispose();
       root.removeChild(renderer.domElement);
     };
-  }, [ownedKey, look, beds, upstairs, duplex, spot, roomNo]);
+  }, [placedKey, look, beds, upstairs, duplex, spot, roomNo]);
 
   function turn(dir: number) {
     rig.current.yaw += dir * 0.55;
@@ -2717,28 +3000,87 @@ function RoomView({
   function dolly(factor: number) {
     rig.current.zoom = Math.min(2.3, Math.max(0.7, rig.current.zoom * factor));
   }
+  function nudge(right: number, away: number) {
+    if (!selected) return;
+    const cur = currentOf(selected);
+    if (!cur) return;
+    const step = 0.5;
+    const wx = right * 0.8 + away * -0.6;
+    const wz = right * -0.6 + away * -0.8;
+    const yaw = rig.current.yaw;
+    push(selected, cur.x + (wx * Math.cos(yaw) - wz * Math.sin(yaw)) * step, cur.z + (wx * Math.sin(yaw) + wz * Math.cos(yaw)) * step, cur.rot);
+  }
+  function spinPiece(dir: number) {
+    if (!selected) return;
+    const cur = currentOf(selected);
+    if (cur) push(selected, cur.x, cur.z, cur.rot + (dir * Math.PI) / 4);
+  }
 
+  const pad = "grid h-9 w-9 place-items-center rounded-full bg-white text-base font-semibold text-[#17241e] shadow disabled:opacity-40";
+  const selectedItem = selected ? furnitureById(selected.split(":")[0]) : null;
+  const bare = !edit && (spot === "parlour" || spot === "kitchen") && !placed.some((entry) => entry.spot === spot);
   return (
     <div className="absolute inset-0">
-      <div
-        ref={host}
-        className="absolute inset-0 touch-none"
-      />
+      <div ref={host} className="absolute inset-0 touch-none" />
       <div className="absolute right-3 top-32 z-10 flex flex-col gap-1">
         <button type="button" aria-label="Zoom in" onClick={() => dolly(1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold shadow">+</button>
         <button type="button" aria-label="Zoom out" onClick={() => dolly(1 / 1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold shadow">−</button>
         <button type="button" aria-label="Rotate left" onClick={() => turn(1)} className="mt-2 grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold shadow">↺</button>
         <button type="button" aria-label="Rotate right" onClick={() => turn(-1)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold shadow">↻</button>
       </div>
+      {bare ? (
+        <p className="pointer-events-none absolute inset-x-6 top-[42%] z-10 rounded-2xl bg-white/90 px-3 py-2 text-center text-xs font-semibold shadow">
+          This {spot === "parlour" ? "parlour" : "kitchen"} is empty. Tap Shop to buy {spot === "parlour" ? "a sofa, a centre table, and a TV" : "a fridge and a cooker"}.
+        </p>
+      ) : null}
+      {edit ? (
+        <div className="absolute bottom-44 left-1/2 z-30 w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 rounded-2xl bg-[#17241e]/95 p-2 text-white shadow-xl">
+          <p className="px-1 text-[11px] font-semibold text-[#e0b15a]">
+            {selectedItem ? `${selectedItem.name}: tap the floor to put it there, or use the arrows.` : spot === "bathroom" || spot === "landing" || spot === "house" ? "Pick Parlour, Kitchen, or a Room to move furniture." : "Tap a piece of furniture to pick it up."}
+          </p>
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            <button type="button" aria-label="Move left" disabled={!selected} onClick={() => nudge(-1, 0)} className={pad}>←</button>
+            <button type="button" aria-label="Move back" disabled={!selected} onClick={() => nudge(0, 1)} className={pad}>↑</button>
+            <button type="button" aria-label="Move forward" disabled={!selected} onClick={() => nudge(0, -1)} className={pad}>↓</button>
+            <button type="button" aria-label="Move right" disabled={!selected} onClick={() => nudge(1, 0)} className={pad}>→</button>
+            <button type="button" aria-label="Turn piece left" disabled={!selected} onClick={() => spinPiece(1)} className={pad}>⟲</button>
+            <button type="button" aria-label="Turn piece right" disabled={!selected} onClick={() => spinPiece(-1)} className={pad}>⟳</button>
+            <button
+              type="button"
+              disabled={!selected || !draft || pending}
+              onClick={() => {
+                if (selected && draft) onKeep(selected, { x: draft.x, z: draft.z, rot: draft.rot });
+              }}
+              className="rounded-full bg-[#1f6b45] px-3 py-2 text-xs font-semibold text-white disabled:opacity-40"
+            >
+              Keep here
+            </button>
+            <button type="button" onClick={onDone} className="rounded-full bg-white px-3 py-2 text-xs font-semibold text-[#17241e]">Done</button>
+          </div>
+          {others.length && (spot === "parlour" || spot === "kitchen" || spot === "room") ? (
+            <div className="mt-1.5 flex gap-1.5 overflow-x-auto pb-1">
+              <span className="shrink-0 self-center text-[10px] text-[#cfe0c2]">Bring here:</span>
+              {others.map((entry) => (
+                <button key={entry.key} type="button" disabled={pending} onClick={() => onBring(entry.key)} className="shrink-0 rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-semibold disabled:opacity-40">
+                  {furnitureById(entry.id)?.name ?? entry.id} · {entry.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
 
 export function HouseRoom({
   name,
-  owned,
+  homeId,
+  furniture,
+  layout,
   pending,
   onBuy,
+  onMove,
   look,
   beds,
   upstairs,
@@ -2746,13 +3088,17 @@ export function HouseRoom({
   onHouses,
   onSleep,
   onShower,
+  onToilet,
   entry = "look",
   shopNonce = 0,
 }: {
   name: string;
-  owned: string[];
+  homeId: string;
+  furniture: string[];
+  layout: Record<string, Placement>;
   pending: boolean;
   onBuy: (itemId: string) => void;
+  onMove: (key: string, placement: Placement) => void;
   look?: LookId;
   beds: number;
   upstairs: boolean;
@@ -2760,13 +3106,15 @@ export function HouseRoom({
   onHouses?: () => void;
   onSleep?: () => void;
   onShower?: () => void;
+  onToilet?: () => void;
   entry?: "look" | "shop";
   shopNonce?: number;
 }) {
-  const has = (id: string) => owned.includes(id);
+  const studio = beds <= 1 && !upstairs;
   const [shop, setShop] = useState(entry === "shop");
-  const [group, setGroup] = useState<(typeof FURNITURE)[number]["group"]>("Sleep");
-  const [spot, setSpot] = useState<"parlour" | "kitchen" | "bathroom" | "landing" | "room">(beds <= 1 && !upstairs ? "room" : "parlour");
+  const [edit, setEdit] = useState(false);
+  const [group, setGroup] = useState<FurnitureGroup>("Parlour");
+  const [spot, setSpot] = useState<HomeSpot>(studio ? "room" : "parlour");
   const [roomNo, setRoomNo] = useState(1);
   const entrySeen = useRef(entry);
   const nonceSeen = useRef(shopNonce);
@@ -2779,9 +3127,54 @@ export function HouseRoom({
     if (shopNonce > 0) setShop(true);
   }
   const stock = FURNITURE.filter((item) => item.group === group);
+  const all = furnitureInstances(furniture).filter((piece) => Boolean(layout[piece.key]));
+  const placed: PlacedPiece[] = all
+    .filter((piece) => layout[piece.key].homeId === homeId)
+    .map((piece) => ({ key: piece.key, id: piece.id, spot: layout[piece.key].spot, roomNo: layout[piece.key].roomNo, x: layout[piece.key].x, z: layout[piece.key].z, rot: layout[piece.key].rot }));
+  const furnishable = spot === "parlour" || spot === "kitchen" || spot === "room";
+  const roomName = (s: FurnitureSpot, no: number) => (s === "room" ? (studio ? "Room" : `Room ${no}`) : s === "parlour" ? "Parlour" : "Kitchen");
+  const others: OtherPiece[] = furnishable
+    ? all
+        .filter((piece) => {
+          const at = layout[piece.key];
+          return at.homeId !== homeId || at.spot !== spot || (spot === "room" && at.roomNo !== roomNo);
+        })
+        .map((piece) => {
+          const at = layout[piece.key];
+          return { key: piece.key, id: piece.id, label: at.homeId === homeId ? roomName(at.spot, at.roomNo) : homeById(at.homeId).name };
+        })
+    : [];
+  const chip = (active: boolean) => `rounded-full px-3 py-1 text-[10px] font-semibold shadow ${active ? "bg-[#17241e] text-white" : "bg-white"}`;
+
+  function bring(key: string) {
+    const piece = all.find((entryPiece) => entryPiece.key === key);
+    const item = piece ? furnitureById(piece.id) : null;
+    if (!piece || !item || !furnishable) return;
+    const home = homeById(homeId);
+    const where = placeIn(item, home, spot, spot === "room" ? roomNo : 1, 0);
+    onMove(key, where);
+  }
+
   return (
     <section className="relative h-full min-h-[28rem] overflow-hidden bg-[#cfe0c2] text-[#17241e]">
-      <RoomView owned={owned} look={look ?? "chidi"} beds={beds} upstairs={upstairs} duplex={duplex} spot={spot} roomNo={roomNo} />
+      <RoomView
+        placed={placed}
+        others={others}
+        look={look ?? "chidi"}
+        beds={beds}
+        upstairs={upstairs}
+        duplex={duplex}
+        spot={spot}
+        roomNo={roomNo}
+        edit={edit}
+        pending={pending}
+        onKeep={(key, at) => {
+          const current = layout[key];
+          if (current) onMove(key, { ...current, x: at.x, z: at.z, rot: at.rot });
+        }}
+        onBring={bring}
+        onDone={() => setEdit(false)}
+      />
       <p className="pointer-events-none absolute left-3 top-20 z-10 rounded-full bg-white px-3 py-2 text-xs font-semibold shadow">{name}</p>
       <div className="absolute left-2 right-16 top-32 z-30 flex flex-wrap gap-1">
         {onSleep ? (
@@ -2790,16 +3183,28 @@ export function HouseRoom({
         {onShower ? (
           <button type="button" disabled={pending} onClick={onShower} className="rounded-full bg-[#245c78] px-3 py-1 text-[10px] font-semibold text-white shadow disabled:opacity-40">Shower</button>
         ) : null}
-        {beds > 1 || upstairs ? (
+        {onToilet ? (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => {
+              setSpot("bathroom");
+              onToilet();
+            }}
+            className="rounded-full bg-[#7a5a2a] px-3 py-1 text-[10px] font-semibold text-white shadow disabled:opacity-40"
+          >
+            Toilet
+          </button>
+        ) : null}
+        <button type="button" onClick={() => setSpot("house")} className={chip(spot === "house")}>Full house</button>
+        {!studio ? (
           <>
-            <button type="button" onClick={() => setSpot("parlour")} className={`rounded-full px-3 py-1 text-[10px] font-semibold shadow ${spot === "parlour" ? "bg-[#17241e] text-white" : "bg-white"}`}>Parlour</button>
-            <button type="button" onClick={() => setSpot("kitchen")} className={`rounded-full px-3 py-1 text-[10px] font-semibold shadow ${spot === "kitchen" ? "bg-[#17241e] text-white" : "bg-white"}`}>Kitchen</button>
+            <button type="button" onClick={() => setSpot("parlour")} className={chip(spot === "parlour")}>Parlour</button>
+            <button type="button" onClick={() => setSpot("kitchen")} className={chip(spot === "kitchen")}>Kitchen</button>
           </>
         ) : null}
-        <button type="button" onClick={() => setSpot("bathroom")} className={`rounded-full px-3 py-1 text-[10px] font-semibold shadow ${spot === "bathroom" ? "bg-[#17241e] text-white" : "bg-white"}`}>Bathroom</button>
-        {upstairs ? (
-          <button type="button" onClick={() => setSpot("landing")} className={`rounded-full px-3 py-1 text-[10px] font-semibold shadow ${spot === "landing" ? "bg-[#17241e] text-white" : "bg-white"}`}>Upstairs</button>
-        ) : null}
+        <button type="button" onClick={() => setSpot("bathroom")} className={chip(spot === "bathroom")}>Bathroom</button>
+        {upstairs ? <button type="button" onClick={() => setSpot("landing")} className={chip(spot === "landing")}>Upstairs</button> : null}
         {Array.from({ length: Math.max(beds, 1) }, (_, index) => (
           <button
             key={index}
@@ -2808,57 +3213,62 @@ export function HouseRoom({
               setRoomNo(index + 1);
               setSpot("room");
             }}
-            className={`rounded-full px-3 py-1 text-[10px] font-semibold shadow ${spot === "room" && roomNo === index + 1 ? "bg-[#17241e] text-white" : "bg-white"}`}
+            className={chip(spot === "room" && roomNo === index + 1)}
           >
-            {beds <= 1 && !upstairs ? "Room" : `Room ${index + 1}`}
+            {studio ? "Room" : `Room ${index + 1}`}
           </button>
         ))}
       </div>
-      <div className="absolute bottom-44 left-1/2 z-20 flex -translate-x-1/2 gap-2">
-        {onHouses ? (
+      {!edit ? (
+        <div className="absolute bottom-44 left-1/2 z-20 flex -translate-x-1/2 gap-2">
+          {onHouses ? (
+            <button type="button" onClick={onHouses} className="rounded-full bg-[#1f6b45] px-4 py-2.5 text-sm font-semibold text-white shadow-lg">Houses</button>
+          ) : null}
+          <button type="button" onClick={() => setShop(true)} className="rounded-full bg-[#17241e] px-4 py-2.5 text-sm font-semibold text-white shadow-lg">Shop</button>
           <button
             type="button"
-            onClick={onHouses}
-            className="rounded-full bg-[#1f6b45] px-5 py-2.5 text-sm font-semibold text-white shadow-lg"
+            onClick={() => {
+              if (!furnishable) setSpot(studio ? "room" : "parlour");
+              setEdit(true);
+            }}
+            className="rounded-full bg-[#a9782a] px-4 py-2.5 text-sm font-semibold text-white shadow-lg"
           >
-            Houses
+            Move furniture
           </button>
-        ) : null}
-        <button
-          type="button"
-          onClick={() => setShop(true)}
-          className="rounded-full bg-[#17241e] px-5 py-2.5 text-sm font-semibold text-white shadow-lg"
-        >
-          Shop
-        </button>
-      </div>
+        </div>
+      ) : null}
       {shop && typeof document !== "undefined" ? createPortal(
-      <div className="ol-modal ol-sheet fixed inset-x-0 bottom-0 max-h-[46%] overflow-y-auto rounded-t-[1.8rem] pb-24 text-[#17241e]" style={{ zIndex: 200 }}>
+      <div className="ol-modal ol-sheet fixed inset-x-0 bottom-0 max-h-[52%] overflow-y-auto rounded-t-[1.8rem] pb-24 text-[#17241e]" style={{ zIndex: 200 }}>
         <div className="mx-auto mt-2.5 h-1.5 w-12 rounded-full bg-[#e0b15a]" />
         <div className="flex items-center justify-between px-4 pt-2">
           <p className="font-display text-xl leading-none">Shop · {name}</p>
           <button type="button" aria-label="Close shop" onClick={() => setShop(false)} className="grid h-8 w-8 place-items-center rounded-full bg-white text-lg leading-none shadow-sm">×</button>
         </div>
+        <p className="px-4 pt-1 text-xs text-[#5d6b62]">Things you buy go straight into this house. Then tap Move furniture to place them.</p>
         <div className="flex gap-2 overflow-x-auto px-4 py-2">
-          {(["Sleep", "Comfort", "Kitchen", "Fun"] as const).map((item) => (
+          {FURNITURE_GROUPS.map((item) => (
             <button key={item} type="button" onClick={() => setGroup(item)} className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${group === item ? "bg-[#17241e] text-white" : "bg-[#f4efe4]"}`}>
               {item}
             </button>
           ))}
         </div>
         <div className="grid grid-cols-2 gap-2 overflow-y-auto px-4 pb-4 sm:grid-cols-3">
-          {stock.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              disabled={pending || has(item.id)}
-              onClick={() => onBuy(item.id)}
-              className="rounded-2xl bg-white p-3 text-left shadow-sm disabled:opacity-50"
-            >
-              <span className="block text-sm font-semibold">{item.name}</span>
-              <span className="mt-1 block text-sm font-semibold text-[#1f6b45]">{has(item.id) ? "In the room" : naira(item.cost)}</span>
-            </button>
-          ))}
+          {stock.map((item) => {
+            const count = furniture.filter((id) => id === item.id).length;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                disabled={pending || count >= 6}
+                onClick={() => onBuy(item.id)}
+                className="rounded-2xl bg-white p-3 text-left shadow-sm disabled:opacity-50"
+              >
+                <span className="block text-sm font-semibold">{item.name}</span>
+                <span className="mt-1 block text-sm font-semibold text-[#1f6b45]">{naira(item.cost)}</span>
+                {count ? <span className="block text-[11px] text-[#5d6b62]">You have {count}</span> : null}
+              </button>
+            );
+          })}
         </div>
       </div>,
       document.body,

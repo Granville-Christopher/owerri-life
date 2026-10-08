@@ -1,4 +1,4 @@
-import type { DreamId, LookId, SkillKey, TraitId } from "./types";
+import type { DreamId, FurnitureSpot, LookId, Placement, SkillKey, TraitId } from "./types";
 
 export interface Look {
   id: LookId;
@@ -78,16 +78,114 @@ export interface Home {
   price?: number;
 }
 
-export const FURNITURE = [
-  { id: "bed", name: "Bed", cost: 20000, group: "Sleep" },
-  { id: "table", name: "Table", cost: 12000, group: "Comfort" },
-  { id: "sofa", name: "Sofa", cost: 35000, group: "Comfort" },
-  { id: "fridge", name: "Fridge", cost: 55000, group: "Kitchen" },
-  { id: "television", name: "Television", cost: 80000, group: "Fun" },
-] as const;
+export type FurnitureGroup = "Sleep" | "Parlour" | "Kitchen" | "Fun" | "Decor";
+
+export interface FurnitureItem {
+  id: string;
+  name: string;
+  cost: number;
+  group: FurnitureGroup;
+  where: FurnitureSpot;
+  w: number;
+  d: number;
+  fx: number;
+  fz: number;
+  rot: number;
+}
+
+export const FURNITURE_GROUPS: FurnitureGroup[] = ["Sleep", "Parlour", "Kitchen", "Fun", "Decor"];
+
+const F = Math.PI;
+export const FURNITURE: FurnitureItem[] = [
+  { id: "bed", name: "Single bed", cost: 20000, group: "Sleep", where: "room", w: 2.4, d: 2.1, fx: -0.5, fz: -1.4, rot: 0 },
+  { id: "double-bed", name: "Double bed", cost: 65000, group: "Sleep", where: "room", w: 3.2, d: 2.4, fx: -0.3, fz: -1.4, rot: 0 },
+  { id: "wardrobe", name: "Wardrobe", cost: 28000, group: "Sleep", where: "room", w: 1.9, d: 0.7, fx: 0.8, fz: -1.5, rot: 0 },
+  { id: "bedside", name: "Bedside table", cost: 7000, group: "Sleep", where: "room", w: 0.6, d: 0.5, fx: 0.15, fz: -1.4, rot: 0 },
+  { id: "mirror", name: "Dressing mirror", cost: 22000, group: "Sleep", where: "room", w: 1.5, d: 0.8, fx: 0.55, fz: -1.5, rot: 0 },
+  { id: "sofa", name: "Sofa", cost: 35000, group: "Parlour", where: "parlour", w: 3.1, d: 1.15, fx: 0.1, fz: -1.1, rot: 0 },
+  { id: "armchair", name: "Armchair", cost: 14000, group: "Parlour", where: "parlour", w: 1.3, d: 1.2, fx: -0.65, fz: -0.5, rot: 0.5 },
+  { id: "table", name: "Centre table", cost: 12000, group: "Parlour", where: "parlour", w: 1.7, d: 0.95, fx: 0.1, fz: -0.25, rot: 0 },
+  { id: "shelf", name: "Bookshelf", cost: 18000, group: "Parlour", where: "parlour", w: 1.8, d: 0.5, fx: 1, fz: -1.5, rot: 0 },
+  { id: "television", name: "Television and stand", cost: 80000, group: "Fun", where: "parlour", w: 1.9, d: 0.6, fx: 0.1, fz: 0.95, rot: F },
+  { id: "speaker", name: "Sound system", cost: 30000, group: "Fun", where: "parlour", w: 2.2, d: 0.6, fx: -0.8, fz: 0.95, rot: F },
+  { id: "desk", name: "Desk and computer", cost: 40000, group: "Fun", where: "parlour", w: 1.7, d: 0.9, fx: -1, fz: -1.5, rot: 0 },
+  { id: "fridge", name: "Fridge", cost: 55000, group: "Kitchen", where: "kitchen", w: 0.95, d: 0.8, fx: 0.8, fz: -1.1, rot: 0 },
+  { id: "freezer", name: "Chest freezer", cost: 70000, group: "Kitchen", where: "kitchen", w: 1.5, d: 0.85, fx: -1, fz: -1.1, rot: 0 },
+  { id: "cooker", name: "Gas cooker", cost: 38000, group: "Kitchen", where: "kitchen", w: 0.95, d: 0.8, fx: 0.4, fz: -1.1, rot: 0 },
+  { id: "microwave", name: "Microwave on a stand", cost: 16000, group: "Kitchen", where: "kitchen", w: 0.9, d: 0.6, fx: -0.4, fz: -1.1, rot: 0 },
+  { id: "dining", name: "Dining table and chairs", cost: 45000, group: "Kitchen", where: "kitchen", w: 2.6, d: 1.9, fx: 0, fz: 0.7, rot: 0 },
+  { id: "rug", name: "Green rug", cost: 9000, group: "Decor", where: "parlour", w: 5, d: 3.2, fx: 0.1, fz: -0.2, rot: 0 },
+  { id: "lamp", name: "Floor lamp", cost: 8000, group: "Decor", where: "parlour", w: 0.5, d: 0.5, fx: 0.65, fz: -1.3, rot: 0 },
+  { id: "plant", name: "House plant", cost: 4000, group: "Decor", where: "parlour", w: 0.8, d: 0.8, fx: -1, fz: -1.3, rot: 0 },
+];
 
 export function furnitureById(id: string) {
   return FURNITURE.find((item) => item.id === id) ?? null;
+}
+
+export function furnitureInstances(list: string[]) {
+  const seen: Record<string, number> = {};
+  return list.map((id) => {
+    const n = seen[id] ?? 0;
+    seen[id] = n + 1;
+    return { key: `${id}:${n}`, id, n };
+  });
+}
+
+export function roomSize(spot: FurnitureSpot | "bathroom" | "landing", beds: number, upstairs: boolean, duplex: boolean) {
+  const studio = beds <= 1 && !upstairs;
+  if (spot === "kitchen") return { w: 14, d: 10 };
+  if (spot === "bathroom") return { w: 9, d: 7.5 };
+  if (spot === "landing") return { w: duplex ? 18 : 15, d: 9 };
+  if (spot === "room") return studio ? { w: 14, d: 10.5 } : { w: 13, d: 10 };
+  return { w: duplex ? 18 : beds > 1 ? 16 : 14, d: duplex ? 12 : 10.5 };
+}
+
+export function clampPlacement(item: FurnitureItem, home: Home, p: Placement): Placement {
+  const size = roomSize(p.spot, home.beds, home.upstairs, home.id.includes("duplex"));
+  const turned = Math.abs(Math.sin(p.rot)) > 0.7;
+  const hw = (turned ? item.d : item.w) / 2;
+  const hd = (turned ? item.w : item.d) / 2;
+  const maxX = Math.max(0, size.w / 2 - hw - 0.25);
+  const minZ = -size.d / 2 + hd + 0.2;
+  const maxZ = Math.max(minZ, size.d / 2 - hd - 0.1);
+  return {
+    ...p,
+    x: Math.round(Math.min(maxX, Math.max(-maxX, p.x)) * 100) / 100,
+    z: Math.round(Math.min(maxZ, Math.max(minZ, p.z)) * 100) / 100,
+    rot: Math.round((((p.rot % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)) * 1000) / 1000,
+  };
+}
+
+export function placeIn(item: FurnitureItem, home: Home, spot: FurnitureSpot, roomNo: number, shift: number): Placement {
+  const size = roomSize(spot, home.beds, home.upstairs, home.id.includes("duplex"));
+  return clampPlacement(item, home, {
+    homeId: home.id,
+    spot,
+    roomNo,
+    x: item.fx * (size.w / 2 - 1.4) + shift,
+    z: item.fz * (size.d / 2 - 1.3),
+    rot: item.rot,
+  });
+}
+
+export function defaultPlacement(item: FurnitureItem, home: Home, n: number): Placement {
+  const studio = home.beds <= 1 && !home.upstairs;
+  const spot: FurnitureSpot = studio ? "room" : item.where;
+  const roomNo = spot === "room" && !studio ? 1 + (n % Math.max(home.beds, 1)) : 1;
+  return placeIn(item, home, spot, roomNo, spot === "room" && !studio ? 0 : n * 1.1);
+}
+
+export function fillLayout(furniture: string[], layout: Record<string, Placement> | undefined, homeId: string) {
+  const next: Record<string, Placement> = {};
+  const home = homeById(homeId);
+  for (const piece of furnitureInstances(furniture)) {
+    const item = furnitureById(piece.id);
+    if (!item) continue;
+    const kept = layout?.[piece.key];
+    next[piece.key] = kept && HOMES.some((entry) => entry.id === kept.homeId) ? kept : defaultPlacement(item, home, piece.n);
+  }
+  return next;
 }
 
 export const HOMES: Home[] = [

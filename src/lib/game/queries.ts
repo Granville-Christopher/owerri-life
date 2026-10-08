@@ -68,6 +68,7 @@ export interface GameView {
     room: Player["room"];
     lands: Array<{ id: string; name: string; area: string; rent: number }>;
     furniture: string[];
+    layout: Player["layout"];
     besideId: string | null;
   };
   balance: number;
@@ -254,6 +255,7 @@ export async function buildView(playerId: string): Promise<GameView | null> {
         : null,
       room: me.room,
       furniture: me.furniture,
+      layout: me.layout,
       lands: me.lands.map((id) => {
         const plot = plotById(id);
         return { id: plot.id, name: plot.name, area: plot.area, rent: plot.rent };

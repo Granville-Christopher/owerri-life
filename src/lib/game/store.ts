@@ -1,6 +1,7 @@
 import { readFileSync } from "fs";
 import path from "path";
 import { MongoClient } from "mongodb";
+import { fillLayout } from "./content";
 import { buildSlate } from "./engine";
 import type { ChatMessage, DB } from "./types";
 
@@ -69,6 +70,7 @@ function hydrate(parsed: Partial<DB> | null): DB {
     if (player.besideId === undefined) player.besideId = null;
     if (player.gender !== "male" && player.gender !== "female") player.gender = null;
     if (!player.furniture) player.furniture = player.lottery === "heir" ? ["bed", "sofa", "television"] : [];
+    player.layout = fillLayout(player.furniture, player.layout, player.homeId);
   }
   return {
     players,
