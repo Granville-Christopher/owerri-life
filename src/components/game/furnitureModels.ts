@@ -102,11 +102,14 @@ export function buildFurniture(id: string): THREE.Group {
       break;
     }
     case "table": {
-      box(g, 0x8c5a32, 1.7, 0.1, 0.95, 0, 0.5, 0);
-      box(g, 0xcfe7f0, 1.3, 0.04, 0.6, 0, 0.57, 0);
-      for (const x of [-0.75, 0.75]) for (const z of [-0.38, 0.38]) box(g, WOOD, 0.1, 0.45, 0.1, x, 0.23, z);
-      post(g, 0xf7f1e6, 0.14, 0.22, -0.4, 0.7, 0);
-      ball(g, 0x2f7a4a, 0.14, -0.4, 0.88, 0);
+      box(g, 0x8c5a32, 2.8, 0.14, 1.5, 0, 0.5, 0);
+      box(g, 0xcfe7f0, 2.3, 0.05, 1.05, 0, 0.6, 0);
+      box(g, GOLD, 2.8, 0.05, 0.08, 0, 0.54, 0.76);
+      for (const x of [-1.25, 1.25]) for (const z of [-0.6, 0.6]) box(g, WOOD, 0.14, 0.44, 0.14, x, 0.22, z);
+      box(g, 0x6a4630, 2.4, 0.08, 1.1, 0, 0.16, 0);
+      post(g, 0xf7f1e6, 0.18, 0.28, -0.6, 0.77, 0);
+      ball(g, 0x2f7a4a, 0.17, -0.6, 1.0, 0);
+      box(g, 0x8c3d2f, 0.7, 0.06, 0.5, 0.6, 0.66, 0.1);
       break;
     }
     case "shelf": {

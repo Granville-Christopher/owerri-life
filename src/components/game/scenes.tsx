@@ -2759,21 +2759,66 @@ function RoomView({
 
     if (house) {
       const studio = beds <= 1 && !upstairs;
-      type Plan = { kind: "parlour" | "kitchen" | "bathroom" | "landing" | "room"; roomNo: number; label: string; w: number; d: number };
-      const plan = (kind: Plan["kind"], no: number, label: string): Plan => ({ kind, roomNo: no, label, ...roomSize(kind, beds, upstairs, duplex) });
+      type Kind = "parlour" | "kitchen" | "bathroom" | "landing" | "room";
+      interface Plan {
+        kind: Kind;
+        roomNo: number;
+        label: string;
+        w: number;
+        d: number;
+        hall: boolean;
+        x0: number;
+        z0: number;
+        doors: { n: number[]; s: number[]; e: number[]; w: number[] };
+      }
+      interface Row {
+        rooms: Plan[];
+        align: "top" | "bottom";
+      }
+      const plan = (kind: Kind, no: number, label: string): Plan => ({
+        kind,
+        roomNo: no,
+        label,
+        hall: false,
+        x0: 0,
+        z0: 0,
+        doors: { n: [], s: [], e: [], w: [] },
+        ...roomSize(kind, beds, upstairs, duplex),
+      });
+      const hallOf = (w: number, label: string): Plan => ({ ...plan("landing", 1, label), w, d: 4, hall: true });
       const bedrooms = () => Array.from({ length: Math.max(beds, 1) }, (_, i) => plan("room", i + 1, studio ? "Room" : `Room ${i + 1}`));
-      const ground = [plan("parlour", 1, "Parlour"), plan("kitchen", 1, "Kitchen"), plan("bathroom", 1, "Bathroom")];
-      const blocks: Array<{ title: string; rows: Plan[][] }> = studio
-        ? [{ title: "", rows: [[...bedrooms(), plan("bathroom", 1, "Bathroom")]] }]
-        : upstairs
-          ? [
-              { title: "UPSTAIRS", rows: [bedrooms(), [plan("landing", 1, "Landing")]] },
-              { title: "DOWNSTAIRS", rows: [ground] },
-            ]
-          : [{ title: "", rows: [bedrooms(), ground] }];
+      const frontRow = () => [plan("kitchen", 1, "Kitchen"), plan("parlour", 1, "Parlour"), plan("bathroom", 1, "Bathroom")];
+      const widthOf = (rooms: Plan[]) => rooms.reduce((sum, entry) => sum + entry.w, 0);
+      const blocks: Array<{ title: string; rows: Row[] }> = [];
+      if (studio) {
+        blocks.push({ title: "", rows: [{ rooms: [...bedrooms(), plan("bathroom", 1, "Bathroom")], align: "top" }] });
+      } else if (upstairs) {
+        const upper = bedrooms();
+        blocks.push({
+          title: "UPSTAIRS",
+          rows: [
+            { rooms: upper, align: "bottom" },
+            { rooms: [hallOf(widthOf(upper), "Landing")], align: "top" },
+          ],
+        });
+        blocks.push({ title: "DOWNSTAIRS", rows: [{ rooms: frontRow(), align: "top" }] });
+      } else {
+        const back = bedrooms();
+        const front = frontRow();
+        blocks.push({
+          title: "",
+          rows: [
+            { rooms: back, align: "bottom" },
+            { rooms: [hallOf(Math.max(widthOf(back), widthOf(front)), "Hall")], align: "top" },
+            { rooms: front, align: "top" },
+          ],
+        });
+      }
+
       const board = new THREE.Group();
       spin.add(board);
       target = board;
+      const everyRoom: Plan[] = [];
       let cursor = 0;
       let widest = 0;
       for (const block of blocks) {
@@ -2783,50 +2828,100 @@ function RoomView({
           board.add(sign);
           cursor += 2.4;
         }
-        block.rows.forEach((row, rowIndex) => {
-          const rowW = row.reduce((sum, entry) => sum + entry.w, 0) + (row.length - 1) * 0.4;
-          const rowD = Math.max(...row.map((entry) => entry.d));
+        for (const row of block.rows) {
+          const rowW = widthOf(row.rooms);
+          const rowD = Math.max(...row.rooms.map((entry) => entry.d));
           widest = Math.max(widest, rowW);
           let cx = -rowW / 2;
-          for (const entry of row) {
-            const room = new THREE.Group();
-            room.position.set(cx + entry.w / 2, 0, cursor + rowD / 2);
-            board.add(room);
-            target = room;
-            const color = entry.kind === "bathroom" ? 0xd5e8f0 : entry.kind === "kitchen" ? 0xe4dcc6 : wood;
-            floorSlab(color, entry.w, entry.d);
-            const h = 1.3;
-            const gap = block.rows.length > 1 && entry.kind !== "landing" ? (rowIndex === 0 ? "s" : "n") : "";
-            const half = entry.w / 2;
-            add(piece(wall, entry.w, h, 0.2, 0, h / 2, -entry.d / 2));
-            add(piece(wall, entry.w, h, 0.2, 0, h / 2, entry.d / 2));
-            add(piece(wall, 0.2, h, entry.d, -half, h / 2, 0));
-            add(piece(wall, 0.2, h, entry.d, half, h / 2, 0));
-            if (gap) {
-              const doorZ = gap === "s" ? entry.d / 2 : -entry.d / 2;
-              add(piece(wood, 2.6, 0.2, 0.3, 0, 0.2, doorZ));
-            }
-            if (entry.kind === "kitchen") kitchenFixtures();
-            if (entry.kind === "bathroom") bathFixtures();
-            if (entry.kind === "landing") doorFrames(entry.w);
-            if (entry.kind === "parlour" && upstairs) flight(3.6, 2.4, false);
-            const mine = items.filter((piece2) => (entry.kind === "room" ? piece2.spot === "room" && piece2.roomNo === entry.roomNo : piece2.spot === entry.kind));
-            if (entry.kind === "room" && !hasBedIn(mine)) mattress(-(entry.w / 2 - 2), -(entry.d / 2 - 2.2));
-            dropItems(mine, false);
-            if ((entry.kind === "parlour" && !studio) || (studio && entry.kind === "room")) {
-              me.position.set(entry.w / 2 - 3, 0.14, entry.d / 2 - 2);
-              room.add(me);
-            }
-            const tag = labelSprite(entry.label);
-            tag.scale.set(4.6, 1.15, 1);
-            tag.position.set(0, 2.6, entry.d / 2 - 0.4);
-            room.add(tag);
-            target = board;
-            cx += entry.w + 0.4;
+          for (const entry of row.rooms) {
+            entry.x0 = cx;
+            entry.z0 = row.align === "bottom" ? cursor + rowD - entry.d : cursor;
+            cx += entry.w;
+            everyRoom.push(entry);
           }
-          cursor += rowD + 0.4;
-        });
+          cursor += rowD;
+        }
         cursor += 3.5;
+      }
+
+      const near = (a: number, b: number) => Math.abs(a - b) < 0.05;
+      for (const a of everyRoom) {
+        for (const b of everyRoom) {
+          if (a === b) continue;
+          if (near(a.x0 + a.w, b.x0)) {
+            const lo = Math.max(a.z0, b.z0);
+            const hi = Math.min(a.z0 + a.d, b.z0 + b.d);
+            if (hi - lo > 3 && (studio || a.kind === "parlour" || b.kind === "parlour")) {
+              const mid = (lo + hi) / 2;
+              a.doors.e.push(mid - (a.z0 + a.d / 2));
+              b.doors.w.push(mid - (b.z0 + b.d / 2));
+            }
+          }
+          if (near(a.z0 + a.d, b.z0)) {
+            const lo = Math.max(a.x0, b.x0);
+            const hi = Math.min(a.x0 + a.w, b.x0 + b.w);
+            if (hi - lo > 3 && (a.hall || b.hall)) {
+              const mid = (lo + hi) / 2;
+              a.doors.s.push(mid - (a.x0 + a.w / 2));
+              b.doors.n.push(mid - (b.x0 + b.w / 2));
+            }
+          }
+        }
+      }
+
+      const wallRun = (alongX: boolean, fixed: number, length: number, doors: number[]) => {
+        const h = 1.3;
+        const half = 1.3;
+        const frame = 0x6a4630;
+        const seg = (from: number, to: number) => {
+          if (to - from < 0.05) return;
+          const mid = (from + to) / 2;
+          add(alongX ? piece(wall, to - from, h, 0.2, mid, h / 2, fixed) : piece(wall, 0.2, h, to - from, fixed, h / 2, mid));
+        };
+        let start = -length / 2;
+        for (const c of [...doors].sort((p, q) => p - q)) {
+          seg(start, c - half);
+          if (alongX) {
+            add(piece(0xd9b77d, 2.6, 0.05, 0.34, c, 0.165, fixed));
+            add(piece(frame, 0.25, 1.6, 0.3, c - half, 0.8, fixed));
+            add(piece(frame, 0.25, 1.6, 0.3, c + half, 0.8, fixed));
+            add(piece(frame, 2.85, 0.18, 0.3, c, 1.65, fixed));
+          } else {
+            add(piece(0xd9b77d, 0.34, 0.05, 2.6, fixed, 0.165, c));
+            add(piece(frame, 0.3, 1.6, 0.25, fixed, 0.8, c - half));
+            add(piece(frame, 0.3, 1.6, 0.25, fixed, 0.8, c + half));
+            add(piece(frame, 0.3, 0.18, 2.85, fixed, 1.65, c));
+          }
+          start = c + half;
+        }
+        seg(start, length / 2);
+      };
+
+      for (const entry of everyRoom) {
+        const room = new THREE.Group();
+        room.position.set(entry.x0 + entry.w / 2, 0, entry.z0 + entry.d / 2);
+        board.add(room);
+        target = room;
+        floorSlab(entry.kind === "bathroom" ? 0xd5e8f0 : entry.kind === "kitchen" ? 0xe4dcc6 : wood, entry.w, entry.d);
+        wallRun(true, -entry.d / 2, entry.w, entry.doors.n);
+        wallRun(true, entry.d / 2, entry.w, entry.doors.s);
+        wallRun(false, -entry.w / 2, entry.d, entry.doors.w);
+        wallRun(false, entry.w / 2, entry.d, entry.doors.e);
+        if (entry.kind === "kitchen") kitchenFixtures();
+        if (entry.kind === "bathroom") bathFixtures();
+        if (entry.kind === "parlour" && upstairs) flight(3.6, 2.4, false);
+        const mine = items.filter((piece2) => (entry.kind === "room" ? piece2.spot === "room" && piece2.roomNo === entry.roomNo : piece2.spot === entry.kind));
+        if (entry.kind === "room" && !hasBedIn(mine)) mattress(-(entry.w / 2 - 2), -(entry.d / 2 - 2.2));
+        dropItems(mine, false);
+        if ((entry.kind === "parlour" && !studio) || (studio && entry.kind === "room")) {
+          me.position.set(entry.w / 2 - 3, 0.14, entry.d / 2 - 2);
+          room.add(me);
+        }
+        const tag = labelSprite(entry.label);
+        tag.scale.set(entry.hall ? 3.4 : 4.6, entry.hall ? 0.85 : 1.15, 1);
+        tag.position.set(0, entry.hall ? 1.8 : 2.6, entry.hall ? 0 : entry.d / 2 - 0.4);
+        room.add(tag);
+        target = board;
       }
       board.position.z = -cursor / 2;
       span = Math.max(widest, cursor);

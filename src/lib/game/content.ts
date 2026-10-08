@@ -104,7 +104,7 @@ export const FURNITURE: FurnitureItem[] = [
   { id: "mirror", name: "Dressing mirror", cost: 22000, group: "Sleep", where: "room", w: 1.5, d: 0.8, fx: 0.55, fz: -1.5, rot: 0 },
   { id: "sofa", name: "Sofa", cost: 35000, group: "Parlour", where: "parlour", w: 3.1, d: 1.15, fx: 0.1, fz: -1.1, rot: 0 },
   { id: "armchair", name: "Armchair", cost: 14000, group: "Parlour", where: "parlour", w: 1.3, d: 1.2, fx: -0.65, fz: -0.5, rot: 0.5 },
-  { id: "table", name: "Centre table", cost: 12000, group: "Parlour", where: "parlour", w: 1.7, d: 0.95, fx: 0.1, fz: -0.25, rot: 0 },
+  { id: "table", name: "Centre table", cost: 12000, group: "Parlour", where: "parlour", w: 2.8, d: 1.5, fx: 0.1, fz: -0.2, rot: 0 },
   { id: "shelf", name: "Bookshelf", cost: 18000, group: "Parlour", where: "parlour", w: 1.8, d: 0.5, fx: 1, fz: -1.5, rot: 0 },
   { id: "television", name: "Television and stand", cost: 80000, group: "Fun", where: "parlour", w: 1.9, d: 0.6, fx: 0.1, fz: 0.95, rot: F },
   { id: "speaker", name: "Sound system", cost: 30000, group: "Fun", where: "parlour", w: 2.2, d: 0.6, fx: -0.8, fz: 0.95, rot: F },
