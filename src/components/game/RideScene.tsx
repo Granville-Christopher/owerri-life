@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import * as THREE from "three";
 import { CAR_CATALOG, carById } from "@/lib/game/content";
 import { buildCabMesh, buildDetailedCarMesh } from "./carModels";
 import { loadAllRealCars, makeEnvironment, makeRealCar, realKindFor } from "./realCars";
 
-type RideVehicle = "car" | "bus" | "cab";
+type RideVehicle = "car" | "bus" | "cab" | "okada";
 
 // The route has a long straight tail at each end so traffic and buildings already exist when the ride starts.
 const POINTS: Array<[number, number]> = [
@@ -23,7 +24,7 @@ const CORNERS = POINTS.map(([x, z]) => new THREE.Vector3(x, 0, z));
 const ROAD = 10.8;
 const OWN_LANE = 1.5;
 const OUTER_LANE = 4.0;
-const RIDE_MS = 12000;
+const RIDE_MS = 20000;
 
 function mulberry32(seed: number) {
   let a = seed;
@@ -197,6 +198,82 @@ function busCockpit(): { group: THREE.Group; steer: THREE.Group } {
   return { group, steer };
 }
 
+function okadaCockpit(): { group: THREE.Group; steer: THREE.Group } {
+  const group = new THREE.Group();
+  const skin = 0x8a5a3c;
+  group.add(block(0.48, 0.22, 0.72, 0x1f6b45, 0, -0.58, -1.05));
+  group.add(block(0.3, 0.08, 0.22, 0xe0b15a, 0, -0.44, -1.05));
+  group.add(block(0.14, 0.08, 0.03, 0x8fb8d6, -0.58, 0.16, -1.28));
+  group.add(block(0.14, 0.08, 0.03, 0x8fb8d6, 0.58, 0.16, -1.28));
+  const visor = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.38, 0.04), new THREE.MeshBasicMaterial({ color: 0x1a3040, transparent: true, opacity: 0.32 }));
+  visor.position.set(0, 0.78, -1.05);
+  group.add(visor);
+  const root = new THREE.Group();
+  root.position.set(0, -0.22, -0.78);
+  const steer = new THREE.Group();
+  const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.98, 8), lambert(0x15151a));
+  bar.rotation.z = Math.PI / 2;
+  steer.add(bar);
+  [-0.44, 0.44].forEach((x) => {
+    const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.034, 0.034, 0.16, 8), lambert(0x2a1a12));
+    grip.rotation.z = Math.PI / 2;
+    grip.position.set(x, 0, 0);
+    steer.add(grip);
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), lambert(skin));
+    hand.position.set(x, -0.02, 0.03);
+    steer.add(hand);
+  });
+  steer.add(block(0.18, 0.08, 0.1, 0x0b1d2a, 0, 0.05, 0.02));
+  root.add(steer);
+  group.add(root);
+  return { group, steer };
+}
+
+function buildOkadaMesh() {
+  const bike = new THREE.Group();
+  const skin = 0x6b4429;
+  const tire = (z: number) => {
+    const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.08, 10, 18), lambert(0x15151a));
+    wheel.rotation.y = Math.PI / 2;
+    wheel.position.set(0, 0.34, z);
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(0.22, 12), lambert(0xb7bcc4));
+    disc.rotation.y = Math.PI / 2;
+    disc.position.set(0, 0.34, z);
+    return [wheel, disc];
+  };
+  tire(0.95).forEach((part) => bike.add(part));
+  tire(-0.82).forEach((part) => bike.add(part));
+  bike.add(block(0.09, 0.1, 1.55, 0x2b2f36, 0, 0.48, 0.06));
+  bike.add(block(0.36, 0.2, 0.62, 0x1f6b45, 0, 0.78, 0.28));
+  bike.add(block(0.22, 0.08, 0.28, 0xe0b15a, 0, 0.9, 0.28));
+  bike.add(block(0.3, 0.1, 0.78, 0x1a140c, 0, 0.74, -0.42));
+  const fork = block(0.08, 0.55, 0.08, 0x15151a, 0, 0.62, 0.88);
+  bike.add(fork);
+  const bars = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.9, 8), lambert(0xc5c8ce));
+  bars.rotation.z = Math.PI / 2;
+  bars.position.set(0, 1.08, 0.78);
+  bike.add(bars);
+  [-0.4, 0.4].forEach((x) => {
+    const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.16, 8), lambert(0x2a1a12));
+    grip.rotation.z = Math.PI / 2;
+    grip.position.set(x, 1.08, 0.78);
+    bike.add(grip);
+    const mirror = block(0.12, 0.08, 0.04, 0x8fb8d6, x * 1.05, 1.2, 0.78);
+    bike.add(mirror);
+  });
+  bike.add(block(0.16, 0.12, 0.1, 0xfff6d8, 0, 0.78, 1.12));
+  const rider = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.17, 0.52, 8), lambert(0xc4552a));
+  rider.position.set(0, 1.12, -0.18);
+  const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 8), lambert(0x111111));
+  helmet.position.set(0, 1.52, -0.18);
+  const passenger = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.16, 0.46, 8), lambert(0x245c78));
+  passenger.position.set(0, 1.08, -0.58);
+  const pHead = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), lambert(0x8a5a3c));
+  pHead.position.set(0, 1.4, -0.58);
+  bike.add(rider, helmet, passenger, pHead);
+  return bike;
+}
+
 export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; carId?: string; onArrive: () => void }) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<"inside" | "above">("inside");
@@ -204,8 +281,19 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
   const [seat, setSeat] = useState<"inside" | "above">("inside");
   const finished = useRef(false);
   const deal = carById(carId) ?? CAR_CATALOG[1];
-  const label = vehicle === "bus" ? "Bus" : vehicle === "cab" ? "Cab" : deal.name;
-  const seatLabel = vehicle === "car" ? (seat === "inside" ? "You are driving" : "From above") : seat === "inside" ? "From your seat" : "From above";
+  const label = vehicle === "bus" ? "Busimo" : vehicle === "cab" ? "Cab" : vehicle === "okada" ? "Okada" : deal.name;
+  const seatLabel =
+    vehicle === "car"
+      ? seat === "inside"
+        ? "You are driving"
+        : "From above"
+      : vehicle === "okada"
+        ? seat === "inside"
+          ? "You are on the okada"
+          : "From above"
+        : seat === "inside"
+          ? "From your seat"
+          : "From above";
 
   function arrive() {
     if (finished.current) return;
@@ -324,7 +412,7 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
         const lz = (c * b.w) / 2;
         return [b.x + lx * Math.cos(b.h) + lz * Math.sin(b.h), b.z - lx * Math.sin(b.h) + lz * Math.cos(b.h)] as const;
       });
-    const labels = ["OWERRI LIFE", "Mama Put", "Bus Stop", "Imo State", "Fresh Fish", "Cold Drinks"];
+    const labels = ["OWERRI LIFE", "Mama Put", "Busimo", "Imo State", "Fresh Fish", "Cold Drinks"];
     const labelMats = labels.map((text, i) => new THREE.MeshBasicMaterial({ map: labelTexture(text, ["#143d2c", "#8c2438", "#245c78", "#5b3a7a", "#c4552a", "#1f6b45"][i], "#f6f1e6") }));
 
     segs.forEach((seg) => {
@@ -475,18 +563,31 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
       rig.add(block(2.25, 0.7, 5.4, 0x8ec4ea, 0, 1.45, 0.1));
       rig.add(block(2.05, 0.7, 0.08, 0xd7eef8, 0, 1.4, 3.32));
       rig.add(block(2.1, 0.16, 0.2, 0xfff6d8, 0, 0.7, 3.4));
+      const brand = labelTexture("BUSIMO", "#1f6b45", "#e0b15a");
+      const side = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.52), new THREE.MeshBasicMaterial({ map: brand }));
+      side.position.set(1.12, 1.28, 0);
+      side.rotation.y = Math.PI / 2;
+      const other = side.clone();
+      other.position.x = -1.12;
+      other.rotation.y = -Math.PI / 2;
+      rig.add(side, other);
       [-2.2, 2.1].forEach((z) => {
         wheel(-1.15, 0.34, z).forEach((part) => rig.add(part));
         wheel(1.15, 0.34, z).forEach((part) => rig.add(part));
       });
     } else if (vehicle === "cab") {
       rig.add(buildCabMesh());
+    } else if (vehicle === "okada") {
+      rig.add(buildOkadaMesh());
     } else {
       rig.add(buildDetailedCarMesh(deal, undefined, true));
     }
     const placeholder = rig.children[rig.children.length - 1];
     // the real car model for the one you are in; `seatEye` is the camera position in the car's own space
-    const real: { eye: THREE.Vector3 | null; steer: THREE.Object3D | null } = { eye: null, steer: null };
+    const real: { eye: THREE.Vector3 | null; steer: THREE.Object3D | null } = {
+      eye: vehicle === "okada" ? new THREE.Vector3(0, 1.32, 0.42) : null,
+      steer: null,
+    };
     const cabin = new THREE.PointLight(0xffe4c4, 2.6, 6);
     cabin.position.set(0.2, 1.15, 0.15);
     rig.add(cabin);
@@ -530,7 +631,7 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
     // swap in the real car models once they have loaded
     void loadAllRealCars().then(() => {
       if (!alive) return;
-      if (vehicle !== "bus") {
+      if (vehicle !== "bus" && vehicle !== "okada") {
         const kind = vehicle === "cab" ? "sedan" : realKindFor(deal);
         if (kind) {
           const made = makeRealCar(kind, { color: vehicle === "cab" ? 0xf2c14e : deal.defaultColor });
@@ -555,7 +656,7 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
     });
 
     // ── Cockpit shown on the camera ──────────────────────────────────
-    const cockpit = vehicle === "car" ? carCockpit() : vehicle === "cab" ? cabCockpit() : busCockpit();
+    const cockpit = vehicle === "car" ? carCockpit() : vehicle === "cab" ? cabCockpit() : vehicle === "okada" ? okadaCockpit() : busCockpit();
     const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 260);
     camera.add(cockpit.group);
     scene.add(camera);
@@ -566,7 +667,15 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
     };
     fit();
 
-    const eyeSpec = vehicle === "car" ? { x: -0.4, y: 1.12, z: 0.1 } : vehicle === "cab" ? { x: 0.1, y: 1.15, z: -0.55 } : { x: 0.7, y: 1.6, z: 0.5 };
+    const eyeSpec =
+      vehicle === "car"
+        ? { x: -0.4, y: 1.12, z: 0.1 }
+        : vehicle === "cab"
+          ? { x: 0.1, y: 1.15, z: -0.55 }
+          : vehicle === "okada"
+            ? { x: 0, y: 1.28, z: 0.42 }
+            : { x: 0.7, y: 1.6, z: 0.5 };
+    const ownLane = vehicle === "okada" ? 2.35 : OWN_LANE;
     const camPos = new THREE.Vector3();
     let camReady = false;
     let prevHeading = 0;
@@ -584,7 +693,7 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
       const here = pose(startAt + t * span);
       const side = new THREE.Vector3(Math.cos(here.heading), 0, -Math.sin(here.heading));
       const fwd = new THREE.Vector3(Math.sin(here.heading), 0, Math.cos(here.heading));
-      rig.position.copy(here.point).addScaledVector(side, OWN_LANE);
+      rig.position.copy(here.point).addScaledVector(side, ownLane);
       rig.position.y = 0;
       rig.rotation.y = here.heading;
 
@@ -593,7 +702,8 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
       prevHeading = here.heading;
       const target = Math.max(-1, Math.min(1, (dt > 0 ? dh / dt : 0) * 0.28));
       steer += (target - steer) * Math.min(1, dt * 5);
-      cockpit.steer.rotation.z = steer;
+      if (vehicle === "okada") cockpit.steer.rotation.y = steer * 0.55;
+      else cockpit.steer.rotation.z = steer;
 
       const velocity = span / (RIDE_MS / 1000);
       flow.forEach((item) => {
@@ -626,12 +736,14 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
         const eye = rig.localToWorld(real.eye.clone());
         eye.y += bob;
         camera.position.copy(eye);
-        camera.lookAt(eye.clone().addScaledVector(fwd, 12).add(new THREE.Vector3(0, -0.05, 0)));
+        const lookFar = vehicle === "okada" ? 3.2 : 12;
+        const lookDown = vehicle === "okada" ? -0.45 : -0.05;
+        camera.lookAt(eye.clone().addScaledVector(fwd, lookFar).add(new THREE.Vector3(0, lookDown, 0)));
         camReady = false;
       } else if (view.current === "inside") {
         rig.visible = false;
         cockpit.group.visible = true;
-        const bob = Math.sin(now / 55) * (vehicle === "bus" ? 0.014 : 0.006);
+        const bob = Math.sin(now / 55) * (vehicle === "okada" ? 0.022 : vehicle === "bus" ? 0.014 : 0.006);
         const eye = rig.position.clone().addScaledVector(side, eyeSpec.x).addScaledVector(fwd, eyeSpec.z);
         eye.y = eyeSpec.y + bob;
         camera.position.copy(eye);
@@ -640,7 +752,7 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
       } else {
         rig.visible = true;
         cockpit.group.visible = false;
-        const goal = rig.position.clone().addScaledVector(fwd, -17).add(new THREE.Vector3(0, 12, 0));
+        const goal = rig.position.clone().addScaledVector(fwd, vehicle === "okada" ? -9 : -17).add(new THREE.Vector3(0, vehicle === "okada" ? 6.2 : 12, 0));
         if (!camReady) {
           camPos.copy(goal);
           camReady = true;
@@ -669,8 +781,8 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vehicle, carId]);
 
-  return (
-    <div className="absolute inset-0 z-[80] bg-[#10211a]">
+  return createPortal(
+    <div data-ride-scene={vehicle} className="fixed inset-0 z-[300] bg-[#10211a]">
       <div ref={host} className="absolute inset-0 touch-none" />
       <div className="pointer-events-none absolute left-3 top-16 z-10 max-w-[13rem] rounded-2xl bg-[#0e1c16]/80 px-3 py-2 text-[#f6f1e6]">
         <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#e0b15a]">{label}</p>
@@ -688,7 +800,7 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
           }}
           className={`rounded-lg px-2 py-1 text-[10px] font-semibold sm:text-xs ${seat === "inside" ? "bg-[#e0b15a] text-[#1a140c]" : "bg-[#0e1c16]/80 text-white"}`}
         >
-          {vehicle === "car" ? "Driver" : "Inside"}
+          {vehicle === "car" ? "Driver" : vehicle === "okada" ? "Rider" : "Inside"}
         </button>
         <button
           type="button"
@@ -704,6 +816,7 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
           Arrive
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

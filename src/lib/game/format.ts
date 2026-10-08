@@ -11,6 +11,7 @@ export function naira(amount: number) {
   const trim = (n: number) => n.toFixed(2).replace(/\.?0+$/, "");
   if (abs >= 1e12) return `${value < 0 ? "-" : ""}₦${trim(abs / 1e12)}T`;
   if (abs >= 1e9) return `${value < 0 ? "-" : ""}₦${trim(abs / 1e9)}B`;
+  if (abs >= 1e6) return `${value < 0 ? "-" : ""}₦${trim(abs / 1e6)}M`;
   return `₦${value.toLocaleString("en-NG")}`;
 }
 

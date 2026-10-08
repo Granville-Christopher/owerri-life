@@ -863,8 +863,8 @@ export function CityWorld({
     }
     byPlace("wetheral-strip", 36, -18, 0.4, "Wetheral night", "Clubs open till dawn", "#7a2e1e");
     byPlace("wetheral-strip", -36, 22, 0.8, "Ad board", "Buy this slot", "#a9782a");
-    byPlace("futo", 78, 16, 0.2, "Bus to campus", "IMSU, FUTO, Nekede", "#143d2c");
-    byPlace("campus-gate", 14, 16, 0.5, "Bus stop", "Campus and the markets", "#143d2c");
+    byPlace("futo", 78, 16, 0.2, "Busimo to campus", "IMSU, FUTO, Nekede", "#143d2c");
+    byPlace("campus-gate", 14, 16, 0.5, "Busimo stop", "Campus and the markets", "#143d2c");
     byPlace("mama-nkechi", 14, 10, -0.4, "Mama Nkechi", "Rice, stew, and gist", "#8a5a2a");
     byPlace("new-owerri", 18, -16, 0.6, "New Owerri", "Flats and duplexes", "#1f6b45");
     byPlace("sam-mbakwe", 130, 24, -0.3, "Sam Mbakwe", "Flights out of Imo", "#245c78");

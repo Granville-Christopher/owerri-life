@@ -86,13 +86,13 @@ const styles: Array<{ id: WorkStyle; name: string; detail: string }> = [
 ];
 
 function driven(mode: TravelMode) {
-  return mode === "bus" || mode === "car" || mode === "cab";
+  return mode === "bus" || mode === "car" || mode === "cab" || mode === "okada";
 }
 
 export function GameShell({ view }: { view: GameView }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>(view.me.indoors ? "map" : "home");
-  const [ride, setRide] = useState<null | { placeId: string; mode: TravelMode; vehicle: "car" | "bus" | "cab"; carId?: string; then: "map" | "home" | "room" }>(null);
+  const [ride, setRide] = useState<null | { placeId: string; mode: TravelMode; vehicle: "car" | "bus" | "cab" | "okada"; carId?: string; then: "map" | "home" | "room" }>(null);
   const [toast, setToast] = useState<{ id: number; text: string; bad: boolean } | null>(null);
   const [homeSheet, setHomeSheet] = useState(false);
   const [chatWith, setChatWith] = useState<string | null>(null);
@@ -119,7 +119,13 @@ export function GameShell({ view }: { view: GameView }) {
   }
 
   function beginRide(placeId: string, mode: TravelMode, then: "map" | "home" | "room") {
-    setRide({ placeId, mode, vehicle: mode === "bus" ? "bus" : mode === "cab" ? "cab" : "car", carId: mode === "car" ? view.me.activeCar : undefined, then });
+    setRide({
+      placeId,
+      mode,
+      vehicle: mode === "bus" ? "bus" : mode === "cab" ? "cab" : mode === "okada" ? "okada" : "car",
+      carId: mode === "car" ? view.me.activeCar : undefined,
+      then,
+    });
   }
 
   function finishRide() {
@@ -1015,7 +1021,7 @@ function PhoneDeck({
     { name: "Health", icon: "💊", tone: "bg-[#b5523a]", pick: "health" },
     { name: "Fly", icon: "✈", tone: "bg-[#245c78]", pick: "fly" },
     { name: "Skills", icon: "✨", tone: "bg-[#3d6b4f]", pick: "skills" },
-    { name: "Bus", icon: "🚌", tone: "bg-[#c4552a]", pick: "bus" },
+    { name: "Busimo", icon: "🚌", tone: "bg-[#c4552a]", pick: "bus" },
     { name: "Settings", icon: "⚙", tone: "bg-[#5d6b62]", pick: "settings" },
   ];
   const clock = clockLabel(view.me.day, view.me.hour).split(" ").at(-1);
@@ -1103,7 +1109,7 @@ function PhonePanel({
     properties: "Properties",
     land: "Plots",
     wallet: "Wallet",
-    bus: "Bus",
+    bus: "Busimo",
     food: "Food",
     campus: "Campus",
     market: "Market",
@@ -1137,8 +1143,8 @@ function PhonePanel({
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-[#f4efe4] p-3">
       {app === "bus" ? (
         <section className="rounded-3xl bg-white p-4 text-sm leading-6">
-          <h2 className="font-display text-2xl">Bus</h2>
-          <p className="mt-2 text-[#5d6b62]">Owerri moves by bus, keke, and okada. Open Food, Campus, Market, Night, or Club and the fare is on the next screen. There is no danfo here.</p>
+          <h2 className="font-display text-2xl">Busimo</h2>
+          <p className="mt-2 text-[#5d6b62]">Owerri moves by Busimo, keke, and okada. Open Food, Campus, Market, Night, or Club and the fare is on the next screen. There is no danfo here.</p>
         </section>
       ) : null}
       {app === "messages" ? (
