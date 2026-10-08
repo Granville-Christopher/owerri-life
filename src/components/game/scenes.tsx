@@ -2485,6 +2485,11 @@ function citizen(lookId: LookId) {
 
 type HomeSpot = FurnitureSpot | "bathroom" | "landing" | "house";
 
+interface Loc {
+  spot: HomeSpot;
+  roomNo: number;
+}
+
 interface PlacedPiece {
   key: string;
   id: string;
@@ -2544,7 +2549,13 @@ function RoomView({
   onKeep,
   onBring,
   onDone,
+  at,
+  walkTo,
+  onWalked,
 }: {
+  at: Loc;
+  walkTo: Loc | null;
+  onWalked: () => void;
   placed: PlacedPiece[];
   others: OtherPiece[];
   look: LookId;
@@ -2570,6 +2581,9 @@ function RoomView({
     setDraft(null);
   }
   const live = useRef({ edit, selected });
+  const cbs = useRef({ walked: onWalked });
+  const atKey = `${at.spot}:${at.roomNo}`;
+  const walkKey = walkTo ? `${walkTo.spot}:${walkTo.roomNo}` : "";
   const furnRef = useRef<Map<string, THREE.Group>>(new Map());
   const taps = useRef<{ select: (key: string) => void; drop: (x: number, z: number) => void }>({ select: () => undefined, drop: () => undefined });
   const homeStub = { id: duplex ? "duplex" : "home", beds, upstairs } as Home;
@@ -2590,6 +2604,7 @@ function RoomView({
 
   useEffect(() => {
     live.current = { edit, selected };
+    cbs.current = { walked: onWalked };
     taps.current = {
       select: (key) => setSelected(key),
       drop: (x, z) => {
@@ -2838,6 +2853,8 @@ function RoomView({
     let standX = 0;
     let standZ = 2.2;
     let span = 0;
+    let walkPts: Array<[number, number]> | null = null;
+    let walkFail = false;
     const me = citizen(look);
 
     if (house) {
@@ -2928,6 +2945,7 @@ function RoomView({
       }
 
       const near = (a: number, b: number) => Math.abs(a - b) < 0.05;
+      const links: Array<{ a: Plan; b: Plan; x: number; z: number }> = [];
       for (const a of everyRoom) {
         for (const b of everyRoom) {
           if (a === b) continue;
@@ -2938,6 +2956,7 @@ function RoomView({
               const mid = (lo + hi) / 2;
               a.doors.e.push(mid - (a.z0 + a.d / 2));
               b.doors.w.push(mid - (b.z0 + b.d / 2));
+              links.push({ a, b, x: a.x0 + a.w, z: mid });
             }
           }
           if (near(a.z0 + a.d, b.z0)) {
@@ -2947,6 +2966,7 @@ function RoomView({
               const mid = (lo + hi) / 2;
               a.doors.s.push(mid - (a.x0 + a.w / 2));
               b.doors.n.push(mid - (b.x0 + b.w / 2));
+              links.push({ a, b, x: mid, z: a.z0 + a.d });
             }
           }
         }
@@ -2996,15 +3016,66 @@ function RoomView({
         const mine = items.filter((piece2) => (entry.kind === "room" ? piece2.spot === "room" && piece2.roomNo === entry.roomNo : piece2.spot === entry.kind));
         if (entry.kind === "room" && !hasBedIn(mine)) mattress(-(entry.w / 2 - 2), -(entry.d / 2 - 2.2));
         dropItems(mine, false);
-        if ((entry.kind === "parlour" && !studio) || (studio && entry.kind === "room")) {
-          me.position.set(entry.w / 2 - 3, 0.14, entry.d / 2 - 2);
-          room.add(me);
-        }
         const tag = labelSprite(entry.label);
         tag.scale.set(entry.hall ? 3.4 : 4.6, entry.hall ? 0.85 : 1.15, 1);
         tag.position.set(0, entry.hall ? 1.8 : 2.6, entry.hall ? 0 : entry.d / 2 - 0.4);
         room.add(tag);
         target = board;
+      }
+      const keyOf = (entry: Plan) => (entry.hall ? (upstairs ? "landing" : "hall") : entry.kind === "room" ? `room:${entry.roomNo}` : entry.kind);
+      const locKey = (loc: Loc) => (loc.spot === "room" ? `room:${loc.roomNo}` : loc.spot);
+      const nodes = new Map<string, Plan>(everyRoom.map((entry) => [keyOf(entry), entry]));
+      const stand = (entry: Plan): [number, number] => [entry.x0 + entry.w / 2, entry.z0 + entry.d / 2 + (entry.hall ? 0 : 1.4)];
+      const edges = new Map<string, Array<{ to: string; via: Array<[number, number]> }>>();
+      const joinNodes = (from: string, to: string, via: Array<[number, number]>) => {
+        edges.set(from, [...(edges.get(from) ?? []), { to, via }]);
+      };
+      for (const link of links) {
+        joinNodes(keyOf(link.a), keyOf(link.b), [[link.x, link.z]]);
+        joinNodes(keyOf(link.b), keyOf(link.a), [[link.x, link.z]]);
+      }
+      const upper = nodes.get("landing");
+      const lower = nodes.get("parlour");
+      if (upstairs && upper && lower) {
+        const sx = lower.x0 + lower.w / 2 + 3.6;
+        const down: Array<[number, number]> = [[sx, upper.z0 + upper.d / 2], [sx, lower.z0 + 1.2]];
+        joinNodes("landing", "parlour", down);
+        joinNodes("parlour", "landing", [...down].reverse());
+      }
+      const route = (from: string, to: string) => {
+        const prev = new Map<string, { from: string; via: Array<[number, number]> }>();
+        const seen = new Set<string>([from]);
+        const queue = [from];
+        while (queue.length) {
+          const cur = queue.shift() as string;
+          if (cur === to) break;
+          for (const edge of edges.get(cur) ?? []) {
+            if (seen.has(edge.to)) continue;
+            seen.add(edge.to);
+            prev.set(edge.to, { from: cur, via: edge.via });
+            queue.push(edge.to);
+          }
+        }
+        if (!seen.has(to) || !nodes.has(from) || !nodes.has(to)) return null;
+        const chain: Array<{ to: string; via: Array<[number, number]> }> = [];
+        for (let cur = to; cur !== from; ) {
+          const step = prev.get(cur) as { from: string; via: Array<[number, number]> };
+          chain.unshift({ to: cur, via: step.via });
+          cur = step.from;
+        }
+        const pts: Array<[number, number]> = [stand(nodes.get(from) as Plan)];
+        for (const step of chain) pts.push(...step.via, stand(nodes.get(step.to) as Plan));
+        return pts;
+      };
+      const home = nodes.get(locKey(at)) ?? everyRoom[0];
+      const first = stand(home);
+      me.position.set(first[0], 0.14, first[1]);
+      me.scale.setScalar(1.9);
+      board.add(me);
+      if (walkTo) {
+        const pts = route(nodes.has(locKey(at)) ? locKey(at) : keyOf(home), locKey(walkTo));
+        if (pts && pts.length > 1) walkPts = pts;
+        else walkFail = true;
       }
       board.position.z = -cursor / 2;
       span = Math.max(widest, cursor);
@@ -3059,10 +3130,22 @@ function RoomView({
     }
 
     const baseDistance = roomDistance;
-    if (!house) {
+    if (!house && at.spot === spot && (spot !== "room" || at.roomNo === roomNo)) {
       me.position.set(standX, 0.0, standZ);
       spin.add(me);
     }
+    const legs: number[] = [];
+    let walkTotal = 0;
+    if (walkPts) {
+      for (let i = 1; i < walkPts.length; i += 1) {
+        const len = Math.hypot(walkPts[i][0] - walkPts[i - 1][0], walkPts[i][1] - walkPts[i - 1][1]);
+        legs.push(len);
+        walkTotal += len;
+      }
+    }
+    let walked = 0;
+    let walkSent = false;
+    let lastTick = performance.now();
 
     const marker = new THREE.Mesh(new THREE.BoxGeometry(1, 0.06, 1), new THREE.MeshBasicMaterial({ color: gold, transparent: true, opacity: 0.65 }));
     marker.visible = false;
@@ -3138,6 +3221,30 @@ function RoomView({
     let alive = true;
     const loop = () => {
       if (!alive) return;
+      const now = performance.now();
+      const dt = Math.min(0.1, (now - lastTick) / 1000);
+      lastTick = now;
+      if (walkPts && walkTotal > 0) {
+        walked = Math.min(walkTotal, walked + dt * 2.4);
+        let left = walked;
+        let i = 0;
+        while (i < legs.length - 1 && left > legs[i]) {
+          left -= legs[i];
+          i += 1;
+        }
+        const t = legs[i] > 0 ? Math.min(1, left / legs[i]) : 1;
+        const [ax, az] = walkPts[i];
+        const [bx, bz] = walkPts[i + 1];
+        me.position.set(ax + (bx - ax) * t, 0.14 + Math.abs(Math.sin(walked * 3.2)) * 0.07, az + (bz - az) * t);
+        if (bx !== ax || bz !== az) me.rotation.y = Math.atan2(bx - ax, bz - az);
+        if (walked >= walkTotal && !walkSent) {
+          walkSent = true;
+          cbs.current.walked();
+        }
+      } else if (walkFail && !walkSent) {
+        walkSent = true;
+        cbs.current.walked();
+      }
       spin.rotation.y = rig.current.yaw;
       camera.position.copy(aim).multiplyScalar(roomDistance / rig.current.zoom);
       camera.lookAt(0, lookY, 0);
@@ -3170,7 +3277,7 @@ function RoomView({
       renderer.dispose();
       root.removeChild(renderer.domElement);
     };
-  }, [placedKey, look, beds, upstairs, duplex, spot, roomNo]);
+  }, [placedKey, look, beds, upstairs, duplex, spot, roomNo, atKey, walkKey]);
 
   function turn(dir: number) {
     rig.current.yaw += dir * 0.55;
@@ -3294,6 +3401,33 @@ export function HouseRoom({
   const [group, setGroup] = useState<FurnitureGroup>("Parlour");
   const [spot, setSpot] = useState<HomeSpot>(studio ? "room" : "parlour");
   const [roomNo, setRoomNo] = useState(1);
+  const [at, setAt] = useState<Loc>({ spot: studio ? "room" : "parlour", roomNo: 1 });
+  const [walk, setWalk] = useState<{ to: Loc; then?: () => void } | null>(null);
+  const sameLoc = (a: Loc, b: Loc) => a.spot === b.spot && (a.spot !== "room" || a.roomNo === b.roomNo);
+  const placeName = (loc: Loc) => (loc.spot === "room" ? (studio ? "the room" : `Room ${loc.roomNo}`) : loc.spot === "landing" ? "the landing" : `the ${loc.spot}`);
+  function lookAt(s: HomeSpot, no = 1) {
+    setWalk(null);
+    setSpot(s);
+    setRoomNo(no);
+  }
+  function walkTo(to: Loc, then?: () => void) {
+    if (sameLoc(at, to)) {
+      lookAt(to.spot, to.roomNo);
+      then?.();
+      return;
+    }
+    setSpot("house");
+    setWalk({ to, then });
+  }
+  function arrived() {
+    if (!walk) return;
+    const done = walk;
+    setAt(done.to);
+    setWalk(null);
+    setSpot(done.to.spot);
+    setRoomNo(done.to.roomNo);
+    done.then?.();
+  }
   const entrySeen = useRef(entry);
   const nonceSeen = useRef(shopNonce);
   if (entry !== entrySeen.current) {
@@ -3352,45 +3486,56 @@ export function HouseRoom({
         }}
         onBring={bring}
         onDone={() => setEdit(false)}
+        at={at}
+        walkTo={walk ? walk.to : null}
+        onWalked={arrived}
       />
+      {walk ? (
+        <div className="absolute bottom-[15.5rem] left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full bg-[#17241e]/95 px-3 py-2 text-xs font-semibold text-white shadow-lg">
+          <span>Walking to {placeName(walk.to)}…</span>
+          <button type="button" onClick={arrived} className="rounded-full bg-white px-2.5 py-1 text-[11px] text-[#17241e]">Skip</button>
+        </div>
+      ) : spot !== "house" && !sameLoc(at, { spot, roomNo }) ? (
+        <button
+          type="button"
+          onClick={() => walkTo({ spot, roomNo })}
+          className="absolute bottom-[15.5rem] left-1/2 z-30 -translate-x-1/2 rounded-full bg-[#e0b15a] px-6 py-2.5 text-sm font-semibold text-[#17241e] shadow-lg"
+        >
+          Come here
+        </button>
+      ) : null}
       <p className="pointer-events-none absolute left-3 top-20 z-10 rounded-full bg-white px-3 py-2 text-xs font-semibold shadow">{name}</p>
       <div className="absolute left-2 right-16 top-32 z-30 flex flex-wrap gap-1">
         {onSleep ? (
-          <button type="button" disabled={pending} onClick={onSleep} className="rounded-full bg-[#17241e] px-3 py-1 text-[10px] font-semibold text-white shadow disabled:opacity-40">Sleep</button>
+          <button type="button" disabled={pending || Boolean(walk)} onClick={() => walkTo(at.spot === "room" ? at : { spot: "room", roomNo: 1 }, onSleep)} className="rounded-full bg-[#17241e] px-3 py-1 text-[10px] font-semibold text-white shadow disabled:opacity-40">Sleep</button>
         ) : null}
         {onShower ? (
-          <button type="button" disabled={pending} onClick={onShower} className="rounded-full bg-[#245c78] px-3 py-1 text-[10px] font-semibold text-white shadow disabled:opacity-40">Shower</button>
+          <button type="button" disabled={pending || Boolean(walk)} onClick={() => walkTo({ spot: "bathroom", roomNo: 1 }, onShower)} className="rounded-full bg-[#245c78] px-3 py-1 text-[10px] font-semibold text-white shadow disabled:opacity-40">Shower</button>
         ) : null}
         {onToilet ? (
           <button
             type="button"
-            disabled={pending}
-            onClick={() => {
-              setSpot("bathroom");
-              onToilet();
-            }}
+            disabled={pending || Boolean(walk)}
+            onClick={() => walkTo({ spot: "bathroom", roomNo: 1 }, onToilet)}
             className="rounded-full bg-[#7a5a2a] px-3 py-1 text-[10px] font-semibold text-white shadow disabled:opacity-40"
           >
             Toilet
           </button>
         ) : null}
-        <button type="button" onClick={() => setSpot("house")} className={chip(spot === "house")}>Full house</button>
+        <button type="button" onClick={() => lookAt("house")} className={chip(spot === "house")}>Full house</button>
         {!studio ? (
           <>
-            <button type="button" onClick={() => setSpot("parlour")} className={chip(spot === "parlour")}>Parlour</button>
-            <button type="button" onClick={() => setSpot("kitchen")} className={chip(spot === "kitchen")}>Kitchen</button>
+            <button type="button" onClick={() => lookAt("parlour")} className={chip(spot === "parlour")}>Parlour</button>
+            <button type="button" onClick={() => lookAt("kitchen")} className={chip(spot === "kitchen")}>Kitchen</button>
           </>
         ) : null}
-        <button type="button" onClick={() => setSpot("bathroom")} className={chip(spot === "bathroom")}>Bathroom</button>
-        {upstairs ? <button type="button" onClick={() => setSpot("landing")} className={chip(spot === "landing")}>Upstairs</button> : null}
+        <button type="button" onClick={() => lookAt("bathroom")} className={chip(spot === "bathroom")}>Bathroom</button>
+        {upstairs ? <button type="button" onClick={() => lookAt("landing")} className={chip(spot === "landing")}>Upstairs</button> : null}
         {Array.from({ length: Math.max(beds, 1) }, (_, index) => (
           <button
             key={index}
             type="button"
-            onClick={() => {
-              setRoomNo(index + 1);
-              setSpot("room");
-            }}
+            onClick={() => lookAt("room", index + 1)}
             className={chip(spot === "room" && roomNo === index + 1)}
           >
             {studio ? "Room" : `Room ${index + 1}`}
