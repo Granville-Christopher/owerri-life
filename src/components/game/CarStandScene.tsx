@@ -6,232 +6,11 @@ import type { LookId } from "@/lib/game/types";
 import { createRealisticHuman } from "@/lib/game/humanModel";
 import { naira } from "@/lib/game/format";
 import { attachSceneCameraControls } from "./sceneCameraControls";
+import { CAR_CATALOG, type CarDeal } from "@/lib/game/content";
+import { buildDetailedCarMesh } from "./carModels";
 
-export interface CarDeal {
-  id: string;
-  name: string;
-  category: "SUV" | "Sedan" | "Luxury Crossover" | "Sports Coupe";
-  price: number;
-  speed: string;
-  flexFactor: string;
-  defaultColor: number;
-  desc: string;
-  emoji: string;
-}
-
-export const CAR_CATALOG: CarDeal[] = [
-  {
-    id: "g-wagon",
-    name: "Mercedes-Benz G63 AMG (G-Wagon)",
-    category: "SUV",
-    price: 3200000,
-    speed: "240 km/h · Twin Turbo V8",
-    flexFactor: "⭐⭐⭐⭐⭐ Top Big Man of Imo",
-    defaultColor: 0x18181b, // Obsidian Black
-    desc: "The ultimate status symbol on Wetheral Road and Port Harcourt Road. Commanding presence with roaring dual side exhausts.",
-    emoji: "🚙",
-  },
-  {
-    id: "lexus-rx",
-    name: "Lexus RX350 Luxury Crossover",
-    category: "Luxury Crossover",
-    price: 1650000,
-    speed: "210 km/h · V6 AWD",
-    flexFactor: "⭐⭐⭐⭐ Clean Owerri Big Boy",
-    defaultColor: 0xf8fafc, // Pearl White
-    desc: "Smooth luxury ride, premium sound system, perfect for navigating New Owerri estates and airport runs.",
-    emoji: "🚗",
-  },
-  {
-    id: "camry-v6",
-    name: "Toyota Camry XSE Sports Edition",
-    category: "Sedan",
-    price: 950000,
-    speed: "200 km/h · 3.5L V6",
-    flexFactor: "⭐⭐⭐ Reliable Daily Hustle",
-    defaultColor: 0x94a3b8, // Metallic Silver
-    desc: "Unbreakable engine, cheap parts, fast acceleration, and cold AC. Owerri daily commuter favourite.",
-    emoji: "🚘",
-  },
-  {
-    id: "sports-coupe",
-    name: "Velocity GT Sports Coupe",
-    category: "Sports Coupe",
-    price: 2400000,
-    speed: "290 km/h · 4.0L Turbo",
-    flexFactor: "⭐⭐⭐⭐⭐ Nightlife Club King",
-    defaultColor: 0xdc2626, // Crimson Red
-    desc: "Low-slung race engineered body, aggressive front splitter, pops and bangs outside Cartel Lifestyle club.",
-    emoji: "🏎️",
-  },
-];
-
-// Helper to build realistic 3D detailed car models with wheels, rims, lights, glass
-function buildDetailedCarMesh(car: CarDeal, bodyColor?: number): THREE.Group {
-  const group = new THREE.Group();
-  const color = bodyColor ?? car.defaultColor;
-
-  const bodyMat = new THREE.MeshStandardMaterial({
-    color,
-    roughness: 0.18,
-    metalness: 0.82,
-  });
-  const glassMat = new THREE.MeshStandardMaterial({
-    color: 0x0f172a,
-    roughness: 0.05,
-    metalness: 0.95,
-  });
-  const blackTrimMat = new THREE.MeshLambertMaterial({ color: 0x111827 });
-  const chromeMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.95, roughness: 0.1 });
-  const wheelRubberMat = new THREE.MeshLambertMaterial({ color: 0x18181b });
-  const rimMat = new THREE.MeshStandardMaterial({ color: 0xd4d4d8, metalness: 0.9, roughness: 0.2 });
-  const headLightMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
-  const tailLightMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
-
-  const box = (w: number, h: number, d: number, mat: THREE.Material, x: number, y: number, z: number) => {
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
-    mesh.position.set(x, y, z);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    group.add(mesh);
-    return mesh;
-  };
-
-  if (car.category === "SUV") {
-    // ── G-WAGON BOX CHASSIS ──
-    box(1.9, 0.72, 4.2, bodyMat, 0, 0.76, 0); // Lower body
-    box(1.82, 0.78, 2.7, bodyMat, 0, 1.45, -0.35); // Cabin / Roof box
-    box(1.78, 0.08, 2.76, blackTrimMat, 0, 1.88, -0.35); // Roof rails
-
-    // Windows
-    box(1.84, 0.52, 0.06, glassMat, 0, 1.42, 1.01); // Windshield
-    box(1.84, 0.52, 0.06, glassMat, 0, 1.42, -1.71); // Rear window
-    box(0.06, 0.48, 2.4, glassMat, -0.92, 1.42, -0.35); // Left windows
-    box(0.06, 0.48, 2.4, glassMat, 0.92, 1.42, -0.35);  // Right windows
-
-    // Front Grille & Bullbar
-    box(1.5, 0.45, 0.1, blackTrimMat, 0, 0.72, 2.12);
-    box(0.3, 0.3, 0.12, chromeMat, 0, 0.72, 2.13); // Mercedes star
-    box(1.7, 0.35, 0.15, blackTrimMat, 0, 0.48, 2.2); // Front bumper
-
-    // Headlights (Round G-Wagon style)
-    const hlGeom = new THREE.CylinderGeometry(0.16, 0.16, 0.08, 16);
-    hlGeom.rotateX(Math.PI / 2);
-    const hlL = new THREE.Mesh(hlGeom, headLightMat);
-    hlL.position.set(-0.68, 0.76, 2.12);
-    const hlR = new THREE.Mesh(hlGeom, headLightMat);
-    hlR.position.set(0.68, 0.76, 2.12);
-    group.add(hlL, hlR);
-
-    // Rear Spare Tire Cover
-    const spareGeom = new THREE.CylinderGeometry(0.44, 0.44, 0.28, 18);
-    spareGeom.rotateX(Math.PI / 2);
-    const spare = new THREE.Mesh(spareGeom, chromeMat);
-    spare.position.set(0, 0.95, -2.2);
-    group.add(spare);
-    box(0.8, 0.12, 0.3, chromeMat, 0, 0.95, -2.22);
-
-    // Tail lights
-    box(0.32, 0.14, 0.05, tailLightMat, -0.72, 0.65, -2.12);
-    box(0.32, 0.14, 0.05, tailLightMat, 0.72, 0.65, -2.12);
-  } else if (car.category === "Sports Coupe") {
-    // ── VELOCITY GT SPORTS COUPE ──
-    box(1.95, 0.45, 4.3, bodyMat, 0, 0.42, 0); // Low sleek chassis
-    box(1.65, 0.46, 2.1, bodyMat, 0, 0.82, -0.2); // Fastback cabin
-    box(1.98, 0.12, 0.45, blackTrimMat, 0, 0.22, 2.15); // Carbon front splitter
-
-    // Aerodynamic Rear Wing / Spoiler
-    box(1.8, 0.06, 0.35, blackTrimMat, 0, 0.95, -2.05);
-    box(0.08, 0.32, 0.08, blackTrimMat, -0.65, 0.75, -2.05);
-    box(0.08, 0.32, 0.08, blackTrimMat, 0.65, 0.75, -2.05);
-
-    // Slanted aerodynamic windshield
-    const wsMesh = box(1.68, 0.48, 0.06, glassMat, 0, 0.78, 0.88);
-    wsMesh.rotation.x = -0.38;
-
-    // Slanted fastback rear glass
-    const rgMesh = box(1.68, 0.48, 0.06, glassMat, 0, 0.76, -1.25);
-    rgMesh.rotation.x = 0.45;
-
-    // Aggressive LED headlights
-    box(0.42, 0.1, 0.08, headLightMat, -0.72, 0.48, 2.14);
-    box(0.42, 0.1, 0.08, headLightMat, 0.72, 0.48, 2.14);
-
-    // Dual exhaust tips
-    box(0.12, 0.12, 0.25, chromeMat, -0.55, 0.26, -2.2);
-    box(0.12, 0.12, 0.25, chromeMat, 0.55, 0.26, -2.2);
-    box(0.35, 0.08, 0.05, tailLightMat, -0.7, 0.55, -2.16);
-    box(0.35, 0.08, 0.05, tailLightMat, 0.7, 0.55, -2.16);
-  } else {
-    // ── SEDAN & LUXURY CROSSOVER ──
-    const isCrossover = car.category === "Luxury Crossover";
-    const baseH = isCrossover ? 0.62 : 0.5;
-    const baseY = isCrossover ? 0.6 : 0.5;
-
-    box(1.85, baseH, 4.2, bodyMat, 0, baseY, 0); // Main body
-    box(1.62, 0.58, 2.4, bodyMat, 0, baseY + 0.54, -0.15); // Cabin
-
-    // Windshield & Rear glass
-    const ws = box(1.64, 0.52, 0.06, glassMat, 0, baseY + 0.5, 1.05);
-    ws.rotation.x = -0.32;
-    const rg = box(1.64, 0.52, 0.06, glassMat, 0, baseY + 0.5, -1.35);
-    rg.rotation.x = 0.32;
-
-    // Side windows
-    box(0.06, 0.44, 2.1, glassMat, -0.82, baseY + 0.52, -0.15);
-    box(0.06, 0.44, 2.1, glassMat, 0.82, baseY + 0.52, -0.15);
-
-    // Chrome Grille & Headlights
-    box(1.2, 0.32, 0.08, chromeMat, 0, baseY + 0.05, 2.12);
-    box(0.38, 0.14, 0.06, headLightMat, -0.68, baseY + 0.12, 2.12);
-    box(0.38, 0.14, 0.06, headLightMat, 0.68, baseY + 0.12, 2.12);
-
-    // Tail lights
-    box(0.42, 0.12, 0.06, tailLightMat, -0.68, baseY + 0.15, -2.12);
-    box(0.42, 0.12, 0.06, tailLightMat, 0.68, baseY + 0.15, -2.12);
-  }
-
-  // ── 4 DETAILED WHEELS WITH ALLOY RIMS ──
-  const wheelRadius = car.category === "SUV" ? 0.42 : 0.36;
-  const wheelWidth = 0.28;
-  const wheelY = wheelRadius;
-  const wheelZFront = 1.35;
-  const wheelZRear = -1.35;
-  const wheelX = 0.94;
-
-  const makeWheel = (wx: number, wz: number) => {
-    const wheelGroup = new THREE.Group();
-    wheelGroup.position.set(wx, wheelY, wz);
-
-    // Tire rubber
-    const tireGeom = new THREE.CylinderGeometry(wheelRadius, wheelRadius, wheelWidth, 20);
-    tireGeom.rotateZ(Math.PI / 2);
-    const tire = new THREE.Mesh(tireGeom, wheelRubberMat);
-    tire.castShadow = true;
-    wheelGroup.add(tire);
-
-    // Chrome / Alloy Rim
-    const rimGeom = new THREE.CylinderGeometry(wheelRadius * 0.68, wheelRadius * 0.68, wheelWidth + 0.02, 16);
-    rimGeom.rotateZ(Math.PI / 2);
-    const rim = new THREE.Mesh(rimGeom, rimMat);
-    wheelGroup.add(rim);
-
-    // Brake disc inside rim
-    const discGeom = new THREE.CylinderGeometry(wheelRadius * 0.5, wheelRadius * 0.5, 0.04, 12);
-    discGeom.rotateZ(Math.PI / 2);
-    const disc = new THREE.Mesh(discGeom, chromeMat);
-    wheelGroup.add(disc);
-
-    group.add(wheelGroup);
-  };
-
-  makeWheel(-wheelX, wheelZFront);
-  makeWheel(wheelX, wheelZFront);
-  makeWheel(-wheelX, wheelZRear);
-  makeWheel(wheelX, wheelZRear);
-
-  return group;
-}
+export type { CarDeal };
+export { CAR_CATALOG };
 
 // Showroom Dealership Banner Canvas Texture
 function createDealershipBannerTexture(): THREE.CanvasTexture {
@@ -269,18 +48,22 @@ function createDealershipBannerTexture(): THREE.CanvasTexture {
 export function CarStandScene({
   look = "chidi",
   username = "Buyer",
-  onBuyCarSuccess,
+  owned = [],
+  pending = false,
+  onBuy,
 }: {
   look?: LookId;
   username?: string;
-  onBuyCarSuccess?: (carName: string, price: number) => void;
+  owned?: string[];
+  pending?: boolean;
+  onBuy?: (carId: string) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const rig = useRef({ yaw: 0.35, zoom: 1.1 });
   const turntableRef = useRef<THREE.Group | null>(null);
 
   const [selectedCar, setSelectedCar] = useState<CarDeal>(CAR_CATALOG[0]);
-  const [garage, setGarage] = useState<string[]>([]);
+  const garage = owned;
   const [toast, setToast] = useState<string | null>(null);
   const [isTestDriving, setIsTestDriving] = useState(false);
 
@@ -407,37 +190,21 @@ export function CarStandScene({
     // ─────────────────────────────────────────────────────────────
     // 2. SHOWROOM DISPLAY LOT CARS (Surrounding Rows)
     // ─────────────────────────────────────────────────────────────
-    // Display Car Left: G-Wagon (Obsidian Black)
-    if (selectedCar.id !== "g-wagon") {
-      const gWagonLot = buildDetailedCarMesh(CAR_CATALOG[0]);
-      gWagonLot.position.set(-5.2, 0, -2.5);
-      gWagonLot.rotation.y = 0.35;
-      showroom.add(gWagonLot);
-    }
-
-    // Display Car Right: Velocity GT Sports Coupe (Red)
-    if (selectedCar.id !== "sports-coupe") {
-      const gtLot = buildDetailedCarMesh(CAR_CATALOG[3]);
-      gtLot.position.set(5.2, 0, -2.5);
-      gtLot.rotation.y = -0.35;
-      showroom.add(gtLot);
-    }
-
-    // Display Car Front-Left: Lexus RX (White)
-    if (selectedCar.id !== "lexus-rx") {
-      const lexusLot = buildDetailedCarMesh(CAR_CATALOG[1]);
-      lexusLot.position.set(-5.4, 0, 3.2);
-      lexusLot.rotation.y = 0.15;
-      showroom.add(lexusLot);
-    }
-
-    // Display Car Front-Right: Camry (Silver)
-    if (selectedCar.id !== "camry-v6") {
-      const camryLot = buildDetailedCarMesh(CAR_CATALOG[2]);
-      camryLot.position.set(5.4, 0, 3.2);
-      camryLot.rotation.y = -0.15;
-      showroom.add(camryLot);
-    }
+    const lotSpots: Array<[number, number, number]> = [
+      [-5.2, -2.5, 0.35],
+      [5.2, -2.5, -0.35],
+      [-5.4, 3.2, 0.15],
+      [5.4, 3.2, -0.15],
+    ];
+    const lotCars = CAR_CATALOG.filter((car) => car.id !== selectedCar.id && car.price <= 6500000).slice(-8);
+    lotSpots.forEach(([lx, lz, ry], index) => {
+      const pick = lotCars[(index * 2 + (selectedCar.id.length % 2)) % lotCars.length];
+      if (!pick) return;
+      const lot = buildDetailedCarMesh(pick);
+      lot.position.set(lx, 0, lz);
+      lot.rotation.y = ry;
+      showroom.add(lot);
+    });
 
     // ─────────────────────────────────────────────────────────────
     // 3. DEALER OBI'S OFFICE & SALES COUNTER (Back-Left)
@@ -502,7 +269,7 @@ export function CarStandScene({
         turntableRef.current.rotation.y += isTestDriving ? 0.04 : 0.005;
       }
 
-      const r = 16.0 / rig.current.zoom;
+      const r = Math.min(42, Math.max(16, 6.2 / (0.315 * Math.min(camera.aspect, 1.7)))) / rig.current.zoom;
       const phi = 0.64; // High angle elevated view
       const theta = rig.current.yaw;
 
@@ -558,11 +325,7 @@ export function CarStandScene({
   };
 
   const handleBuyCurrentCar = () => {
-    setGarage((prev) => [...prev, selectedCar.id]);
-    showToast(`🎉 Congratulations! You purchased the ${selectedCar.name} for ${naira(selectedCar.price)}! Keys handed over.`);
-    if (onBuyCarSuccess) {
-      onBuyCarSuccess(selectedCar.name, selectedCar.price);
-    }
+    onBuy?.(selectedCar.id);
   };
 
   const isOwned = garage.includes(selectedCar.id);
@@ -589,10 +352,7 @@ export function CarStandScene({
       </div>
 
       {/* Car Selection Tabs (Middle-Left) */}
-      <div className="absolute left-3 top-20 z-20 flex flex-col gap-1.5 max-w-[190px]">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-[#94a3b8] px-1">
-          Select Vehicle:
-        </span>
+      <div className="absolute left-2 right-14 top-[4.6rem] z-20 flex gap-1.5 overflow-x-auto pb-1">
         {CAR_CATALOG.map((car) => {
           const active = selectedCar.id === car.id;
           const ownedThis = garage.includes(car.id);
@@ -601,7 +361,7 @@ export function CarStandScene({
               key={car.id}
               type="button"
               onClick={() => setSelectedCar(car)}
-              className={`flex items-center justify-between rounded-xl px-2.5 py-2 text-left text-xs font-bold border transition-all active:scale-95 shadow-lg backdrop-blur-md ${
+              className={`flex w-[10.5rem] shrink-0 items-center justify-between rounded-xl px-2.5 py-2 text-left text-xs font-bold border transition-all active:scale-95 shadow-lg backdrop-blur-md ${
                 active
                   ? "bg-[#e0b15a] text-[#0f172a] border-[#fde047] scale-[1.02]"
                   : "bg-[#0f172a]/90 text-white border-white/10 hover:bg-[#1e293b]"
@@ -610,7 +370,7 @@ export function CarStandScene({
               <div className="truncate pr-1">
                 <div className="flex items-center gap-1">
                   <span>{car.emoji}</span>
-                  <span className="truncate">{car.name.split(" ")[0]} {car.name.split(" ")[1]}</span>
+                  <span className="truncate">{car.name.split(" ").slice(0, 3).join(" ")}</span>
                 </div>
                 <span className={`text-[10px] block ${active ? "text-[#0f172a]" : "text-[#e0b15a]"}`}>
                   {naira(car.price)}
@@ -623,7 +383,7 @@ export function CarStandScene({
       </div>
 
       {/* Selected Car Info & Purchase Panel (Bottom Floating Card) */}
-      <div className="absolute inset-x-3 bottom-4 z-30 mx-auto max-w-lg rounded-3xl bg-[#09111c]/95 border-2 border-[#e0b15a]/40 p-3.5 shadow-2xl backdrop-blur-2xl text-white">
+      <div className="absolute inset-x-3 bottom-44 z-30 mx-auto max-w-lg rounded-3xl bg-[#09111c]/95 border-2 border-[#e0b15a]/40 p-3.5 shadow-2xl backdrop-blur-2xl text-white">
         <div className="flex items-start justify-between">
           <div>
             <div className="flex items-center gap-1.5">
@@ -648,10 +408,11 @@ export function CarStandScene({
         <div className="mt-3 flex gap-2">
           <button
             type="button"
+            disabled={pending || !onBuy}
             onClick={handleBuyCurrentCar}
-            className="flex-1 rounded-xl bg-[#e0b15a] py-2.5 text-xs font-extrabold text-[#0f172a] hover:bg-[#f2c14e] transition-all shadow-lg active:scale-95"
+            className="flex-1 rounded-xl bg-[#e0b15a] py-2.5 text-xs font-extrabold text-[#0f172a] hover:bg-[#f2c14e] transition-all shadow-lg active:scale-95 disabled:opacity-40"
           >
-            {isOwned ? "Buy Another One 💳" : `Purchase Vehicle · ${naira(selectedCar.price)} 💳`}
+            {isOwned ? `Buy Another One · ${naira(selectedCar.price)}` : `Purchase Vehicle · ${naira(selectedCar.price)} 💳`}
           </button>
           <button
             type="button"

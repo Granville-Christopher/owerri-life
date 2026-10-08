@@ -3,7 +3,7 @@
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import * as THREE from "three";
-import { CAR_PRICE, DORIME_AMOUNTS, FURNITURE, FURNITURE_GROUPS, LOOKS, TREATMENT_FEE, clampPlacement, furnitureById, furnitureInstances, homeById, npcsAt, placeActs, placeById, placeIn, roomSize, sprayFloor } from "@/lib/game/content";
+import { DORIME_AMOUNTS, FURNITURE, FURNITURE_GROUPS, LOOKS, TREATMENT_FEE, clampPlacement, furnitureById, furnitureInstances, homeById, npcsAt, placeActs, placeById, placeIn, roomSize, sprayFloor } from "@/lib/game/content";
 import type { FurnitureGroup, Home, Place } from "@/lib/game/content";
 import { naira } from "@/lib/game/format";
 import type { FurnitureSpot, LookId, Placement } from "@/lib/game/types";
@@ -1616,60 +1616,89 @@ function HotelSuite({ look, pose, onLieDone }: { look: LookId; pose: "stand" | "
     add(piece(0xe7d3c4, 0.18, 1.5, 0.08, -2.6, 1.55, -3.38));
     add(piece(0xe7d3c4, 0.18, 1.5, 0.08, -0.6, 1.55, -3.38));
     add(piece(0xe0b15a, 1.3, 0.9, 0.06, 2.2, 1.7, -3.4));
-    add(piece(0x6a4630, 1.5, 0.08, 1.1, 2.2, 1.22, -3.36));
+    // console table under the painting, with a vase
+    add(piece(0x6a4630, 1.5, 0.07, 0.5, 2.3, 0.82, -3.15));
+    for (const [lx, lz] of [[1.62, -3.32], [2.98, -3.32], [1.62, -2.98], [2.98, -2.98]]) add(piece(0x4a3428, 0.07, 0.78, 0.07, lx, 0.43, lz));
+    add(piece(0x1f6b45, 0.14, 0.24, 0.14, 1.95, 0.97, -3.15));
 
-    add(piece(0x4a3428, 2.5, 0.9, 0.12, -1.2, 0.7, -2.85));
-    add(piece(0xf7f4ee, 2.35, 0.28, 1.45, -1.2, 0.42, -2.05));
-    add(piece(0xf4efe6, 2.2, 0.12, 1.15, -1.2, 0.58, -1.95));
-    add(piece(0xf6f1e6, 0.55, 0.16, 0.32, -1.7, 0.7, -2.45));
-    add(piece(0xf6f1e6, 0.55, 0.16, 0.32, -0.7, 0.7, -2.45));
-    add(blob(-1.2, -2.1, 2.6, 1.6, 0.35));
+    // bed: headboard on the back wall, long side along the room
+    const bx = -1.6;
+    add(piece(0x4a3428, 1.9, 0.3, 2.45, bx, 0.3, -2.05));
+    add(piece(0x4a3428, 1.95, 1.05, 0.14, bx, 0.92, -3.35));
+    add(piece(0xf7f4ee, 1.8, 0.24, 2.3, bx, 0.57, -2.1));
+    add(piece(0x9fb3c8, 1.82, 0.1, 1.45, bx, 0.72, -1.55));
+    add(piece(0x8c3d4a, 1.84, 0.03, 0.35, bx, 0.78, -1.3));
+    add(piece(0xf6f1e6, 0.7, 0.16, 0.4, bx - 0.45, 0.8, -2.95));
+    add(piece(0xf6f1e6, 0.7, 0.16, 0.4, bx + 0.45, 0.8, -2.95));
+    add(piece(0x6a4630, 1.6, 0.3, 0.4, bx, 0.4, -0.62));
+    add(blob(bx, -1.9, 2.5, 3.2, 0.35));
 
     const stand = (x: number) => {
-      add(piece(0x4a3428, 0.42, 0.48, 0.38, x, 0.32, -2.55));
-      add(piece(0xf2c14e, 0.16, 0.28, 0.16, x, 0.68, -2.55));
-      const shade = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.18, 8), new THREE.MeshLambertMaterial({ color: 0xf6e7b8 }));
-      shade.position.set(x, 0.92, -2.55);
+      add(piece(0x4a3428, 0.5, 0.55, 0.45, x, 0.35, -3.1));
+      add(piece(0xf2c14e, 0.14, 0.28, 0.14, x, 0.76, -3.1));
+      const shade = new THREE.Mesh(new THREE.ConeGeometry(0.17, 0.2, 8), new THREE.MeshLambertMaterial({ color: 0xf6e7b8 }));
+      shade.position.set(x, 1.0, -3.1);
       add(shade);
     };
-    stand(-2.7);
-    stand(0.35);
+    stand(bx - 1.25);
+    stand(bx + 1.25);
 
-    add(piece(0x3d4a66, 2.1, 0.38, 0.78, 1.5, 0.4, 1.15));
-    add(piece(0x2c3850, 2.1, 0.42, 0.12, 1.5, 0.72, 1.5));
-    add(piece(0x2c3850, 0.12, 0.42, 0.78, 0.48, 0.55, 1.15));
-    add(piece(0x2c3850, 0.12, 0.42, 0.78, 2.52, 0.55, 1.15));
-    add(blob(1.5, 1.25, 2.3, 1, 0.32));
-    add(piece(0x6a4630, 1.15, 0.08, 0.6, 1.5, 0.42, 0.15));
-    add(piece(0x6a4630, 0.08, 0.32, 0.08, 1.1, 0.24, -0.05));
-    add(piece(0x6a4630, 0.08, 0.32, 0.08, 1.9, 0.24, 0.35));
+    // wardrobe against the left wall
+    add(piece(0x5a4030, 0.55, 1.9, 1.4, -4.22, 1.05, -1.5));
+    add(piece(0x3a281c, 0.02, 1.8, 0.03, -3.94, 1.05, -1.5));
+    add(piece(0xc4a574, 0.04, 0.35, 0.04, -3.93, 1.05, -1.58));
+    add(piece(0xc4a574, 0.04, 0.35, 0.04, -3.93, 1.05, -1.42));
+    add(blob(-4.1, -1.5, 1.0, 1.6, 0.3));
 
-    add(piece(0x8c3d4a, 0.7, 0.36, 0.7, 2.9, 0.4, -0.4));
-    add(piece(0x6d2e3a, 0.7, 0.4, 0.1, 2.9, 0.7, -0.05));
-    add(piece(0x17241e, 1.35, 0.78, 0.08, 4.35, 1.15, 0.2));
-    add(piece(0x1a3350, 1.15, 0.58, 0.04, 4.35, 1.18, 0.26));
-    add(piece(0x4a3428, 0.7, 0.4, 0.4, 4.2, 0.28, 0.2));
+    // desk, laptop, chair and a mirror on the left wall
+    add(piece(0x6a4630, 0.7, 0.07, 1.5, -4.15, 0.78, 1.5));
+    for (const [lx, lz] of [[-3.9, 0.82], [-4.4, 0.82], [-3.9, 2.18], [-4.4, 2.18]]) add(piece(0x4a3428, 0.07, 0.74, 0.07, lx, 0.4, lz));
+    add(piece(0xd4d4d8, 0.3, 0.02, 0.42, -4.0, 0.83, 1.5));
+    add(piece(0x1e293b, 0.03, 0.3, 0.42, -4.16, 0.99, 1.5));
+    add(piece(0x6a4630, 0.5, 0.08, 0.5, -3.3, 0.5, 1.5));
+    add(piece(0x6a4630, 0.08, 0.55, 0.5, -3.06, 0.8, 1.5));
+    add(piece(0x6a4630, 0.08, 0.4, 0.08, -3.3, 0.28, 1.5));
+    add(piece(0xe0b15a, 0.04, 1.2, 0.8, -4.5, 1.85, 1.5));
+    add(piece(0xdbe9f0, 0.04, 1.05, 0.65, -4.48, 1.85, 1.5));
+    add(blob(-3.9, 1.5, 1.7, 1.8, 0.25));
 
-    add(piece(0x5a4030, 1.15, 1.7, 0.45, -4.15, 0.95, -2.2));
-    add(piece(0xc4a574, 0.9, 0.04, 0.04, -3.9, 1.15, -1.95));
-    add(piece(0xf7f4ee, 0.9, 0.7, 0.5, -2.4, 0.45, 1.6));
-    add(piece(0x6a4630, 0.08, 0.4, 0.08, -2.75, 0.25, 1.4));
-    add(piece(0x6a4630, 0.08, 0.4, 0.08, -2.05, 0.25, 1.8));
-    const plant = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.7, 7), new THREE.MeshLambertMaterial({ color: 0x1f6b45 }));
-    plant.position.set(3.6, 0.7, -2.6);
-    add(piece(0x6a4630, 0.28, 0.35, 0.28, 3.6, 0.22, -2.6));
+    // sofa faces the television on the right wall
+    add(piece(0x3d4a66, 0.85, 0.38, 2.1, 1.05, 0.4, 0.95));
+    add(piece(0x2c3850, 0.14, 0.58, 2.1, 0.55, 0.72, 0.95));
+    add(piece(0x2c3850, 0.85, 0.44, 0.14, 1.05, 0.56, -0.05));
+    add(piece(0x2c3850, 0.85, 0.44, 0.14, 1.05, 0.56, 1.95));
+    add(blob(1.0, 0.95, 1.5, 2.4, 0.32));
+
+    // coffee table between sofa and television
+    add(piece(0x6a4630, 0.6, 0.07, 1.2, 2.6, 0.46, 0.95));
+    for (const [lx, lz] of [[2.4, 0.42], [2.8, 0.42], [2.4, 1.48], [2.8, 1.48]]) add(piece(0x4a3428, 0.07, 0.4, 0.07, lx, 0.25, lz));
+    add(piece(0xe0b15a, 0.14, 0.14, 0.14, 2.6, 0.58, 0.95));
+
+    // television on a low unit against the right wall
+    add(piece(0x4a3428, 0.45, 0.5, 1.8, 4.25, 0.37, 0.95));
+    add(piece(0x17241e, 0.07, 0.8, 1.4, 4.36, 1.1, 0.95));
+    add(piece(0x1a3350, 0.03, 0.66, 1.25, 4.31, 1.1, 0.95));
+
+    // mini fridge in the back-right corner
+    add(piece(0xd9dde0, 0.6, 0.85, 0.6, 3.95, 0.55, -3.05));
+    add(piece(0x6b7280, 0.04, 0.3, 0.03, 4.15, 0.75, -2.73));
+
+    // plant in the back-left corner
+    add(piece(0x6a4630, 0.3, 0.35, 0.3, -4.05, 0.22, -3.05));
+    const plant = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.8, 7), new THREE.MeshLambertMaterial({ color: 0x1f6b45 }));
+    plant.position.set(-4.05, 0.8, -3.05);
     add(plant);
 
     const guest = citizen(look);
     if (pose === "lie") {
-      guest.rotation.z = -Math.PI / 2;
-      guest.position.set(-2.15, 0.62, -1.9);
+      guest.rotation.x = -Math.PI / 2;
+      guest.position.set(-1.6, 0.8, -1.05);
     } else if (pose === "sit") {
-      guest.rotation.y = Math.PI;
-      guest.position.set(1.5, -0.42, 1.18);
+      guest.rotation.y = Math.PI / 2;
+      guest.position.set(1.0, -0.42, 0.95);
     } else {
       guest.rotation.y = Math.PI;
-      guest.position.set(0.15, 0, 1.35);
+      guest.position.set(-1.8, 0, 0.9);
     }
     add(guest);
     add(blob(guest.position.x, guest.position.z, 0.7, 0.45, 0.4));
@@ -1688,7 +1717,7 @@ function HotelSuite({ look, pose, onLieDone }: { look: LookId; pose: "stand" | "
     const loop = () => {
       if (!alive) return;
       room.rotation.y = rig.current.yaw;
-      camera.position.copy(aim).multiplyScalar(16 / rig.current.zoom);
+      camera.position.copy(aim).multiplyScalar(Math.min(40, Math.max(16, 9.8 / (0.536 * Math.min(camera.aspect, 1.7)))) / rig.current.zoom);
       camera.lookAt(0, 0.8, 0);
       renderer.render(scene, camera);
       frame = window.requestAnimationFrame(loop);
@@ -2081,6 +2110,7 @@ export function VenueInterior({
   house = null,
   onBuyFurniture,
   onMoveFurniture,
+  onSellFurniture,
   onHomeSleep,
   onHomeShower,
   onHomeToilet,
@@ -2089,7 +2119,7 @@ export function VenueInterior({
   onApply,
   chat = [],
   onSay,
-  hasCar = false,
+  cars = [],
   onBuyCar,
 }: {
   place: Place;
@@ -2117,6 +2147,7 @@ export function VenueInterior({
   house?: { name: string; homeId: string; furniture: string[]; layout: Record<string, Placement>; beds: number; upstairs: boolean; duplex: boolean } | null;
   onBuyFurniture?: (itemId: string) => void;
   onMoveFurniture?: (key: string, placement: Placement) => void;
+  onSellFurniture?: (key: string) => void;
   onHomeSleep?: () => void;
   onHomeShower?: () => void;
   onHomeToilet?: () => void;
@@ -2125,8 +2156,8 @@ export function VenueInterior({
   onApply?: () => void;
   chat?: Array<{ id: string; fromName: string; text: string }>;
   onSay?: (text: string) => void;
-  hasCar?: boolean;
-  onBuyCar?: () => void;
+  cars?: string[];
+  onBuyCar?: (carId: string) => void;
 }) {
   const acts = placeActs(place);
   const [notes, setNotes] = useState<Array<{ id: number; count: number }>>([]);
@@ -2200,13 +2231,13 @@ export function VenueInterior({
             }}
           />
         ) : place.kind === "home" && house ? (
-          <HouseRoom name={house.name} homeId={house.homeId} furniture={house.furniture} layout={house.layout} beds={house.beds} upstairs={house.upstairs} duplex={house.duplex} look={look} pending={pending} onBuy={onBuyFurniture ?? (() => undefined)} onMove={onMoveFurniture ?? (() => undefined)} onSleep={onHomeSleep} onShower={onHomeShower} onToilet={onHomeToilet} />
+          <HouseRoom name={house.name} homeId={house.homeId} furniture={house.furniture} layout={house.layout} beds={house.beds} upstairs={house.upstairs} duplex={house.duplex} look={look} pending={pending} onBuy={onBuyFurniture ?? (() => undefined)} onMove={onMoveFurniture ?? (() => undefined)} onSell={onSellFurniture} onSleep={onHomeSleep} onShower={onHomeShower} onToilet={onHomeToilet} />
         ) : beach ? (
           <BeachHouse look={look} />
         ) : place.id === "assumpta-cathedral" ? (
           <AssumptaCathedralScene look={look} username={username} />
         ) : place.id === "car-stand" ? (
-          <CarStandScene look={look} username={username} onBuyCarSuccess={() => onBuyCar?.()} />
+          <CarStandScene look={look} username={username} owned={cars} pending={pending} onBuy={onBuyCar} />
         ) : place.id === "sam-mbakwe" || place.kind === "airport" ? (
           <AirportTerminalScene look={look} username={username} onBookFlight={(dest, cost) => onBook?.("night")} />
         ) : place.id === "the-warehouse" ? (
@@ -2373,23 +2404,6 @@ export function VenueInterior({
             {sick === "none" ? "You are not sick" : `Get treatment · ${naira(treatPrice)}`}
           </button>
         ) : null}
-        {place.id === "car-stand" ? (
-          <div className="flex items-center gap-3 rounded-2xl bg-black/40 border border-[#e0b15a]/40 p-2.5 backdrop-blur-md">
-            <img src="/cars/car.jpg" alt="Executive Sedan" className="h-12 w-12 rounded-xl object-cover border border-[#e0b15a] shadow" />
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-white">Executive Luxury Sedan</p>
-              <p className="text-[10px] text-[#cbd5e1]">Owerri Big Boy Spec · Smooth Drive</p>
-              <button
-                type="button"
-                disabled={pending || !onBuyCar}
-                onClick={onBuyCar}
-                className="mt-1 w-full rounded-full bg-[#143d2c] py-1.5 text-xs font-semibold text-white disabled:opacity-40 hover:bg-[#1a513b] transition-all"
-              >
-                {hasCar ? `Buy Another Car · ${naira(CAR_PRICE)} 🚗` : `Buy a Car · ${naira(CAR_PRICE)} 🚗`}
-              </button>
-            </div>
-          </div>
-        ) : null}
         {extra}
         {onApply ? (
           <button type="button" disabled={pending} onClick={onApply} className="rounded-full bg-[#143d2c] py-2 text-sm font-semibold text-white disabled:opacity-40">
@@ -2549,6 +2563,8 @@ function RoomView({
   onKeep,
   onBring,
   onDone,
+  onSell,
+  onEdit,
   at,
   walkTo,
   onWalked,
@@ -2569,9 +2585,12 @@ function RoomView({
   onKeep: (key: string, at: { x: number; z: number; rot: number }) => void;
   onBring: (key: string) => void;
   onDone: () => void;
+  onSell: (key: string) => void;
+  onEdit: () => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const rig = useRef({ yaw: 0.55, zoom: 1.15 });
+  const [confirmSell, setConfirmSell] = useState(false);
   const placedKey = JSON.stringify(placed);
   const [selected, setSelected] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -2581,7 +2600,7 @@ function RoomView({
     setDraft(null);
   }
   const live = useRef({ edit, selected });
-  const cbs = useRef({ walked: onWalked });
+  const cbs = useRef({ walked: onWalked, enter: onEdit });
   const atKey = `${at.spot}:${at.roomNo}`;
   const walkKey = walkTo ? `${walkTo.spot}:${walkTo.roomNo}` : "";
   const furnRef = useRef<Map<string, THREE.Group>>(new Map());
@@ -2604,7 +2623,7 @@ function RoomView({
 
   useEffect(() => {
     live.current = { edit, selected };
-    cbs.current = { walked: onWalked };
+    cbs.current = { walked: onWalked, enter: onEdit };
     taps.current = {
       select: (key) => setSelected(key),
       drop: (x, z) => {
@@ -2614,6 +2633,10 @@ function RoomView({
       },
     };
   });
+
+  useEffect(() => {
+    setConfirmSell(false);
+  }, [selected]);
 
   useEffect(() => {
     if (!edit) {
@@ -3183,6 +3206,13 @@ function RoomView({
         })
         .filter((node): node is THREE.Object3D => Boolean(node));
       const chosen = picked.find((node) => node.userData.id !== "rug") ?? (live.current.selected ? null : picked[0] ?? null);
+      if (!live.current.edit) {
+        if (chosen && (spot === "parlour" || spot === "kitchen" || spot === "room")) {
+          taps.current.select(chosen.userData.key as string);
+          cbs.current.enter();
+        }
+        return;
+      }
       if (chosen) {
         taps.current.select(chosen.userData.key as string);
         return;
@@ -3205,7 +3235,7 @@ function RoomView({
       pointers.delete(event.pointerId);
       const start = down;
       if (pointers.size === 0) down = null;
-      if (!start || start.multi || !live.current.edit) return;
+      if (!start || start.multi) return;
       if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > 8 || performance.now() - start.t > 650) return;
       tap(event.clientX, event.clientY);
     };
@@ -3340,6 +3370,26 @@ function RoomView({
             >
               Keep here
             </button>
+            {selected && selectedItem ? (
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => {
+                  if (!confirmSell) {
+                    setConfirmSell(true);
+                    return;
+                  }
+                  const key = selected;
+                  setSelected(null);
+                  setDraft(null);
+                  setConfirmSell(false);
+                  onSell(key);
+                }}
+                className="rounded-full bg-[#b4432f] px-3 py-2 text-xs font-semibold text-white disabled:opacity-40"
+              >
+                {confirmSell ? `Tap again: sell for ${naira(Math.round(selectedItem.cost * 0.5))}` : `Sell · ${naira(Math.round(selectedItem.cost * 0.5))}`}
+              </button>
+            ) : null}
             <button type="button" onClick={onDone} className="rounded-full bg-white px-3 py-2 text-xs font-semibold text-[#17241e]">Done</button>
           </div>
           {others.length && (spot === "parlour" || spot === "kitchen" || spot === "room") ? (
@@ -3366,6 +3416,7 @@ export function HouseRoom({
   pending,
   onBuy,
   onMove,
+  onSell,
   look,
   beds,
   upstairs,
@@ -3384,6 +3435,7 @@ export function HouseRoom({
   pending: boolean;
   onBuy: (itemId: string) => void;
   onMove: (key: string, placement: Placement) => void;
+  onSell?: (key: string) => void;
   look?: LookId;
   beds: number;
   upstairs: boolean;
@@ -3486,6 +3538,8 @@ export function HouseRoom({
         }}
         onBring={bring}
         onDone={() => setEdit(false)}
+        onSell={(key) => onSell?.(key)}
+        onEdit={() => setEdit(true)}
         at={at}
         walkTo={walk ? walk.to : null}
         onWalked={arrived}

@@ -1,5 +1,5 @@
 import {
-  CAR_PRICE,
+  carById,
   CLUBS,
   CAREERS,
   DRINK_PRICE,
@@ -467,22 +467,33 @@ export function bookRoom(player: Player, ledger: LedgerEntry[], stay: "night" | 
   return succeed(next, charged, [`You took the ${stay} room at ${placeById(player.locationId).name}. Lie down when you want to sleep.`]);
 }
 
-export function buyCar(player: Player, ledger: LedgerEntry[]): Step {
+export function buyCar(player: Player, ledger: LedgerEntry[], carId: string): Step {
+  const car = carById(carId);
+  if (!car || car.id === "Executive Sedan") return fail(player, ledger, "That car is not on the lot.");
   if (player.locationId !== "car-stand") return fail(player, ledger, "The cars are at the stand behind the river bank.");
   if (!player.indoors) return fail(player, ledger, "Walk into the stand first.");
-  const charged = debit(ledger, player, CAR_PRICE, "Car · Car Stand", stamp(player.day, player.hour));
-  if (!charged) return fail(player, ledger, "Your wallet cannot cover a car.");
+  const charged = debit(ledger, player, car.price, `Car · ${car.name}`, stamp(player.day, player.hour));
+  if (!charged) return fail(player, ledger, `Your wallet cannot cover the ${car.name}.`);
   const next = structuredClone(player);
   const wasOwner = next.hasCar;
   next.hasCar = true;
   const currentCars = Array.isArray(next.cars) ? next.cars : (wasOwner ? ["Executive Sedan"] : []);
-  next.cars = [...currentCars, "Executive Sedan"];
+  next.cars = [...currentCars, car.id];
+  next.activeCar = car.id;
   const fleetCount = next.cars.length;
   return succeed(next, charged, [
     wasOwner
-      ? `You bought another car at the stand! Your garage fleet now has ${fleetCount} cars.`
-      : "You bought a car at the stand. Your car is now a way to move around Owerri.",
+      ? `You bought the ${car.name}! Your garage now has ${fleetCount} cars. You will drive this one.`
+      : `You bought the ${car.name}. Take the wheel and go anywhere in Owerri.`,
   ]);
+}
+
+export function chooseCar(player: Player, ledger: LedgerEntry[], carId: string): Step {
+  const cars = player.cars ?? [];
+  if (!cars.includes(carId)) return fail(player, ledger, "That car is not in your garage.");
+  const next = structuredClone(player);
+  next.activeCar = carId;
+  return succeed(next, ledger, [`You will drive the ${carById(carId)?.name ?? "car"} now.`]);
 }
 
 export function sleepInRoom(player: Player, ledger: LedgerEntry[]): Step {
@@ -838,6 +849,30 @@ export function placeFurniture(player: Player, ledger: LedgerEntry[], key: strin
   const next = structuredClone(player);
   next.layout = { ...fillLayout(player.furniture, player.layout, player.homeId), [key]: placed };
   return succeed(next, ledger, [`Moved your ${item.name.toLowerCase()}.`]);
+}
+
+export function sellFurniture(player: Player, ledger: LedgerEntry[], key: string): Step {
+  const instances = furnitureInstances(player.furniture);
+  const piece = instances.find((entry) => entry.key === key);
+  const item = piece ? furnitureById(piece.id) : null;
+  if (!piece || !item) return fail(player, ledger, "You do not own that piece.");
+  const kept = fillLayout(player.furniture, player.layout, player.homeId);
+  const nextList: string[] = [];
+  const nextLayout: Record<string, Placement> = {};
+  const seen: Record<string, number> = {};
+  for (const entry of instances) {
+    if (entry.key === key) continue;
+    const n = seen[entry.id] ?? 0;
+    seen[entry.id] = n + 1;
+    nextList.push(entry.id);
+    nextLayout[`${entry.id}:${n}`] = kept[entry.key];
+  }
+  const refund = Math.round(item.cost * 0.5);
+  const paid = credit(ledger, player, refund, "purchased", `Sold · ${item.name}`, stamp(player.day, player.hour));
+  const next = structuredClone(player);
+  next.furniture = nextList;
+  next.layout = nextLayout;
+  return succeed(next, paid, [`You sold your ${item.name.toLowerCase()} for ${naira(refund)}. The money goes into your spending wallet.`]);
 }
 
 export function shower(player: Player, ledger: LedgerEntry[]): Step {

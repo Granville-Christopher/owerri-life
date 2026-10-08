@@ -38,6 +38,7 @@ export interface GameView {
     homes: string[];
     hasCar: boolean;
     cars?: string[];
+    activeCar?: string;
     loanRemaining: number;
     loanWeekly: number;
     arrears: number;
@@ -221,6 +222,7 @@ export async function buildView(playerId: string): Promise<GameView | null> {
       homes: me.homes?.includes(me.homeId) ? me.homes : [...(me.homes ?? []), me.homeId],
       hasCar: me.hasCar,
       cars: me.cars ?? (me.hasCar ? ["Executive Sedan"] : []),
+      activeCar: me.activeCar && (me.cars ?? []).includes(me.activeCar) ? me.activeCar : (me.cars ?? []).at(-1),
       loanRemaining: me.loanRemaining,
       loanWeekly: me.loanWeekly,
       arrears: me.arrears,

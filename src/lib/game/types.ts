@@ -74,6 +74,7 @@ export interface Player {
   homes: string[];
   hasCar: boolean;
   cars?: string[];
+  activeCar?: string;
   loanRemaining: number;
   loanWeekly: number;
   arrears: number;

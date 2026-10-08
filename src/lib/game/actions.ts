@@ -9,6 +9,8 @@ import {
   buildSlate,
   bookRoom,
   buyCar as buyCarFromStand,
+  chooseCar as chooseCarToDrive,
+  sellFurniture,
   buyDrink,
   dance,
   dorime,
@@ -439,8 +441,14 @@ export async function spray(amount: number) {
 export async function orderFood() {
   return withPlayer((id) => simple(id, orderPlate));
 }
-export async function buyCar() {
-  return withPlayer((id) => simple(id, buyCarFromStand));
+export async function buyCar(carId: string) {
+  return withPlayer((id) => simple(id, (player, ledger) => buyCarFromStand(player, ledger, carId)));
+}
+export async function chooseCar(carId: string) {
+  return withPlayer((id) => simple(id, (player, ledger) => chooseCarToDrive(player, ledger, carId)));
+}
+export async function sellFurniturePiece(key: string) {
+  return withPlayer((id) => simple(id, (player, ledger) => sellFurniture(player, ledger, key)));
 }
 export async function takeRoom(stay: "night" | "hour") {
   return withPlayer((id) => simple(id, (player, ledger) => bookRoom(player, ledger, stay)));

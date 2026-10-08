@@ -1370,7 +1370,51 @@ export const HOTEL_RATE: Record<string, { night: number; hour: number }> = {
   "golden-villa": { night: 85000, hour: 18000 },
 };
 
-export const CAR_PRICE = 950000;
+export type CarCategory = "Sedan" | "SUV" | "Luxury Crossover" | "Sports Coupe" | "Supercar" | "Electric" | "Pickup";
+
+export interface CarDeal {
+  id: string;
+  name: string;
+  category: CarCategory;
+  price: number;
+  speed: string;
+  flexFactor: string;
+  defaultColor: number;
+  desc: string;
+  emoji: string;
+}
+
+export const CAR_CATALOG: CarDeal[] = [
+  { id: "corolla", name: "Toyota Corolla LE", category: "Sedan", price: 600000, speed: "180 km/h · 1.8L", flexFactor: "⭐⭐ Small Big Boy", defaultColor: 0xe5e7eb, desc: "The honest first car. Cheap to run, hard to break, loved at every junction in Owerri.", emoji: "🚗" },
+  { id: "camry-v6", name: "Toyota Camry XSE Sports Edition", category: "Sedan", price: 950000, speed: "200 km/h · 3.5L V6", flexFactor: "⭐⭐⭐ Reliable Daily Hustle", defaultColor: 0x94a3b8, desc: "Unbreakable engine, cheap parts, fast acceleration, and cold AC. Owerri daily commuter favourite.", emoji: "🚘" },
+  { id: "accord", name: "Honda Accord Sport", category: "Sedan", price: 880000, speed: "205 km/h · 2.0 Turbo", flexFactor: "⭐⭐⭐ Clean Daily Driver", defaultColor: 0x1d4ed8, desc: "Sharp handling and a smooth ride along Port Harcourt Road.", emoji: "🚘" },
+  { id: "hilux", name: "Toyota Hilux Double Cab", category: "Pickup", price: 1400000, speed: "175 km/h · 2.8 Diesel", flexFactor: "⭐⭐⭐ Hustler's Workhorse", defaultColor: 0x166534, desc: "Carry anything, go anywhere, even when the road is flooded.", emoji: "🛻" },
+  { id: "lexus-rx", name: "Lexus RX350 Luxury Crossover", category: "Luxury Crossover", price: 1650000, speed: "210 km/h · V6 AWD", flexFactor: "⭐⭐⭐⭐ Clean Owerri Big Boy", defaultColor: 0xf8fafc, desc: "Smooth luxury ride, premium sound system, perfect for navigating New Owerri estates and airport runs.", emoji: "🚗" },
+  { id: "benz-c300", name: "Mercedes-Benz C300", category: "Sedan", price: 1900000, speed: "250 km/h · 2.0 Turbo", flexFactor: "⭐⭐⭐⭐ Boardroom Boy", defaultColor: 0x111827, desc: "The three-pointed star that makes the gatemen salute.", emoji: "🚘" },
+  { id: "prado", name: "Toyota Land Cruiser Prado", category: "SUV", price: 2200000, speed: "190 km/h · 4.0 V6", flexFactor: "⭐⭐⭐⭐ Politician's Pick", defaultColor: 0x374151, desc: "High seat, strong body, ready for any road in Imo State.", emoji: "🚙" },
+  { id: "sports-coupe", name: "Velocity GT Sports Coupe", category: "Sports Coupe", price: 2400000, speed: "290 km/h · 4.0L Turbo", flexFactor: "⭐⭐⭐⭐⭐ Nightlife Club King", defaultColor: 0xdc2626, desc: "Low-slung race engineered body, aggressive front splitter, pops and bangs outside Cartel Lifestyle club.", emoji: "🏎️" },
+  { id: "range-rover", name: "Range Rover Autobiography", category: "SUV", price: 2800000, speed: "225 km/h · 5.0 V8", flexFactor: "⭐⭐⭐⭐⭐ Chief's Choice", defaultColor: 0x0f172a, desc: "Leather, wood and a quiet cabin. The ride of the real big man.", emoji: "🚙" },
+  { id: "g-wagon", name: "Mercedes-Benz G63 AMG (G-Wagon)", category: "SUV", price: 3200000, speed: "240 km/h · Twin Turbo V8", flexFactor: "⭐⭐⭐⭐⭐ Top Big Man of Imo", defaultColor: 0x18181b, desc: "The ultimate status symbol on Wetheral Road and Port Harcourt Road. Commanding presence with roaring dual side exhausts.", emoji: "🚙" },
+  { id: "bmw-m4", name: "BMW M4 Competition", category: "Sports Coupe", price: 3400000, speed: "290 km/h · 3.0 Twin Turbo", flexFactor: "⭐⭐⭐⭐⭐ Fast Lane Flexer", defaultColor: 0x2563eb, desc: "Rear-wheel drive fury with a growl you hear from Ikenegbu.", emoji: "🏎️" },
+  { id: "tesla-3", name: "Tesla Model 3", category: "Electric", price: 3900000, speed: "261 km/h · Electric Dual Motor", flexFactor: "⭐⭐⭐⭐ Silent Tech Boy", defaultColor: 0xf1f5f9, desc: "Silent, quick and clever. No petrol queue, no noise, all swag.", emoji: "⚡" },
+  { id: "porsche-911", name: "Porsche 911 Carrera S", category: "Sports Coupe", price: 5200000, speed: "308 km/h · 3.0 Flat-6", flexFactor: "⭐⭐⭐⭐⭐ Weekend Warrior", defaultColor: 0xfacc15, desc: "The icon. Rear-engine, razor sharp, impossible to ignore.", emoji: "🏎️" },
+  { id: "tesla-s", name: "Tesla Model S Plaid", category: "Electric", price: 6500000, speed: "322 km/h · Tri-Motor Electric", flexFactor: "⭐⭐⭐⭐⭐ Future Big Man", defaultColor: 0xb91c1c, desc: "Zero to 100 in under two seconds. The quietest way to arrive loudly.", emoji: "⚡" },
+  { id: "maybach", name: "Mercedes-Maybach S680", category: "Sedan", price: 9000000, speed: "250 km/h · V12", flexFactor: "⭐⭐⭐⭐⭐ Owner of Everything", defaultColor: 0x1e293b, desc: "Reclining rear seats and champagne holders. You do not drive this, you are driven in it.", emoji: "🚘" },
+  { id: "bentley", name: "Bentley Continental GT", category: "Sports Coupe", price: 12000000, speed: "333 km/h · W12", flexFactor: "⭐⭐⭐⭐⭐ Old Money Energy", defaultColor: 0x14532d, desc: "Handmade luxury with a grand-tourer heart.", emoji: "🏎️" },
+  { id: "urus", name: "Lamborghini Urus", category: "SUV", price: 16000000, speed: "305 km/h · Twin Turbo V8", flexFactor: "⭐⭐⭐⭐⭐ Super SUV King", defaultColor: 0xea580c, desc: "A bull in a suit. The fastest SUV to ever pull up at Cartel Lifestyle.", emoji: "🚙" },
+  { id: "huracan", name: "Lamborghini Huracán", category: "Supercar", price: 18000000, speed: "325 km/h · 5.2 V10", flexFactor: "⭐⭐⭐⭐⭐ Raging Bull", defaultColor: 0xfacc15, desc: "Wedge shaped, scissor-fast and impossibly low. Every head on Wetheral turns.", emoji: "🏎️" },
+  { id: "ferrari", name: "Ferrari 488 Pista", category: "Supercar", price: 20000000, speed: "340 km/h · Twin Turbo V8", flexFactor: "⭐⭐⭐⭐⭐ Prancing Horse", defaultColor: 0xdc2626, desc: "Italian red, screaming engine, pure drama.", emoji: "🏎️" },
+  { id: "rolls", name: "Rolls-Royce Phantom", category: "Sedan", price: 25000000, speed: "250 km/h · 6.75 V12", flexFactor: "⭐⭐⭐⭐⭐ Royal Highness", defaultColor: 0x0b0b0f, desc: "A silent palace on wheels with a starlight ceiling.", emoji: "🚘" },
+  { id: "bugatti", name: "Bugatti Chiron", category: "Supercar", price: 60000000, speed: "420 km/h · Quad-Turbo W16", flexFactor: "👑 Untouchable", defaultColor: 0x1d4ed8, desc: "The most expensive thing on four wheels in all of Owerri.", emoji: "🏎️" },
+];
+
+const LEGACY_CAR: CarDeal = { ...CAR_CATALOG[1], id: "Executive Sedan", name: "Executive Sedan", price: 950000 };
+
+export function carById(idOrName?: string | null): CarDeal | null {
+  if (!idOrName) return null;
+  if (idOrName === "Executive Sedan") return LEGACY_CAR;
+  return CAR_CATALOG.find((car) => car.id === idOrName) ?? null;
+}
 
 export const SPRAY_FLOOR: Record<string, number> = {
   "wetheral-strip": 100_000,
