@@ -16,6 +16,7 @@ import { CarStandScene } from "./CarStandScene";
 import { AirportTerminalScene } from "./AirportTerminalScene";
 import { WarehouseScene } from "./WarehouseScene";
 import { attachSceneCameraControls } from "./sceneCameraControls";
+import { RestaurantScene } from "./RestaurantScene";
 
 export function PersonFigure({
   look,
@@ -2078,6 +2079,8 @@ export function VenueInterior({
   sick,
   house = null,
   onBuyFurniture,
+  onHomeSleep,
+  onHomeShower,
   fill = false,
   extra = null,
   onApply,
@@ -2110,6 +2113,8 @@ export function VenueInterior({
   sick: "none" | "mild" | "severe";
   house?: { name: string; owned: string[]; beds: number; upstairs: boolean; duplex: boolean } | null;
   onBuyFurniture?: (itemId: string) => void;
+  onHomeSleep?: () => void;
+  onHomeShower?: () => void;
   fill?: boolean;
   extra?: ReactNode;
   onApply?: () => void;
@@ -2190,7 +2195,7 @@ export function VenueInterior({
             }}
           />
         ) : place.kind === "home" && house ? (
-          <HouseRoom name={house.name} owned={house.owned} beds={house.beds} upstairs={house.upstairs} duplex={house.duplex} look={look} pending={pending} onBuy={onBuyFurniture ?? (() => undefined)} />
+          <HouseRoom name={house.name} owned={house.owned} beds={house.beds} upstairs={house.upstairs} duplex={house.duplex} look={look} pending={pending} onBuy={onBuyFurniture ?? (() => undefined)} onSleep={onHomeSleep} onShower={onHomeShower} />
         ) : beach ? (
           <BeachHouse look={look} />
         ) : place.id === "assumpta-cathedral" ? (
@@ -2211,6 +2216,8 @@ export function VenueInterior({
           <SchoolClassroomScene look={look} title={place.name} placeId={place.id} username={username} />
         ) : place.kind === "market" ? (
           <OwerriMarketScene look={look} title={place.name} placeId={place.id} username={username} />
+        ) : place.kind === "food" ? (
+          <RestaurantScene look={look} title={place.name} placeId={place.id} />
         ) : (
           <>
             <RoomScene look={look} kind={place.kind} people={people} besideId={besideId} selfId={selfId} onPick={onPickPerson} walkers={walkers} />
@@ -2471,7 +2478,23 @@ function citizen(lookId: LookId) {
   return person;
 }
 
-function RoomView({ owned, look, beds, upstairs, duplex }: { owned: string[]; look: LookId; beds: number; upstairs: boolean; duplex: boolean }) {
+function RoomView({
+  owned,
+  look,
+  beds,
+  upstairs,
+  duplex,
+  spot,
+  roomNo,
+}: {
+  owned: string[];
+  look: LookId;
+  beds: number;
+  upstairs: boolean;
+  duplex: boolean;
+  spot: "parlour" | "kitchen" | "bathroom" | "landing" | "room";
+  roomNo: number;
+}) {
   const host = useRef<HTMLDivElement>(null);
   const rig = useRef({ yaw: 0.55, zoom: 1.15 });
   const ownedKey = owned.join(",");
@@ -2495,139 +2518,164 @@ function RoomView({ owned, look, beds, upstairs, duplex }: { owned: string[]; lo
     sun.shadow.mapSize.set(2048, 2048);
     sun.shadow.camera.near = 1;
     sun.shadow.camera.far = 32;
-    sun.shadow.camera.left = -8;
-    sun.shadow.camera.right = 8;
-    sun.shadow.camera.top = 8;
-    sun.shadow.camera.bottom = -8;
+    sun.shadow.camera.left = -18;
+    sun.shadow.camera.right = 18;
+    sun.shadow.camera.top = 18;
+    sun.shadow.camera.bottom = -18;
+    sun.shadow.camera.far = 48;
     sun.shadow.bias = -0.0012;
     scene.add(sun);
     scene.add(sun.target);
 
     const spin = new THREE.Group();
     scene.add(spin);
-    const yard = new THREE.Mesh(new THREE.PlaneGeometry(beds > 2 || upstairs ? 26 : 18, 20), new THREE.MeshLambertMaterial({ color: 0xcfe0c2 }));
+    const yard = new THREE.Mesh(new THREE.PlaneGeometry(42, 32), new THREE.MeshLambertMaterial({ color: 0xcfe0c2 }));
     yard.rotation.x = -Math.PI / 2;
     spin.add(yard);
 
     const wall = 0xf4efe4;
-    const roof = 0x2f6b45;
     const gold = 0xe0b15a;
-    const wood = 0xc88848;
+    const wood = 0xc4a574;
     const add = (mesh: THREE.Object3D) => spin.add(mesh);
-    const shell = (width: number, depth: number, rise: number, openRight = false) => {
-      add(piece(wood, width, 0.12, depth, 0, 0.06, 0));
-      add(piece(wall, width + 0.2, rise, 0.16, 0, rise / 2, -depth / 2));
-      add(piece(wall, 0.16, rise, depth, -width / 2, rise / 2, 0));
-      if (openRight) add(piece(wall, 0.16, rise, depth * 0.38, width / 2, rise / 2, -depth * 0.31));
-      else add(piece(wall, 0.16, rise, depth, width / 2, rise / 2, 0));
-      add(piece(wall, width * 0.28, 0.42, 0.16, -width * 0.34, 0.22, depth / 2));
-      add(piece(wall, width * 0.28, 0.42, 0.16, width * 0.34, 0.22, depth / 2));
-      add(piece(0x6b442c, 1.5, 1.7, 0.08, 0, 0.9, depth / 2 - 0.08));
-      add(piece(gold, 1.7, 0.1, 0.18, 0, rise * 0.74, depth / 2 - 0.08));
-      add(piece(0x9fd0ea, 1.5, 0.85, 0.06, width * 0.28, rise * 0.62, -depth / 2 + 0.1));
-    };
-    const bedFrame = (x: number, z: number, y: number, wide = 2.1) => {
-      add(piece(0x8c3d2f, wide, 0.55, 0.1, x, y + 0.42, z - 0.55));
-      add(piece(0xf6f1e6, wide - 0.2, 0.18, 1.15, x, y + 0.22, z));
-      add(piece(0xe7d3c4, 0.55, 0.12, 0.32, x - wide * 0.22, y + 0.38, z - 0.15));
-    };
-    const stairs = (x: number, z0: number) => {
-      const steps = 9;
-      const rise = 0.28;
-      const run = 0.42;
-      for (let i = 0; i < steps; i += 1) {
-        add(piece(i % 2 === 0 ? 0xe7c99a : 0xc88848, 1.7, rise * 0.92, run * 0.92, x, rise * (i + 0.5), z0 - i * run));
-      }
-      const top = rise * steps;
-      add(piece(0x6a4630, 0.08, top + 0.35, 0.08, x - 0.9, top / 2, z0 - 0.1));
-      add(piece(0x6a4630, 0.08, top + 0.35, 0.08, x + 0.9, top / 2, z0 - 0.1));
-      add(piece(gold, 0.1, 0.08, steps * run + 0.2, x - 0.9, top + 0.08, z0 - (steps * run) / 2));
-      add(piece(gold, 0.1, 0.08, steps * run + 0.2, x + 0.9, top + 0.08, z0 - (steps * run) / 2));
-      return top;
-    };
     const has = (id: string) => ownedKey.split(",").includes(id);
-    if (!upstairs && beds <= 1) {
-      shell(8.4, 6.6, 2.35);
-      add(piece(roof, 9, 0.16, 0.5, 0, 2.4, -3.35));
-      add(piece(roof, 0.5, 0.16, 7, -4.25, 2.4, 0));
-      add(piece(roof, 0.5, 0.16, 7, 4.25, 2.4, 0));
-      add(piece(gold, 8.6, 0.05, 0.08, 0, 2.22, -3.2));
-      if (has("bed")) bedFrame(-2.1, -1.45, 0, 2.2);
-      if (has("table")) {
-        add(piece(0x6a4630, 1.5, 0.08, 0.9, 0.2, 0.62, 0.2));
-        add(piece(0x6a4630, 0.08, 0.5, 0.08, -0.45, 0.32, -0.15));
-        add(piece(0x6a4630, 0.08, 0.5, 0.08, 0.85, 0.32, -0.15));
-        add(piece(0x6a4630, 0.08, 0.5, 0.08, -0.45, 0.32, 0.55));
-        add(piece(0x6a4630, 0.08, 0.5, 0.08, 0.85, 0.32, 0.55));
+    const shell = (width: number, depth: number, rise: number, floor = true) => {
+      if (floor) add(piece(wood, width, 0.14, depth, 0, 0.07, 0));
+      add(piece(wall, width, rise, 0.18, 0, rise / 2, -depth / 2));
+      add(piece(wall, 0.18, rise, depth, -width / 2, rise / 2, 0));
+      add(piece(wall, 0.18, rise, depth * 0.42, width / 2, rise / 2, -depth * 0.29));
+      add(piece(0xe7dcc8, width, 0.1, 0.1, 0, 0.16, -depth / 2 + 0.14));
+      add(piece(0xe7dcc8, 0.1, 0.1, depth, -width / 2 + 0.14, 0.16, 0));
+      add(piece(gold, width, 0.08, 0.1, 0, rise - 0.05, -depth / 2 + 0.06));
+      const wx = width * 0.16;
+      const wy = rise * 0.58;
+      const wz = -depth / 2 + 0.14;
+      add(piece(0x9fd0ea, 2.6, 1.55, 0.06, wx, wy, wz));
+      add(piece(0xf7f1e6, 2.8, 0.08, 0.1, wx, wy + 0.82, wz));
+      add(piece(0xf7f1e6, 2.8, 0.08, 0.1, wx, wy - 0.82, wz));
+      add(piece(0xf7f1e6, 0.08, 1.7, 0.1, wx - 1.34, wy, wz));
+      add(piece(0xf7f1e6, 0.08, 1.7, 0.1, wx + 1.34, wy, wz));
+    };
+    const rug = (x: number, z: number, w: number, d: number) => {
+      add(piece(0x1f6b45, w, 0.03, d, x, 0.16, z));
+      add(piece(gold, w + 0.3, 0.02, 0.1, x, 0.18, z - d / 2));
+      add(piece(gold, w + 0.3, 0.02, 0.1, x, 0.18, z + d / 2));
+    };
+    const sofa = (x: number, z: number) => {
+      const group = new THREE.Group();
+      group.add(piece(has("sofa") ? 0x1f6b45 : 0x245c3a, 3.1, 0.42, 1.15, 0, 0.46, 0));
+      group.add(piece(has("sofa") ? 0x174f34 : 0x1a3d28, 3.1, 0.72, 0.18, 0, 0.95, -0.48));
+      group.add(piece(0x174f34, 0.18, 0.55, 1.15, -1.46, 0.62, 0));
+      group.add(piece(0x174f34, 0.18, 0.55, 1.15, 1.46, 0.62, 0));
+      group.position.set(x, 0, z);
+      group.rotation.y = 0;
+      add(group);
+    };
+    const bed = (x: number, z: number) => {
+      add(piece(0x6a4630, 2.4, 0.28, 2, x, 0.3, z));
+      add(piece(has("bed") ? 0xf7f1e6 : 0xe7dcc8, 2.2, 0.32, 1.75, x, 0.55, z + 0.06));
+      add(piece(0x8c3d2f, 2.4, 1.15, 0.14, x, 0.95, z - 0.95));
+      add(piece(0xf7f1e6, 0.72, 0.16, 0.42, x - 0.48, 0.78, z - 0.4));
+      add(piece(0xf7f1e6, 0.72, 0.16, 0.42, x + 0.48, 0.78, z - 0.4));
+      add(piece(0x6a4630, 0.55, 0.55, 0.48, x + 1.55, 0.4, z - 0.4));
+    };
+    const flight = (x: number, z0: number, down: boolean) => {
+      const steps = 12;
+      const rise = 0.22;
+      const run = 0.34;
+      const wide = duplex ? 1.9 : 1.5;
+      for (let i = 0; i < steps; i += 1) {
+        add(piece(i % 2 === 0 ? 0xe7c99a : 0xc88848, wide, rise * 0.92, run * 0.92, x, down ? -rise * (i + 0.5) : rise * (i + 0.5), down ? z0 + i * run : z0 - i * run));
       }
-      if (has("sofa")) {
-        add(piece(0x1f6b45, 2.3, 0.38, 0.85, 1.5, 0.32, 1.55));
-        add(piece(0x174f34, 2.3, 0.45, 0.16, 1.5, 0.62, 1.95));
+      const len = steps * run;
+      const railZ = down ? z0 + len / 2 : z0 - len / 2;
+      const railY = down ? 0.2 : steps * rise + 0.08;
+      add(piece(gold, 0.08, 0.08, len, x - wide / 2, railY, railZ));
+      add(piece(gold, 0.08, 0.08, len, x + wide / 2, railY, railZ));
+      if (down) {
+        add(piece(0x6a4630, 0.08, 1.35, 0.08, x - wide / 2, 0.75, z0 + 0.2));
+        add(piece(0x6a4630, 0.08, 1.35, 0.08, x + wide / 2, 0.75, z0 + 0.2));
+        add(piece(gold, 0.08, 0.08, 1.2, x - wide / 2, 1.35, z0 + 0.2));
+        add(piece(gold, 0.08, 0.08, 1.2, x + wide / 2, 1.35, z0 + 0.2));
       }
-      if (has("fridge")) {
-        add(piece(0x3d7ea6, 0.7, 1.45, 0.7, 3.35, 0.8, -2.4));
-        add(piece(0xd7e7f5, 0.5, 0.04, 0.02, 3.35, 0.85, -2.04));
-      }
-      if (has("television")) {
-        add(piece(0x6a4630, 0.9, 0.55, 0.4, -3.35, 0.35, 1.7));
-        add(piece(0x17241e, 1.15, 0.7, 0.08, -3.35, 0.95, 1.7));
-        add(piece(0x9fd0ea, 0.95, 0.5, 0.02, -3.35, 0.98, 1.75));
-      }
-    } else if (!upstairs) {
-      const width = 3.15 * beds + 1.2;
-      const depth = 6.8;
-      shell(width, depth, 2.35);
-      const roomW = (width - 0.4) / beds;
+    };
+    let roomDistance = 26;
+    let standX = 0;
+    let standZ = 2.2;
+    if (spot === "kitchen") {
+      shell(14, 10, 3.5);
+      add(piece(0xf7f1e6, 12, 0.12, 0.75, 0, 1.05, -4.35));
+      add(piece(0xe7dcc8, 12, 0.85, 0.7, 0, 1.55, -4.45));
+      add(piece(0x9fd0ea, 1.15, 0.08, 0.5, -2.1, 1.16, -4.15));
+      add(piece(0x3a3a3a, 0.95, 0.08, 0.7, 2.3, 1.14, -4.3));
+      add(piece(has("fridge") ? 0xd7e7f5 : 0xc5ced6, 0.95, 2.1, 0.8, 5.5, 1.15, -3.5));
+      add(piece(0x6a4630, 1.7, 0.1, 0.95, 0.2, 0.85, -1));
+      standX = 0.2;
+      standZ = 1.8;
+      roomDistance = 24;
+    } else if (spot === "bathroom") {
+      shell(9, 7.5, 3.2);
+      add(piece(0xd5e8f0, 2.3, 0.08, 1.6, -2.3, 0.16, -1.4));
+      add(piece(0xd7e4ea, 0.08, 2.15, 1.7, -3.4, 1.15, -1.4));
+      add(piece(0xd7e4ea, 0.08, 2.15, 1.7, -1.2, 1.15, -1.4));
+      add(piece(0xf7fbfc, 0.55, 0.45, 0.75, 2.3, 0.42, -2.5));
+      add(piece(0xf7fbfc, 1.4, 0.16, 0.55, 2.5, 0.95, -3.2));
+      add(piece(0x9fd0ea, 0.28, 0.18, 0.28, 2.5, 1.16, -3.05));
+      standX = 0;
+      standZ = 1.3;
+      roomDistance = 16;
+    } else if (spot === "landing") {
+      const wide = duplex ? 18 : 15;
+      shell(wide, 9, 3.4, false);
+      add(piece(wood, 10, 0.14, 9, -4, 0.07, 0));
+      flight(2.4, 1.2, true);
+      standX = -3.2;
       for (let i = 0; i < beds; i += 1) {
-        const x = -width / 2 + 0.2 + roomW * (i + 0.5);
-        bedFrame(x, -1.7, 0, Math.min(2.15, roomW - 0.45));
-        if (i > 0) {
-          const wallX = -width / 2 + 0.2 + roomW * i;
-          add(piece(wall, 0.1, 2.2, 2.15, wallX, 1.15, -2.15));
-          add(piece(wall, 0.1, 2.2, 1.15, wallX, 1.15, 1.85));
-        }
+        const span = beds <= 1 ? 0 : (wide - 4.4) / (beds - 1);
+        const x = beds <= 1 ? 0 : -wide / 2 + 2.2 + i * span;
+        add(piece(0xf7f1e6, 1.2, 2.35, 0.1, x, 1.25, -4.15));
+        add(piece(0x6a4630, 1.4, 0.1, 0.12, x, 2.48, -4.1));
+        add(piece(gold, 0.08, 0.08, 0.08, x + 0.38, 1.2, -4.02));
       }
+      standX = -3.2;
+      standZ = 1.4;
+      roomDistance = 28;
+    } else if (spot === "room") {
+      shell(13, 10, 3.5);
+      rug(0.2, 0.6, 4.4, 2.8);
+      bed(-1.8, -2.3);
+      const curtain = [0x1f6b45, 0xc4552a, 0x245c78, 0x7a3e6d][(roomNo - 1) % 4];
+      add(piece(curtain, 0.35, 1.45, 0.06, 1.6, 2.05, -4.85));
+      add(piece(0x6a4630, 1.35, 2.25, 0.6, 4.7, 1.2, -3.3));
+      standX = 2.2;
+      standZ = 2;
+      roomDistance = 22;
     } else {
-      const width = Math.max(10.5, 2.4 * beds + 2);
-      const depth = 7.2;
-      shell(width, depth, 2.4, true);
-      const top = stairs(0.15, 2.05);
-      add(piece(wood, width * 0.36, 0.14, depth * 0.7, -width * 0.3, top, -0.7));
-      add(piece(wood, width * 0.36, 0.14, depth * 0.7, width * 0.3, top, -0.7));
-      add(piece(wood, 2.2, 0.14, 1.6, 0.15, top, -2.35));
-      add(piece(wall, width + 0.2, 2.15, 0.12, 0, top + 1.1, -depth / 2));
-      add(piece(wall, 0.12, 2.15, depth, -width / 2, top + 1.1, 0));
-      add(piece(wall, 0.12, 2.15, depth * 0.55, width / 2, top + 1.1, -depth * 0.2));
-      add(piece(gold, width, 0.08, 0.08, 0, top + 0.2, depth / 2 - 0.2));
-      if (duplex) add(piece(gold, width * 0.62, 0.08, 0.08, -0.8, top + 1.85, depth / 2 - 0.28));
-      const roomW = (width - 3.1) / beds;
-      for (let i = 0; i < beds; i += 1) {
-        const x = -width / 2 + 0.4 + roomW * (i + 0.5);
-        bedFrame(x, -1.55, top, Math.min(2.05, roomW - 0.35));
-        if (i > 0) add(piece(wall, 0.08, 2, 2.3, -width / 2 + 0.4 + roomW * i, top + 1.05, -2.2));
+      const wide = duplex ? 18 : beds > 1 ? 16 : 14;
+      const deep = duplex ? 12 : 10.5;
+      shell(wide, deep, 3.6);
+      if (beds <= 1 && !upstairs) {
+        rug(-1.2, 0.4, 5, 3);
+        bed(-3.6, -2.6);
+        sofa(2.4, 1.6);
+        standX = 0.2;
+        standZ = 3.2;
+      } else {
+        rug(0, 0.5, duplex ? 6.2 : 5, 3.2);
+        sofa(0, 2);
+        add(piece(has("table") ? 0x6a4630 : 0x8c5a32, 1.6, 0.1, 0.9, 0, 0.5, 0.35));
+        add(piece(0x6a4630, 1.9, 0.5, 0.5, -wide / 2 + 1.6, 0.4, -1.4));
+        add(piece(0x17241e, 1.7, 1, 0.08, -wide / 2 + 1.6, 1.25, -1.4));
+        add(piece(has("television") ? 0x9fd0ea : 0x243044, 1.45, 0.8, 0.04, -wide / 2 + 1.6, 1.25, -1.32));
+        standX = 2.4;
+        standZ = 3.4;
       }
-    }
-    if (upstairs || beds > 1) {
-      if (has("table")) {
-        add(piece(0x6a4630, 1.5, 0.08, 0.9, -1.4, 0.62, 1.15));
-        add(piece(0x6a4630, 0.08, 0.5, 0.08, -2.05, 0.32, 0.8));
-        add(piece(0x6a4630, 0.08, 0.5, 0.08, -0.75, 0.32, 0.8));
-        add(piece(0x6a4630, 0.08, 0.5, 0.08, -2.05, 0.32, 1.5));
-        add(piece(0x6a4630, 0.08, 0.5, 0.08, -0.75, 0.32, 1.5));
-      }
-      if (has("sofa")) {
-        add(piece(0x1f6b45, 2.3, 0.38, 0.85, -1.2, 0.32, 2.15));
-        add(piece(0x174f34, 2.3, 0.45, 0.16, -1.2, 0.62, 2.55));
-      }
-      if (has("fridge")) add(piece(0x3d7ea6, 0.7, 1.45, 0.7, -3.3, 0.8, 0.2));
-      if (has("television")) {
-        add(piece(0x6a4630, 0.9, 0.55, 0.4, 0.4, 0.35, 2.2));
-        add(piece(0x17241e, 1.15, 0.7, 0.08, 0.4, 0.95, 2.2));
-      }
+      if (upstairs) flight(3.6, 2.4, false);
+      roomDistance = duplex ? 34 : 28;
     }
 
-    add(blob(0, 0.15, 0.95, 0.62, 0.62));
-    spin.add(citizen(look));
+    const me = citizen(look);
+    me.position.set(standX, 0, standZ);
+    spin.add(me);
 
     const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 80);
     const aim = new THREE.Vector3(9, 11, 12).normalize();
@@ -2645,10 +2693,8 @@ function RoomView({ owned, look, beds, upstairs, duplex }: { owned: string[]; lo
     const loop = () => {
       if (!alive) return;
       spin.rotation.y = rig.current.yaw;
-      const distance = upstairs ? 38 : beds > 1 ? 24 : 18;
-      const lookY = upstairs ? 2.15 : 0.85;
-      camera.position.copy(aim).multiplyScalar(distance / rig.current.zoom);
-      camera.lookAt(0, lookY, 0);
+      camera.position.copy(aim).multiplyScalar(roomDistance / rig.current.zoom);
+      camera.lookAt(0, 1.35, 0);
       renderer.render(scene, camera);
       frame = window.requestAnimationFrame(loop);
     };
@@ -2663,7 +2709,7 @@ function RoomView({ owned, look, beds, upstairs, duplex }: { owned: string[]; lo
       renderer.dispose();
       root.removeChild(renderer.domElement);
     };
-  }, [ownedKey, look, beds, upstairs, duplex]);
+  }, [ownedKey, look, beds, upstairs, duplex, spot, roomNo]);
 
   function turn(dir: number) {
     rig.current.yaw += dir * 0.55;
@@ -2698,6 +2744,8 @@ export function HouseRoom({
   upstairs,
   duplex,
   onHouses,
+  onSleep,
+  onShower,
   entry = "look",
   shopNonce = 0,
 }: {
@@ -2710,12 +2758,16 @@ export function HouseRoom({
   upstairs: boolean;
   duplex: boolean;
   onHouses?: () => void;
+  onSleep?: () => void;
+  onShower?: () => void;
   entry?: "look" | "shop";
   shopNonce?: number;
 }) {
   const has = (id: string) => owned.includes(id);
   const [shop, setShop] = useState(entry === "shop");
   const [group, setGroup] = useState<(typeof FURNITURE)[number]["group"]>("Sleep");
+  const [spot, setSpot] = useState<"parlour" | "kitchen" | "bathroom" | "landing" | "room">(beds <= 1 && !upstairs ? "room" : "parlour");
+  const [roomNo, setRoomNo] = useState(1);
   const entrySeen = useRef(entry);
   const nonceSeen = useRef(shopNonce);
   if (entry !== entrySeen.current) {
@@ -2729,9 +2781,39 @@ export function HouseRoom({
   const stock = FURNITURE.filter((item) => item.group === group);
   return (
     <section className="relative h-full min-h-[28rem] overflow-hidden bg-[#cfe0c2] text-[#17241e]">
-      <RoomView owned={owned} look={look ?? "chidi"} beds={beds} upstairs={upstairs} duplex={duplex} />
+      <RoomView owned={owned} look={look ?? "chidi"} beds={beds} upstairs={upstairs} duplex={duplex} spot={spot} roomNo={roomNo} />
       <p className="pointer-events-none absolute left-3 top-20 z-10 rounded-full bg-white px-3 py-2 text-xs font-semibold shadow">{name}</p>
-      {owned.length === 0 ? <p className="pointer-events-none absolute left-1/2 top-20 z-10 -translate-x-1/2 rounded-full bg-white px-3 py-2 text-xs font-semibold shadow">The room is empty.</p> : null}
+      <div className="absolute left-2 right-16 top-32 z-30 flex flex-wrap gap-1">
+        {onSleep ? (
+          <button type="button" disabled={pending} onClick={onSleep} className="rounded-full bg-[#17241e] px-3 py-1 text-[10px] font-semibold text-white shadow disabled:opacity-40">Sleep</button>
+        ) : null}
+        {onShower ? (
+          <button type="button" disabled={pending} onClick={onShower} className="rounded-full bg-[#245c78] px-3 py-1 text-[10px] font-semibold text-white shadow disabled:opacity-40">Shower</button>
+        ) : null}
+        {beds > 1 || upstairs ? (
+          <>
+            <button type="button" onClick={() => setSpot("parlour")} className={`rounded-full px-3 py-1 text-[10px] font-semibold shadow ${spot === "parlour" ? "bg-[#17241e] text-white" : "bg-white"}`}>Parlour</button>
+            <button type="button" onClick={() => setSpot("kitchen")} className={`rounded-full px-3 py-1 text-[10px] font-semibold shadow ${spot === "kitchen" ? "bg-[#17241e] text-white" : "bg-white"}`}>Kitchen</button>
+          </>
+        ) : null}
+        <button type="button" onClick={() => setSpot("bathroom")} className={`rounded-full px-3 py-1 text-[10px] font-semibold shadow ${spot === "bathroom" ? "bg-[#17241e] text-white" : "bg-white"}`}>Bathroom</button>
+        {upstairs ? (
+          <button type="button" onClick={() => setSpot("landing")} className={`rounded-full px-3 py-1 text-[10px] font-semibold shadow ${spot === "landing" ? "bg-[#17241e] text-white" : "bg-white"}`}>Upstairs</button>
+        ) : null}
+        {Array.from({ length: Math.max(beds, 1) }, (_, index) => (
+          <button
+            key={index}
+            type="button"
+            onClick={() => {
+              setRoomNo(index + 1);
+              setSpot("room");
+            }}
+            className={`rounded-full px-3 py-1 text-[10px] font-semibold shadow ${spot === "room" && roomNo === index + 1 ? "bg-[#17241e] text-white" : "bg-white"}`}
+          >
+            {beds <= 1 && !upstairs ? "Room" : `Room ${index + 1}`}
+          </button>
+        ))}
+      </div>
       <div className="absolute bottom-44 left-1/2 z-20 flex -translate-x-1/2 gap-2">
         {onHouses ? (
           <button

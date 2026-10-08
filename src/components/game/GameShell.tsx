@@ -227,6 +227,8 @@ export function GameShell({ view }: { view: GameView }) {
                 setPhoneStart("houses");
                 setTab("phone");
               }}
+              onSleep={() => run(sleepAtHome)}
+              onShower={() => run(showerAtHome)}
               onBuy={(itemId) => run(() => buyFurniture(itemId))}
             />
           ) : null}
@@ -830,6 +832,8 @@ function MapPanel({
               : null
           }
           onBuyFurniture={(itemId) => run(() => buyFurniture(itemId))}
+          onHomeSleep={() => run(sleepAtHome)}
+          onHomeShower={() => run(showerAtHome)}
           fill
           extra={
             <>
