@@ -50,7 +50,13 @@ export function attachSceneCameraControls(
 
   const onPointerDown = (event: PointerEvent) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
-    if (event.pointerType === "mouse") element.setPointerCapture(event.pointerId);
+    if (event.pointerType === "mouse") {
+      try {
+        element.setPointerCapture(event.pointerId);
+      } catch {
+        /* The pointer can already be gone on a phone pinch. */
+      }
+    }
     pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (pointers.size === 1) {
       lastX = event.clientX;
@@ -66,7 +72,13 @@ export function attachSceneCameraControls(
     if (!pointers.has(event.pointerId)) return;
     pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (pointers.size >= 2) {
-      if (event.cancelable) event.preventDefault();
+      if (event.cancelable) {
+        try {
+          event.preventDefault();
+        } catch {
+          /* Some phones mark the gesture passive. */
+        }
+      }
       const [a, b] = [...pointers.values()];
       const dist = Math.hypot(a.x - b.x, a.y - b.y);
       if (pinchDist > 8 && dist > 8) {
@@ -88,7 +100,12 @@ export function attachSceneCameraControls(
   };
 
   const onTouchMove = (event: TouchEvent) => {
-    if (pointers.size >= 2 && event.cancelable) event.preventDefault();
+    if (pointers.size < 2 || !event.cancelable) return;
+    try {
+      event.preventDefault();
+    } catch {
+      /* Ignore a passive pinch on the page. */
+    }
   };
 
   const onPointerUp = (event: PointerEvent) => {
@@ -117,7 +134,7 @@ export function attachSceneCameraControls(
   window.addEventListener("pointermove", onPointerMove);
   window.addEventListener("pointerup", onPointerUp);
   window.addEventListener("pointercancel", onPointerUp);
-  window.addEventListener("touchmove", onTouchMove, { passive: false });
+  element.addEventListener("touchmove", onTouchMove, { passive: false });
   element.addEventListener("wheel", onWheel, { passive: false });
 
   return () => {
@@ -127,7 +144,7 @@ export function attachSceneCameraControls(
     window.removeEventListener("pointermove", onPointerMove);
     window.removeEventListener("pointerup", onPointerUp);
     window.removeEventListener("pointercancel", onPointerUp);
-    window.removeEventListener("touchmove", onTouchMove);
+    element.removeEventListener("touchmove", onTouchMove);
     element.removeEventListener("wheel", onWheel);
   };
 }

@@ -66,7 +66,7 @@ import { BET_STAKES, CAREERS, DREAMS, HOMES, LANDS, NPCS, PLACES, TOP_UPS, TRAIT
 import { POLICE_ID, multiplyOdds, travelOptions } from "@/lib/game/engine";
 import { clockLabel, dreamProgress, jobTitle, levelPay, moodLabel, naira, skillLabel, skillNeeded, weekday } from "@/lib/game/format";
 import type { GameView, PersonCard } from "@/lib/game/queries";
-import type { BetPick, TravelMode, WorkStyle } from "@/lib/game/types";
+import { NEED_KEYS, type BetPick, type NeedKey, type TravelMode, type WorkStyle } from "@/lib/game/types";
 
 type Run = (
   work: () => Promise<{ ok: true; notice?: string } | { ok: false; error: string }>,
@@ -158,14 +158,40 @@ export function GameShell({ view }: { view: GameView }) {
   const [phone, setPhone] = useState<HTMLDivElement | null>(null);
   const [roomEntry, setRoomEntry] = useState<"look" | "shop">("look");
   const [shopNonce, setShopNonce] = useState(0);
+  const [phoneStart, setPhoneStart] = useState<PhoneApp | null>(null);
 
   useEffect(() => {
     const block = (event: WheelEvent) => {
-      if (event.ctrlKey) event.preventDefault();
+      if (event.ctrlKey && event.cancelable) event.preventDefault();
     };
     window.addEventListener("wheel", block, { passive: false });
     return () => window.removeEventListener("wheel", block);
   }, []);
+
+  const lowNeeds = useRef(new Set<string>());
+  useEffect(() => {
+    const tips: Record<NeedKey, string> = {
+      hunger: "You are hungry. Go eat.",
+      energy: "You are worn out. Sleep at home.",
+      hygiene: "You need a wash. Shower at home.",
+      bladder: "Your bladder is full. Find a toilet.",
+      fun: "You are bored. Go out and do something.",
+      social: "You need company. Hang out with someone.",
+    };
+    const messages: string[] = [];
+    for (const key of NEED_KEYS) {
+      const low = me.needs[key] <= 30;
+      if (low && !lowNeeds.current.has(key)) messages.push(tips[key]);
+      if (low) lowNeeds.current.add(key);
+      else lowNeeds.current.delete(key);
+    }
+    if (me.sick !== "none" && !lowNeeds.current.has("sick")) {
+      messages.push(me.sick === "severe" ? "You are seriously sick. Go to a hospital." : "You feel sick. A chemist at Eke Ukwu can treat it.");
+    }
+    if (me.sick === "none") lowNeeds.current.delete("sick");
+    else lowNeeds.current.add("sick");
+    if (messages.length) flash(messages.join(" "), true);
+  }, [me.needs, me.sick]);
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#d7ebdd] text-[#17241e]">
@@ -191,9 +217,16 @@ export function GameShell({ view }: { view: GameView }) {
               name={homeById(me.homeId).name}
               look={me.look}
               owned={me.furniture}
+              beds={homeById(me.homeId).beds}
+              upstairs={homeById(me.homeId).upstairs}
+              duplex={homeById(me.homeId).id.includes("duplex")}
               pending={pending}
               entry={roomEntry}
               shopNonce={shopNonce}
+              onHouses={() => {
+                setPhoneStart("houses");
+                setTab("phone");
+              }}
               onBuy={(itemId) => run(() => buyFurniture(itemId))}
             />
           ) : null}
@@ -230,6 +263,8 @@ export function GameShell({ view }: { view: GameView }) {
           {!account && tab === "phone" ? (
             <PhonePanel
               view={view}
+              start={phoneStart}
+              onStarted={() => setPhoneStart(null)}
               run={run}
               pending={pending}
               onArrived={() => setTab("map")}
@@ -785,7 +820,13 @@ function MapPanel({
           onBuyCar={() => run(buyCar)}
           house={
             place.kind === "home" && place.id === homeById(view.me.homeId).areaId
-              ? { name: homeById(view.me.homeId).name, owned: view.me.furniture }
+              ? {
+                  name: homeById(view.me.homeId).name,
+                  owned: view.me.furniture,
+                  beds: homeById(view.me.homeId).beds,
+                  upstairs: homeById(view.me.homeId).upstairs,
+                  duplex: homeById(view.me.homeId).id.includes("duplex"),
+                }
               : null
           }
           onBuyFurniture={(itemId) => run(() => buyFurniture(itemId))}
@@ -952,6 +993,8 @@ function PhonePanel({
   onRide,
   onOpen,
   onMeet,
+  start = null,
+  onStarted,
 }: {
   view: GameView;
   run: Run;
@@ -960,11 +1003,16 @@ function PhonePanel({
   onRide: (placeId: string, mode: TravelMode) => void;
   onOpen: (id: string) => void;
   onMeet: (id: string) => void;
+  start?: PhoneApp | null;
+  onStarted?: () => void;
 }) {
   const me = view.me;
-  const [app, setApp] = useState<PhoneApp | null>(null);
+  const [app, setApp] = useState<PhoneApp | null>(start);
   const [picked, setPicked] = useState<string | null>(null);
   const [peer, setPeer] = useState<string | null>(null);
+  useEffect(() => {
+    onStarted?.();
+  }, [onStarted]);
   if (!app) return <PhoneDeck view={view} onPick={setApp} />;
   const titles: Record<PhoneApp, string> = {
     jobs: "Jobs",
@@ -1093,7 +1141,7 @@ function PhonePanel({
       </section></> : null}
       {app === "houses" ? (
         <div className="grid gap-4">
-          <p className="text-sm text-[#5d6b62]">Homes you can move into. Rent is weekly. New Owerri is the big section. Wetheral is the night street, so the rooms on that side are Ikenegbu.</p>
+          <p className="text-sm text-[#5d6b62]">Houses for sale. Pick a 2-bed, 3-bed, or 4-bed flat, or a duplex. The ones with an upstairs show the stairs in your room.</p>
           {["new-owerri", "ikenegbu", "world-bank", "aladinma"].map((areaId) => (
             <section key={areaId}>
               <h2 className="font-display text-2xl">{placeById(areaId).name}</h2>
@@ -1107,9 +1155,16 @@ function PhonePanel({
                   >
                     <span>
                       <span className="block font-semibold">{home.name}</span>
-                      <span className="text-[#5d6b62]">{home.tier}{home.id === me.homeId ? " · you live here" : ""}</span>
+                      <span className="text-[#5d6b62]">
+                        {home.beds === 1 ? "1 room" : `${home.beds}-bed`}
+                        {home.upstairs ? " · upstairs, stairs inside" : ""}
+                        {home.id === me.homeId ? " · you live here" : ""}
+                      </span>
                     </span>
-                    <span className="font-semibold">{naira(home.rent)}/wk</span>
+                    <span className="text-right font-semibold">
+                      <span className="block">{home.price ? naira(home.price) : "Move in"}</span>
+                      <span className="block text-xs text-[#5d6b62]">{naira(home.rent)}/wk</span>
+                    </span>
                   </button>
                 ))}
               </div>

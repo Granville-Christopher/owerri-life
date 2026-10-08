@@ -73,6 +73,9 @@ export interface Home {
   name: string;
   tier: string;
   rent: number;
+  beds: number;
+  upstairs: boolean;
+  price?: number;
 }
 
 export const FURNITURE = [
@@ -88,11 +91,17 @@ export function furnitureById(id: string) {
 }
 
 export const HOMES: Home[] = [
-  { id: "ikenegbu-room", areaId: "ikenegbu", name: "Ikenegbu room", tier: "Cheapest", rent: 2500 },
-  { id: "world-bank-flat", areaId: "world-bank", name: "World Bank area flat", tier: "Low-mid", rent: 7000 },
-  { id: "aladinma-flat", areaId: "aladinma", name: "Aladinma flat", tier: "Mid", rent: 18000 },
-  { id: "new-owerri-flat", areaId: "new-owerri", name: "New Owerri mini-flat", tier: "High", rent: 60000 },
-  { id: "new-owerri-duplex", areaId: "new-owerri", name: "New Owerri duplex", tier: "Top", rent: 400000 },
+  { id: "ikenegbu-room", areaId: "ikenegbu", name: "Ikenegbu room", tier: "Cheapest", rent: 2500, beds: 1, upstairs: false },
+  { id: "ikenegbu-2bed", areaId: "ikenegbu", name: "Ikenegbu 2-bed flat", tier: "2-bed", rent: 8000, beds: 2, upstairs: false, price: 220000 },
+  { id: "world-bank-flat", areaId: "world-bank", name: "World Bank 2-bed flat", tier: "2-bed", rent: 7000, beds: 2, upstairs: false },
+  { id: "world-bank-3bed", areaId: "world-bank", name: "World Bank 3-bed flat", tier: "3-bed", rent: 14000, beds: 3, upstairs: false, price: 480000 },
+  { id: "aladinma-flat", areaId: "aladinma", name: "Aladinma 3-bed flat", tier: "3-bed", rent: 18000, beds: 3, upstairs: false },
+  { id: "aladinma-4bed", areaId: "aladinma", name: "Aladinma 4-bed flat", tier: "4-bed", rent: 28000, beds: 4, upstairs: true, price: 1200000 },
+  { id: "new-owerri-flat", areaId: "new-owerri", name: "New Owerri mini-flat", tier: "High", rent: 60000, beds: 1, upstairs: false },
+  { id: "new-owerri-2bed", areaId: "new-owerri", name: "New Owerri 2-bed flat", tier: "2-bed", rent: 24000, beds: 2, upstairs: false, price: 750000 },
+  { id: "new-owerri-3bed", areaId: "new-owerri", name: "New Owerri 3-bed flat", tier: "3-bed", rent: 38000, beds: 3, upstairs: false, price: 1400000 },
+  { id: "new-owerri-4bed", areaId: "new-owerri", name: "New Owerri 4-bed flat", tier: "4-bed", rent: 55000, beds: 4, upstairs: true, price: 2400000 },
+  { id: "new-owerri-duplex", areaId: "new-owerri", name: "New Owerri duplex", tier: "Duplex", rent: 95000, beds: 4, upstairs: true, price: 4200000 },
 ];
 
 export interface Place {

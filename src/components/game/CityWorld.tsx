@@ -1851,6 +1851,7 @@ export function CityWorld({
     function frameCamera() {
       const width = Math.max(1, root.clientWidth);
       const height = Math.max(1, root.clientHeight);
+      if (root.clientWidth < 2 || root.clientHeight < 2) return;
       const aspect = width / height;
       camera.left = -zoom * aspect;
       camera.right = zoom * aspect;
@@ -1862,9 +1863,10 @@ export function CityWorld({
       const upY = camera.matrixWorld.elements[5];
       const ndcCut = -camera.position.y / Math.max(0.2, upY * zoom);
       camera.clearViewOffset();
-      if (ndcCut > -0.98) {
+      if (Number.isFinite(ndcCut) && ndcCut > -0.98) {
         const visible = Math.min(0.98, Math.max(0.4, (1 - ndcCut) / 2));
-        camera.setViewOffset(width, height / visible, 0, 0, width, height);
+        const fullHeight = height / visible;
+        if (Number.isFinite(fullHeight) && fullHeight > 0) camera.setViewOffset(width, fullHeight, 0, 0, width, height);
       }
       camera.updateProjectionMatrix();
     }
@@ -1890,6 +1892,13 @@ export function CityWorld({
         const [a, b] = [...pointers.values()];
         pinch = Math.hypot(a.x - b.x, a.y - b.y);
       }
+      if (pointers.size === 1) {
+        try {
+          surface.setPointerCapture(event.pointerId);
+        } catch {
+          /* A second finger on a phone is not always capturable. */
+        }
+      }
     }
     function onMove(event: PointerEvent) {
       if (!pointers.has(event.pointerId)) return;
@@ -1910,7 +1919,6 @@ export function CityWorld({
         dragged.current = true;
         lastX = event.clientX;
         lastY = event.clientY;
-        if (!surface.hasPointerCapture(event.pointerId)) surface.setPointerCapture(event.pointerId);
         return;
       }
       const dx = event.clientX - lastX;
@@ -2024,6 +2032,7 @@ export function CityWorld({
     loop();
 
     const resize = new ResizeObserver(() => {
+      if (root.clientWidth < 2 || root.clientHeight < 2) return;
       renderer.setSize(root.clientWidth, root.clientHeight);
       frameCamera();
     });

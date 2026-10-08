@@ -178,8 +178,19 @@ function decayNeeds(player: Player) {
     fun: 2,
     social: 2,
   };
+  const advice: Record<(typeof NEED_KEYS)[number], string> = {
+    hunger: "You are hungry. Go eat.",
+    energy: "You are worn out. Sleep at home.",
+    hygiene: "You need a wash. Shower at home.",
+    bladder: "Your bladder is full. Find a toilet.",
+    fun: "You are bored. Go out and do something.",
+    social: "You need company. Hang out with someone.",
+  };
+  const notes: string[] = [];
   for (const key of NEED_KEYS) {
-    player.needs[key] = clamp(player.needs[key] - drop[key]);
+    const before = player.needs[key];
+    player.needs[key] = clamp(before - drop[key]);
+    if (before > 30 && player.needs[key] <= 30) notes.push(advice[key]);
   }
   const zeros = NEED_KEYS.filter((key) => player.needs[key] <= 0).length;
   if (player.needs.hunger <= 0 || player.needs.energy <= 0) player.strain += 1;
@@ -187,9 +198,10 @@ function decayNeeds(player: Player) {
   const before = player.sick;
   if (zeros >= 3) player.sick = "severe";
   else if (player.strain >= 8 && player.sick === "none") player.sick = "mild";
-  if (player.sick === before) return null;
-  if (player.sick === "severe") return "You are seriously sick. Any hospital in Owerri can treat it.";
-  return "You feel sick. A chemist at Eke Ukwu Market can handle a mild case.";
+  if (player.sick !== before) {
+    notes.push(player.sick === "severe" ? "You are seriously sick. Any hospital in Owerri can treat it." : "You feel sick. A chemist at Eke Ukwu Market can handle a mild case.");
+  }
+  return notes;
 }
 
 function applyBills(player: Player, ledger: LedgerEntry[]) {
@@ -259,8 +271,8 @@ export function advance(player: Player, ledger: LedgerEntry[], hours: number) {
         notes.push(`Admitted to ${courseById(next.school.courseId).name} at ${placeById(next.school.schoolId).name}.`);
       }
     }
-    const sickNote = decayNeeds(next);
-    if (sickNote) notes.push(sickNote);
+    const sickNotes = decayNeeds(next);
+    notes.push(...sickNotes);
     if (weekday(next.day) === "Saturday" && next.hour === 6 && next.billsOnDay !== next.day) {
       const billed = applyBills(next, book);
       book = billed.ledger;
@@ -711,13 +723,14 @@ export function quitJob(player: Player, ledger: LedgerEntry[]): Step {
 export function moveHome(player: Player, ledger: LedgerEntry[], homeId: string): Step {
   const home = homeById(homeId);
   if (player.homeId === home.id) return fail(player, ledger, "You already live there.");
-  const charged = debit(ledger, player, home.rent, `First week rent · ${home.name}`, stamp(player.day, player.hour));
-  if (!charged) return fail(player, ledger, "You need the first week's rent in the wallet.");
+  const cost = home.price ?? home.rent;
+  const charged = debit(ledger, player, cost, home.price ? `Bought ${home.name}` : `First week rent · ${home.name}`, stamp(player.day, player.hour));
+  if (!charged) return fail(player, ledger, home.price ? `You need ${naira(cost)} to buy ${home.name}.` : "You need the first week's rent in the wallet.");
   const next = structuredClone(player);
   next.homeId = home.id;
   next.locationId = home.areaId;
   next.weeksUnpaid = player.arrears > 0 ? player.weeksUnpaid : 0;
-  return succeed(next, charged, [`You moved into ${home.name}.`]);
+  return succeed(next, charged, [home.price ? `You bought ${home.name}. Rent is ${naira(home.rent)} a week.` : `You moved into ${home.name}.`]);
 }
 
 export function payArrears(player: Player, ledger: LedgerEntry[]): Step {
