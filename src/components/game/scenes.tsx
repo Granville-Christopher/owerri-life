@@ -805,6 +805,7 @@ function ClubHall({
   people = [],
   selfId,
   dancing = false,
+  sitting = false,
   sprayBurst = 0,
 }: {
   name: string;
@@ -812,6 +813,7 @@ function ClubHall({
   people?: ScenePerson[];
   selfId?: string;
   dancing?: boolean;
+  sitting?: boolean;
   sprayBurst?: number;
 }) {
   const host = useRef<HTMLDivElement>(null);
@@ -835,16 +837,26 @@ function ClubHall({
     root.appendChild(renderer.domElement);
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(theme.bg);
-    scene.add(new THREE.HemisphereLight(0xffe6c8, 0x2a2030, 0.95));
-    const spot = new THREE.DirectionalLight(0xfff1d0, 1.15);
+    scene.add(new THREE.HemisphereLight(0xffe6c8, 0x2a2030, 0.55));
+    const spot = new THREE.DirectionalLight(0xfff1d0, 0.45);
     spot.position.set(3, 14, 6);
     scene.add(spot);
-    const wash = new THREE.PointLight(theme.wash, 16, 28);
-    wash.position.set(0.4, 3.1, 0.4);
+    const wash = new THREE.PointLight(theme.wash, 22, 26);
+    wash.position.set(0.4, 3.4, 0.4);
     scene.add(wash);
-    const washB = new THREE.PointLight(theme.accent, 10, 22);
-    washB.position.set(-3, 2.8, -2);
+    const washB = new THREE.PointLight(theme.accent, 16, 20);
+    washB.position.set(-2.4, 2.8, -1.6);
     scene.add(washB);
+    const washC = new THREE.PointLight(0x4dc3ff, 12, 18);
+    washC.position.set(2.6, 2.6, 1.2);
+    scene.add(washC);
+    const floorLights: THREE.PointLight[] = [];
+    for (const [x, z, color] of [[-2.2, 1.6, 0xff4d8d], [2.4, 1.4, 0x4dc3ff], [0.2, -1.2, 0xf2c14e], [-1.6, -0.4, 0x7dffb2]] as const) {
+      const lamp = new THREE.PointLight(color, 10, 8);
+      lamp.position.set(x, 1.8, z);
+      scene.add(lamp);
+      floorLights.push(lamp);
+    }
 
     const hall = new THREE.Group();
     scene.add(hall);
@@ -893,6 +905,28 @@ function ClubHall({
     const sign = clubSign(name, theme.neon);
     sign.position.set(0, 2.05, -6.05);
     add(sign);
+
+    const beams: THREE.Mesh[] = [];
+    const heads: THREE.SpotLight[] = [];
+    for (const [x, z, color] of [[-1.8, 0.2, 0xff4d8d], [2.0, 0.6, 0x4dc3ff], [0.2, 1.6, theme.accent]] as const) {
+      const head = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.16, 0.22, 10), new THREE.MeshBasicMaterial({ color: 0x1a1a22 }));
+      head.position.set(x, 3.4, z);
+      add(head);
+      const cone = new THREE.Mesh(
+        new THREE.ConeGeometry(0.7, 3.2, 14, 1, true),
+        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false }),
+      );
+      cone.position.set(x, 1.7, z);
+      cone.rotation.x = Math.PI;
+      add(cone);
+      beams.push(cone);
+      const lamp = new THREE.SpotLight(color, 18, 14, 0.5, 0.35, 1);
+      lamp.position.set(x, 3.5, z);
+      lamp.target.position.set(x, 0.1, z);
+      add(lamp);
+      add(lamp.target);
+      heads.push(lamp);
+    }
 
     const chair = (x: number, z: number, turn: number) => {
       const group = new THREE.Group();
@@ -952,9 +986,11 @@ function ClubHall({
     const tiles: THREE.Mesh[] = [];
     for (let r = 0; r < 3; r += 1) {
       for (let c = 0; c < 3; c += 1) {
-        const tile = piece(0x2a2038, 1.35, 0.02, 1.35, -1.05 + c * 1.4, 0.175, -0.85 + r * 1.4);
-        (tile.material as THREE.MeshLambertMaterial).emissive = new THREE.Color(theme.accent);
-        (tile.material as THREE.MeshLambertMaterial).emissiveIntensity = 0.15;
+        const tile = new THREE.Mesh(
+          new THREE.BoxGeometry(1.35, 0.03, 1.35),
+          new THREE.MeshBasicMaterial({ color: theme.accent }),
+        );
+        tile.position.set(-1.05 + c * 1.4, 0.175, -0.85 + r * 1.4);
         add(tile);
         tiles.push(tile);
       }
@@ -962,11 +998,17 @@ function ClubHall({
 
     type Dancer = { mesh: THREE.Object3D; y: number; facing: number; always: boolean };
     const dancers: Dancer[] = [];
-    const me = citizen(look);
-    me.position.set(0.35, 0, 1.35);
-    me.rotation.y = Math.PI;
+    const seated = sitting || people.find((person) => person.id === selfId)?.pose === "sit";
+    const me = createRealisticHuman({ lookId: look, seated, scale: 0.92 });
+    if (seated) {
+      me.position.set(4.0, 0, -1.8);
+      me.rotation.y = 0;
+    } else {
+      me.position.set(0.35, 0, 1.35);
+      me.rotation.y = Math.PI;
+    }
     add(me);
-    dancers.push({ mesh: me, y: 0, facing: Math.PI, always: false });
+    if (!seated) dancers.push({ mesh: me, y: 0, facing: Math.PI, always: false });
 
     people
       .filter((person) => person.id !== selfId)
@@ -1013,23 +1055,40 @@ function ClubHall({
       if (!alive) return;
       const t = performance.now() - t0;
       hall.rotation.y = rig.current.yaw;
-      wash.intensity = 14 + Math.sin(t * 0.004) * 3;
-      wash.color.setHSL((t * 0.00008) % 1, 0.45, 0.62);
-      (led.material as THREE.MeshLambertMaterial).emissiveIntensity = 0.55 + Math.abs(Math.sin(t * 0.006)) * 0.7;
-      tiles.forEach((tile, i) => {
-        (tile.material as THREE.MeshLambertMaterial).emissiveIntensity = 0.12 + Math.abs(Math.sin(t * 0.005 + i)) * 0.55;
+      wash.intensity = 16 + Math.sin(t * 0.004) * 6;
+      wash.color.setHSL((t * 0.00012) % 1, 0.7, 0.55);
+      washB.intensity = 12 + Math.sin(t * 0.003 + 1) * 5;
+      washC.intensity = 10 + Math.sin(t * 0.0035 + 2) * 4;
+      floorLights.forEach((lamp, i) => {
+        lamp.intensity = 7 + Math.abs(Math.sin(t * 0.005 + i)) * 8;
       });
-      const onFloor = dancingRef.current;
+      (led.material as THREE.MeshLambertMaterial).emissiveIntensity = 0.7 + Math.abs(Math.sin(t * 0.006)) * 0.9;
+      tiles.forEach((tile, i) => {
+        (tile.material as THREE.MeshBasicMaterial).color.setHSL((t * 0.00018 + i * 0.12) % 1, 0.85, 0.32 + Math.abs(Math.sin(t * 0.006 + i)) * 0.28);
+      });
+      beams.forEach((beam, i) => {
+        beam.rotation.z = Math.sin(t * 0.0018 + i) * 0.45;
+        beam.rotation.x = Math.PI + Math.sin(t * 0.0014 + i) * 0.25;
+        (beam.material as THREE.MeshBasicMaterial).opacity = 0.14 + Math.abs(Math.sin(t * 0.004 + i)) * 0.2;
+      });
+      heads.forEach((lamp, i) => {
+        lamp.target.position.x = Math.sin(t * 0.0016 + i) * 1.6;
+        lamp.target.position.z = 0.4 + Math.cos(t * 0.0012 + i) * 1.2;
+        lamp.intensity = 14 + Math.abs(Math.sin(t * 0.003 + i)) * 8;
+      });
+      const onFloor = dancingRef.current && !seated;
       for (const dancer of dancers) {
         if (onFloor || dancer.always) danceBody(dancer.mesh, t + dancer.facing * 40, dancer.y, dancer.facing);
         else restBody(dancer.mesh, dancer.y, dancer.facing);
       }
-      if (onFloor) {
-        me.position.x += (0.3 - me.position.x) * 0.04;
-        me.position.z += (0.5 - me.position.z) * 0.04;
-      } else {
-        me.position.x += (0.35 - me.position.x) * 0.04;
-        me.position.z += (1.35 - me.position.z) * 0.04;
+      if (!seated) {
+        if (onFloor) {
+          me.position.x += (0.3 - me.position.x) * 0.04;
+          me.position.z += (0.5 - me.position.z) * 0.04;
+        } else {
+          me.position.x += (0.35 - me.position.x) * 0.04;
+          me.position.z += (1.35 - me.position.z) * 0.04;
+        }
       }
       if (sprayRef.current > seenSpray) {
         const extra = Math.min(40, sprayRef.current - seenSpray);
@@ -1078,7 +1137,7 @@ function ClubHall({
       renderer.dispose();
       if (renderer.domElement.parentElement === root) root.removeChild(renderer.domElement);
     };
-  }, [name, look, crowdKey, selfId]);
+  }, [name, look, crowdKey, selfId, sitting]);
 
   function turn(dir: number) {
     rig.current.yaw += dir * 0.55;
@@ -1109,6 +1168,7 @@ function ClubFloor({
   besideId,
   selfId,
   dancing,
+  sitting = false,
   sprayBurst = 0,
   bubbles = [],
   onPick,
@@ -1122,6 +1182,7 @@ function ClubFloor({
   besideId: string | null;
   selfId: string;
   dancing: boolean;
+  sitting?: boolean;
   sprayBurst?: number;
   bubbles?: Array<{ fromId: string; text: string }>;
   onPick: (id: string) => void;
@@ -1134,7 +1195,7 @@ function ClubFloor({
   void bubbles;
   return (
     <div className="relative h-full min-h-[70vh] overflow-hidden bg-[#07060c]">
-      <ClubHall name={name} look={look} people={people} selfId={selfId} dancing={dancing} sprayBurst={sprayBurst} />
+      <ClubHall name={name} look={look} people={people} selfId={selfId} dancing={dancing} sitting={sitting} sprayBurst={sprayBurst} />
       <div className="absolute inset-x-3 top-14 z-20">
         <button
           type="button"
@@ -2785,7 +2846,7 @@ export function VenueInterior({
             }}
           />
         ) : club ? (
-          <ClubFloor look={look} name={place.name} username={username} people={people} shout={shout} service={service} besideId={besideId} selfId={selfId} dancing={dancing} sprayBurst={sprayNonce} bubbles={bubbles} onPick={pickPerson} />
+          <ClubFloor look={look} name={place.name} username={username} people={people} shout={shout} service={service} besideId={besideId} selfId={selfId} dancing={dancing} sitting={sitting || pose === "sit"} sprayBurst={sprayNonce} bubbles={bubbles} onPick={pickPerson} />
         ) : acts.pickup ? (
           <PickupStreetScene
             look={look}
