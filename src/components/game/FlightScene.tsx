@@ -497,8 +497,8 @@ export function FlightScene({
       } else {
         cabin.visible = false;
         exterior.visible = true;
-        const swing = Math.sin(now / 4200) * 3.2;
-        const goal = flight.position.clone().add(new THREE.Vector3(18 + swing, 6.2, -14));
+        const swing = Math.sin(now / 4200) * 1.4;
+        const goal = flight.position.clone().add(new THREE.Vector3(12 + swing, 1.6, 0.6));
         if (!camReady) {
           camPos.copy(goal);
           camReady = true;
@@ -506,7 +506,7 @@ export function FlightScene({
           camPos.lerp(goal, 0.07);
         }
         camera.position.copy(camPos);
-        camera.lookAt(flight.position.clone().add(new THREE.Vector3(0, 1.4, 2.4)));
+        camera.lookAt(flight.position.clone().add(new THREE.Vector3(0, 0.15, 0.4)));
         camera.fov = 38;
         camera.updateProjectionMatrix();
       }

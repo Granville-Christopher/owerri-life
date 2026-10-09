@@ -1386,7 +1386,7 @@ function Plane({ body, tail }: { body: string; tail: string }) {
         ))}
       </div>
       <div className="absolute left-12 top-6 h-3 w-2 rounded-[1px] bg-[#c5ccd6] ring-1 ring-[#1a2430]" />
-      <p className="absolute left-[4.4rem] top-[1.15rem] text-[5px] font-black tracking-wide text-[#e0b15a]" style={{ textShadow: "0 0 1px #0e1c16" }}>
+      <p className="absolute left-[3.1rem] top-[1.82rem] w-[6.2rem] text-center text-[7px] font-black leading-none tracking-tight text-[#143d2c]">
         OWERRI LIFE
       </p>
       <div className="absolute right-3 top-3 h-8 w-3 rounded-sm" style={{ background: tail }} />

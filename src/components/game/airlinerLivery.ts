@@ -1,25 +1,51 @@
 import * as THREE from "three";
 
+const TITLE_FONT: Record<string, string[]> = {
+  O: ["01110", "10001", "10001", "10001", "10001", "10001", "01110"],
+  W: ["10001", "10001", "10001", "10101", "10101", "01010", "01010"],
+  E: ["11111", "10000", "10000", "11110", "10000", "10000", "11111"],
+  R: ["11110", "10001", "10001", "11110", "10100", "10010", "10001"],
+  I: ["11111", "00100", "00100", "00100", "00100", "00100", "11111"],
+  L: ["10000", "10000", "10000", "10000", "10000", "10000", "11111"],
+  F: ["11111", "10000", "10000", "11110", "10000", "10000", "10000"],
+};
+
 export function paintOwerriTitle(): THREE.CanvasTexture {
   const canvas = document.createElement("canvas");
   canvas.width = 2048;
   canvas.height = 512;
   const ctx = canvas.getContext("2d");
   if (ctx) {
-    ctx.clearRect(0, 0, 2048, 512);
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.lineJoin = "round";
-    ctx.lineCap = "round";
-    ctx.font = "900 220px Impact, Arial Black, sans-serif";
-    ctx.strokeStyle = "#0e1c16";
-    ctx.lineWidth = 42;
-    ctx.strokeText("OWERRI LIFE", 1024, 256);
-    ctx.strokeStyle = "#143d2c";
-    ctx.lineWidth = 22;
-    ctx.strokeText("OWERRI LIFE", 1024, 256);
+    ctx.fillStyle = "#0e1c16";
+    ctx.fillRect(0, 0, 2048, 512);
+    ctx.fillStyle = "#143d2c";
+    ctx.fillRect(28, 28, 1992, 456);
+    ctx.strokeStyle = "#e0b15a";
+    ctx.lineWidth = 18;
+    ctx.strokeRect(48, 48, 1952, 416);
+    const word = "OWERRI LIFE";
+    const cellW = 34;
+    const cellH = 52;
+    const letterW = 5 * cellW;
+    const gap = 14;
+    let total = 0;
+    for (const ch of word) total += ch === " " ? letterW * 0.42 : letterW + gap;
+    let x = (2048 - total) / 2;
+    const y = (512 - 7 * cellH) / 2;
     ctx.fillStyle = "#e0b15a";
-    ctx.fillText("OWERRI LIFE", 1024, 256);
+    for (const ch of word) {
+      if (ch === " ") {
+        x += letterW * 0.42;
+        continue;
+      }
+      const rows = TITLE_FONT[ch];
+      for (let r = 0; r < 7; r += 1) {
+        for (let c = 0; c < 5; c += 1) {
+          if (rows[r][c] === "1") ctx.fillRect(x + c * cellW + 3, y + r * cellH + 3, cellW - 6, cellH - 6);
+        }
+      }
+      x += letterW + gap;
+    }
   }
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
@@ -98,11 +124,11 @@ export function addAirlinerLivery(
   const title = opts.title ?? paintOwerriTitle();
   const doorTex = opts.door ?? paintCabinDoor();
 
-  const phi = 0.28;
+  const phi = 0.42;
   const skin = R * 1.035;
   const winY = y0 + Math.sin(phi) * skin;
   const winOut = Math.cos(phi) * skin;
-  const titlePhi = 0.52;
+  const titlePhi = -0.22;
   const titleY = y0 + Math.sin(titlePhi) * skin;
   const titleOut = Math.cos(titlePhi) * skin;
 
@@ -113,9 +139,10 @@ export function addAirlinerLivery(
   const frameMat = new THREE.MeshLambertMaterial({ color: 0x1a2430 });
   const titleMat = new THREE.MeshBasicMaterial({
     map: title,
-    transparent: true,
     side: THREE.DoubleSide,
-    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
   });
 
   const winH = 0.28 * s;
@@ -166,10 +193,26 @@ export function addAirlinerLivery(
       parent.add(frame, leaf);
     }
 
-    const decalW = Math.min(L * 0.52, 9.5 * s);
-    const decalH = Math.min(R * 0.7, 0.85 * s);
+    const decalW = Math.min(L * 0.72, 12 * s);
+    const decalH = Math.max(0.55 * s, R * 0.72);
     const decal = new THREE.Mesh(new THREE.PlaneGeometry(decalW, decalH), titleMat);
-    place(decal, axis, L * 0.02, titleY, side * (titleOut + 0.04 * s), yaw);
+    place(decal, axis, L * 0.02, titleY, side * (titleOut + 0.1 * s), yaw);
     parent.add(decal);
+  }
+
+  const crown = new THREE.Mesh(
+    axis === "z" ? new THREE.PlaneGeometry(decalBandH(), decalBandW()) : new THREE.PlaneGeometry(decalBandW(), decalBandH()),
+    titleMat,
+  );
+  crown.rotation.x = -Math.PI / 2;
+  if (axis === "z") crown.position.set(0, y0 + R * 1.14, L * 0.02);
+  else crown.position.set(L * 0.02, y0 + R * 1.14, 0);
+  parent.add(crown);
+
+  function decalBandW() {
+    return Math.min(L * 0.72, 12 * s);
+  }
+  function decalBandH() {
+    return Math.max(0.55 * s, R * 0.72);
   }
 }

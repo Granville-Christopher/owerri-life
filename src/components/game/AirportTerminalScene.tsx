@@ -176,8 +176,8 @@ export function AirportTerminalScene({
     // 2. DETAILED 3D AIRPLANE ON TARMAC (Visible through glass)
     // ─────────────────────────────────────────────────────────────
     const planeGroup = new THREE.Group();
-    planeGroup.position.set(0, 0, -13);
-    planeGroup.rotation.y = -0.15;
+    planeGroup.position.set(0, 0, -18);
+    planeGroup.rotation.y = -0.95;
     airport.add(planeGroup);
 
     const planeWhiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2, metalness: 0.4 });
