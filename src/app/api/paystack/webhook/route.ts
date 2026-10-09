@@ -5,7 +5,7 @@ export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   const raw = await request.text();
-  if (!paystackSignatureOk(raw, request.headers.get("x-paystack-signature"))) {
+  if (!(await paystackSignatureOk(raw, request.headers.get("x-paystack-signature")))) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
   let event: { event?: string; data?: { reference?: string } };

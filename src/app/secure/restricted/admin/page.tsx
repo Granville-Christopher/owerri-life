@@ -27,5 +27,5 @@ export default async function RestrictedAdminPage({ searchParams }: { searchPara
     );
   }
   const focus = user ? await adminUser(user) : null;
-  return <AdminConsole users={snap.users} reports={snap.reports} payments={snap.payments} openBets={snap.openBets} chat={snap.chat} focus={focus} adminName={admin.username} />;
+  return <AdminConsole users={snap.users} reports={snap.reports} payments={snap.payments} openBets={snap.openBets} chat={snap.chat} focus={focus} adminName={admin.username} paystack={snap.paystack} />;
 }

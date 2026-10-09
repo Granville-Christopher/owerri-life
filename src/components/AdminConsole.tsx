@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import {
   adminBan,
   adminClearSick,
+  adminClearPaystack,
   adminDismissReport,
   adminGrant,
   adminRelease,
+  adminSavePaystack,
   adminSendHome,
   adminTake,
   logoutAdmin,
@@ -43,6 +45,7 @@ export function AdminConsole({
   chat,
   focus,
   adminName,
+  paystack,
 }: {
   users: UserRow[];
   reports: Array<{ id: string; targetName: string; note: string; at: string; reporter: string }>;
@@ -51,6 +54,14 @@ export function AdminConsole({
   chat: number;
   focus: Detail | null;
   adminName: string;
+  paystack: {
+    ready: boolean;
+    fromDashboard: boolean;
+    secretHint: string;
+    publicKey: string;
+    webhookUrl: string;
+    callbackUrl: string;
+  };
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -97,6 +108,43 @@ export function AdminConsole({
           {users.length} users · {reports.length} open reports · {openBets} open bets · {chat} chat lines · {payments.filter((row) => row.status === "paid").length} recent paid top-ups
         </p>
         {note ? <p className="mt-3 rounded-2xl bg-white px-3 py-2 text-sm">{note}</p> : null}
+
+        <section className="mt-6 rounded-2xl bg-white p-4">
+          <h2 className="text-lg font-semibold">Paystack</h2>
+          <p className="mt-1 text-sm text-[#5d6b62]">
+            {paystack.ready
+              ? paystack.fromDashboard
+                ? `Charges are on. Saved secret key ${paystack.secretHint}.`
+                : "Charges are on, using the secret key set on the server. Save a key here to replace it."
+              : "Charges are off. Paste the secret key from your Paystack dashboard."}
+          </p>
+          <form
+            key={`${paystack.secretHint}|${paystack.publicKey}`}
+            className="mt-3 grid gap-3 sm:grid-cols-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const data = new FormData(event.currentTarget);
+              go(() => adminSavePaystack(String(data.get("secret") ?? ""), String(data.get("public") ?? "")));
+            }}
+          >
+            <label className="block text-sm font-semibold">
+              Secret key
+              <input name="secret" type="password" autoComplete="off" placeholder={paystack.secretHint || "sk_live_ or sk_test_"} className="mt-1 w-full rounded-2xl border border-[#e4d8c4] px-3 py-2 font-normal" />
+            </label>
+            <label className="block text-sm font-semibold">
+              Public key
+              <input name="public" defaultValue={paystack.publicKey} autoComplete="off" placeholder="pk_live_ or pk_test_" className="mt-1 w-full rounded-2xl border border-[#e4d8c4] px-3 py-2 font-normal" />
+            </label>
+            <div className="flex flex-wrap gap-2 sm:col-span-2">
+              <button type="submit" disabled={pending} className="rounded-full bg-[#143d2c] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40">Save Paystack</button>
+              <button type="button" disabled={pending} className="rounded-full bg-white px-4 py-2 text-xs font-semibold ring-1 ring-[#e4d8c4] disabled:opacity-40" onClick={() => go(() => adminClearPaystack())}>Remove saved keys</button>
+            </div>
+          </form>
+          <p className="mt-3 text-xs text-[#5d6b62]">Leave the secret key blank to keep the one already saved. Paste this webhook URL into Paystack.</p>
+          <p className="mt-1 break-all font-mono text-xs">{paystack.webhookUrl}</p>
+          <p className="mt-2 text-xs text-[#5d6b62]">Players return here after payment.</p>
+          <p className="mt-1 break-all font-mono text-xs">{paystack.callbackUrl}</p>
+        </section>
 
         <section className="mt-6">
           <div className="flex items-center justify-between gap-3">

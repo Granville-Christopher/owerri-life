@@ -2,15 +2,15 @@ import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 import { TOP_UPS } from "./content";
 import { stamp } from "./format";
 import { siteUrl } from "@/lib/site";
-import { mutate } from "./store";
+import { mutate, readDb } from "./store";
 import type { LedgerEntry, MoneySource } from "./types";
 
-function secret() {
-  return process.env.PAYSTACK_SECRET_KEY?.trim() ?? "";
-}
-
-export function paystackReady() {
-  return secret().startsWith("sk_");
+async function secret() {
+  const db = await readDb();
+  const saved = db.paystack?.secretKey?.trim() ?? "";
+  if (saved.startsWith("sk_")) return saved;
+  const fromEnv = process.env.PAYSTACK_SECRET_KEY?.trim() ?? "";
+  return fromEnv.startsWith("sk_") ? fromEnv : "";
 }
 
 function entry(playerId: string, amount: number, source: MoneySource, reason: string, at: string): LedgerEntry {
@@ -20,7 +20,8 @@ function entry(playerId: string, amount: number, source: MoneySource, reason: st
 export async function openTopUp(playerId: string, email: string, amount: number) {
   const gain = Math.round(amount);
   if (!(TOP_UPS as readonly number[]).includes(gain)) return { ok: false as const, error: "Pick a top-up amount." };
-  if (!paystackReady()) return { ok: false as const, error: "Paystack is not set up yet." };
+  const key = await secret();
+  if (!key.startsWith("sk_")) return { ok: false as const, error: "Paystack is not set up yet." };
   const reference = `ol_${randomBytes(12).toString("hex")}`;
   await mutate((db) => {
     db.payments.push({
@@ -35,7 +36,7 @@ export async function openTopUp(playerId: string, email: string, amount: number)
   });
   const response = await fetch("https://api.paystack.co/transaction/initialize", {
     method: "POST",
-    headers: { Authorization: `Bearer ${secret()}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       email,
       amount: gain * 100,
@@ -57,9 +58,10 @@ export async function openTopUp(playerId: string, email: string, amount: number)
   return { ok: true as const, url: body.data.authorization_url };
 }
 
-export function paystackSignatureOk(raw: string, header: string | null) {
-  if (!header || !secret()) return false;
-  const digest = createHmac("sha512", secret()).update(raw).digest("hex");
+export async function paystackSignatureOk(raw: string, header: string | null) {
+  const key = await secret();
+  if (!header || !key) return false;
+  const digest = createHmac("sha512", key).update(raw).digest("hex");
   const a = Buffer.from(digest);
   const b = Buffer.from(header);
   return a.length === b.length && timingSafeEqual(a, b);
@@ -67,9 +69,10 @@ export function paystackSignatureOk(raw: string, header: string | null) {
 
 export async function settlePaystack(reference: string) {
   const ref = reference.trim();
-  if (!ref || !paystackReady()) return { ok: false as const, error: "Payment could not be checked." };
+  const key = await secret();
+  if (!ref || !key.startsWith("sk_")) return { ok: false as const, error: "Payment could not be checked." };
   const response = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(ref)}`, {
-    headers: { Authorization: `Bearer ${secret()}` },
+    headers: { Authorization: `Bearer ${key}` },
   });
   const body = (await response.json()) as {
     status?: boolean;

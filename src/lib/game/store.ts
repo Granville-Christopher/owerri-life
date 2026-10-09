@@ -50,7 +50,7 @@ function client() {
 }
 
 function emptyDb(): DB {
-  return { players: [], ledger: [], chat: seedChat, messages: [], reports: [], fixtures: buildSlate(), bets: [], requests: [], calls: [], payments: [], admins: [] };
+  return { players: [], ledger: [], chat: seedChat, messages: [], reports: [], fixtures: buildSlate(), bets: [], requests: [], calls: [], payments: [], admins: [], paystack: { secretKey: "", publicKey: "" } };
 }
 
 function hydrate(parsed: Partial<DB> | null): DB {
@@ -88,6 +88,10 @@ function hydrate(parsed: Partial<DB> | null): DB {
     calls: parsed.calls ?? [],
     payments: parsed.payments ?? [],
     admins: parsed.admins ?? [],
+    paystack: {
+      secretKey: parsed.paystack?.secretKey ?? "",
+      publicKey: parsed.paystack?.publicKey ?? "",
+    },
   };
 }
 

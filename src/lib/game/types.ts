@@ -235,6 +235,11 @@ export interface AdminAccount {
   createdAt: string;
 }
 
+export interface PaystackSettings {
+  secretKey: string;
+  publicKey: string;
+}
+
 export interface DB {
   players: Player[];
   ledger: LedgerEntry[];
@@ -247,6 +252,7 @@ export interface DB {
   calls: FloorCall[];
   payments: Payment[];
   admins: AdminAccount[];
+  paystack: PaystackSettings;
 }
 
 export interface CreateInput {

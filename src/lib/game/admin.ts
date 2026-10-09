@@ -3,6 +3,7 @@
 import { homeAreaId, placeById } from "./content";
 import { poolsOf, wallet } from "./engine";
 import { naira, stamp } from "./format";
+import { siteUrl } from "@/lib/site";
 import { authBlocked, authCleared, authFailed, burnPasswordCheck, clearAdminSession, currentAdmin, hashPassword, needsUpgrade, setAdminSession, verifyPassword } from "./auth";
 import { passwordProblem } from "./password";
 import { mutate, readDb } from "./store";
@@ -73,6 +74,45 @@ export async function logoutAdmin() {
   return { ok: true as const, notice: "Signed out." };
 }
 
+function paystackStatus(db: { paystack?: { secretKey?: string; publicKey?: string } }) {
+  const saved = db.paystack?.secretKey?.trim() ?? "";
+  const fromEnv = process.env.PAYSTACK_SECRET_KEY?.trim() ?? "";
+  const dashboard = saved.startsWith("sk_");
+  const ready = dashboard || fromEnv.startsWith("sk_");
+  return {
+    ready,
+    fromDashboard: dashboard,
+    secretHint: dashboard ? `${saved.slice(0, 8)}…${saved.slice(-4)}` : "",
+    publicKey: db.paystack?.publicKey?.trim() ?? "",
+    webhookUrl: `${siteUrl()}/api/paystack/webhook`,
+    callbackUrl: `${siteUrl()}/topup/return`,
+  };
+}
+
+export async function adminSavePaystack(secretRaw: string, publicRaw: string) {
+  const id = await adminId();
+  if (!id) return { ok: false as const, error: "Admin only." };
+  const secretKey = secretRaw.trim();
+  const publicKey = publicRaw.trim();
+  if (secretKey && !secretKey.startsWith("sk_")) return { ok: false as const, error: "The secret key should start with sk_live_ or sk_test_." };
+  if (publicKey && !publicKey.startsWith("pk_")) return { ok: false as const, error: "The public key should start with pk_live_ or pk_test_." };
+  return mutate<{ ok: true; notice: string } | { ok: false; error: string }>((db) => {
+    const nextSecret = secretKey || db.paystack.secretKey;
+    if (!nextSecret.startsWith("sk_")) return { save: false, value: { ok: false, error: "Paste the Paystack secret key." } };
+    db.paystack = { secretKey: nextSecret, publicKey: publicKey || db.paystack.publicKey };
+    return { save: true, value: { ok: true, notice: "Paystack details saved. Top-ups can charge now." } };
+  });
+}
+
+export async function adminClearPaystack() {
+  const id = await adminId();
+  if (!id) return { ok: false as const, error: "Admin only." };
+  return mutate<{ ok: true; notice: string }>((db) => {
+    db.paystack = { secretKey: "", publicKey: "" };
+    return { save: true, value: { ok: true, notice: "Saved Paystack keys removed." } };
+  });
+}
+
 function publicUser(player: Player, balance: number) {
   return {
     id: player.id,
@@ -126,6 +166,7 @@ export async function adminSnapshot() {
       })),
     openBets: db.bets.filter((bet) => bet.status === "open").length,
     chat: db.chat.length,
+    paystack: paystackStatus(db),
   };
 }
 
