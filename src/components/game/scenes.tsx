@@ -307,10 +307,19 @@ function spotFor(name: string) {
   return { left: `${8 + (hash % 74)}%`, top: `${24 + ((hash >> 5) % 52)}%` };
 }
 
-type SeatSpot = { x: number; z: number; rot: number; bed?: boolean };
+type SeatSpot = { x: number; z: number; rot: number; bed?: boolean; y?: number };
+
+function sitLift(cushion: number | undefined, scale: number, bed = false) {
+  const top = cushion ?? (bed ? 0.9 : 0.86);
+  return Math.max(0.1, top - 0.78 * scale + 0.12);
+}
+
+function lieLift(cushion: number | undefined) {
+  return (cushion ?? 0.9) - 0.14;
+}
 
 function seatsFor(entry: { id: string; x: number; z: number; rot: number }): SeatSpot[] {
-  const at = (lx: number, lz: number, face: number, bed = false): SeatSpot => {
+  const at = (lx: number, lz: number, face: number, bed = false, y = 0.86): SeatSpot => {
     const c = Math.cos(entry.rot);
     const s = Math.sin(entry.rot);
     return {
@@ -318,14 +327,16 @@ function seatsFor(entry: { id: string; x: number; z: number; rot: number }): Sea
       z: entry.z - lx * s + lz * c,
       rot: entry.rot + face,
       bed,
+      y,
     };
   };
   if (entry.id === "dining") {
-    return [at(-0.6, 0.95, Math.PI), at(0.6, 0.95, Math.PI), at(-0.6, -0.95, 0), at(0.6, -0.95, 0)];
+    return [at(-0.6, 0.95, Math.PI, false, 0.74), at(0.6, 0.95, Math.PI, false, 0.74), at(-0.6, -0.95, 0, false, 0.74), at(0.6, -0.95, 0, false, 0.74)];
   }
-  if (entry.id === "desk") return [at(0, 0.9, Math.PI)];
-  if (entry.id === "sofa" || entry.id === "armchair") return [at(0, 0.18, 0)];
-  if (entry.id === "bed" || entry.id === "double-bed") return [at(0, 0.35, 0, true)];
+  if (entry.id === "desk") return [at(0, 0.9, Math.PI, false, 0.74)];
+  if (entry.id === "sofa") return [at(0, 0.18, 0, false, 0.95)];
+  if (entry.id === "armchair") return [at(0, 0.18, 0, false, 0.75)];
+  if (entry.id === "bed" || entry.id === "double-bed") return [at(0, 0.35, 0, true, 0.9)];
   return [];
 }
 
@@ -366,21 +377,22 @@ function swingWalk(body: THREE.Object3D, dist: number, done: boolean) {
   limbs.arms[1].rotation.x = swing * 0.8;
 }
 
-function walkToward(body: THREE.Object3D, dest: { x: number; z: number }, dt: number, speed = 2.6) {
+function walkToward(body: THREE.Object3D, dest: { x: number; z: number; y?: number }, dt: number, speed = 2.6) {
   const dx = dest.x - body.position.x;
   const dz = dest.z - body.position.z;
   const dist = Math.hypot(dx, dz);
+  const restY = dest.y ?? 0;
   if (dist < 0.1) {
     body.position.x = dest.x;
     body.position.z = dest.z;
-    body.position.y = 0;
+    body.position.y = restY;
     swingWalk(body, 0, true);
     return true;
   }
   const step = Math.min(dist, speed * dt);
   body.position.x += (dx / dist) * step;
   body.position.z += (dz / dist) * step;
-  body.position.y = Math.abs(Math.sin(performance.now() / 140)) * 0.07;
+  body.position.y = restY + Math.abs(Math.sin(performance.now() / 140)) * 0.07;
   body.rotation.y = Math.atan2(dx, dz);
   swingWalk(body, dist, false);
   return false;
@@ -1768,22 +1780,22 @@ function HotelSuite({
     add(plant);
 
     const hotelSeats: SeatSpot[] = [
-      { x: 1.05, z: 0.95, rot: Math.PI / 2 },
-      { x: 1.05, z: 0.15, rot: Math.PI / 2 },
-      { x: -3.3, z: 1.5, rot: Math.PI / 2 },
-      { x: -1.6, z: -0.55, rot: 0, bed: true },
+      { x: 1.05, z: 0.95, rot: Math.PI / 2, y: 0.59 },
+      { x: 1.05, z: 0.15, rot: Math.PI / 2, y: 0.59 },
+      { x: -3.3, z: 1.5, rot: Math.PI / 2, y: 0.54 },
+      { x: -1.6, z: -0.55, rot: 0, bed: true, y: 0.69 },
     ];
-    const hotelBed = { x: -1.6, z: -1.05, rot: 0 };
-    const hotelStand = { x: -1.8, z: 0.9, rot: Math.PI };
+    const hotelBed = { x: -1.6, z: -1.05, rot: 0, y: 0.8 };
+    const hotelStand = { x: -1.8, z: 0.9, rot: Math.PI, y: 0 };
     const startPose = pose;
     const startSeat = startPose === "sit" ? pickSitTarget(hotelStand, hotelSeats) ?? hotelSeats[0] : null;
     let you = createRealisticHuman({ lookId: look, seated: startPose === "sit", scale: 0.92 });
     if (startPose === "lie") {
       you.rotation.x = -Math.PI / 2;
-      you.position.set(hotelBed.x, 0.8, hotelBed.z);
+      you.position.set(hotelBed.x, hotelBed.y, hotelBed.z);
     } else if (startSeat) {
       you.rotation.y = startSeat.rot;
-      you.position.set(startSeat.x, 0, startSeat.z);
+      you.position.set(startSeat.x, sitLift(startSeat.y, 0.92, startSeat.bed), startSeat.z);
     } else {
       you.rotation.y = hotelStand.rot;
       you.position.set(hotelStand.x, 0, hotelStand.z);
@@ -1821,24 +1833,24 @@ function HotelSuite({
     let alive = true;
     let lastTick = performance.now();
     let visual: "stand" | "sit" | "lie" = startPose;
-    let dest: { x: number; z: number; rot: number; mode: "stand" | "sit" | "lie" } | null = null;
-    const dress = (mode: "stand" | "sit" | "lie", rot: number) => {
+    let dest: { x: number; z: number; rot: number; y?: number; mode: "stand" | "sit" | "lie" } | null = null;
+    const dress = (mode: "stand" | "sit" | "lie", rot: number, y?: number) => {
       const next = createRealisticHuman({ lookId: look, seated: mode === "sit", scale: 0.92 });
       you = swapHuman(you, next);
       if (mode === "lie") {
         you.rotation.x = -Math.PI / 2;
         you.rotation.y = 0;
-        you.position.y = 0.8;
+        you.position.y = y ?? 0.8;
       } else {
         you.rotation.x = 0;
         you.rotation.y = rot;
-        you.position.y = 0;
+        you.position.y = mode === "sit" ? (y ?? sitLift(0.59, 0.92)) : 0;
       }
     };
     const aimFor = (want: "stand" | "sit" | "lie") => {
       if (want === "sit") {
         const seat = pickSitTarget({ x: you.position.x, z: you.position.z }, hotelSeats) ?? hotelSeats[0];
-        dest = { x: seat.x, z: seat.z, rot: seat.rot, mode: "sit" };
+        dest = { x: seat.x, z: seat.z, rot: seat.rot, y: sitLift(seat.y, 0.92, seat.bed), mode: "sit" };
       } else if (want === "lie") {
         dest = { ...hotelBed, mode: "lie" };
       } else {
@@ -1859,7 +1871,7 @@ function HotelSuite({
       if (dest && walkToward(you, dest, dt)) {
         you.rotation.y = dest.rot;
         const mode = dest.mode;
-        if (mode !== "stand") dress(mode, dest.rot);
+        if (mode !== "stand") dress(mode, dest.rot, dest.y);
         visual = mode;
         dest = null;
         if (mode === "lie") done.current?.();
@@ -2510,12 +2522,12 @@ export function VenueInterior({
         ) : null}
       </div>
       <div className={`grid gap-1 ${fill ? `absolute bottom-24 left-1/2 z-30 max-h-[28%] -translate-x-1/2 overflow-y-auto rounded-2xl bg-white/95 text-[#17241e] shadow-2xl ${club || suite || beach ? "w-[min(16rem,calc(100%-5rem))] p-2" : "w-[min(28rem,calc(100%-1.5rem))] gap-2 p-3"}` : "p-3"}`}>
-        {sitHere || homeTogether ? (
+        {!house && (sitHere || homeTogether) ? (
           <div className="grid grid-cols-2 gap-1">
-            <button type="button" disabled={pending || pose === "sit"} onClick={() => { setSitting(true); onSit?.(); }} className="rounded-full border border-[#e4d8c4] py-1.5 text-xs font-semibold disabled:opacity-40">
+            <button type="button" disabled={pending || pose === "sit"} onClick={() => { setSitting(true); onSit?.(); }} className="rounded-full border border-[#e4d8c4] px-2 py-1 text-[10px] font-semibold disabled:opacity-40">
               Sit
             </button>
-            <button type="button" disabled={pending || pose === "stand"} onClick={() => { setSitting(false); onStand?.(); }} className="rounded-full border border-[#e4d8c4] py-1.5 text-xs font-semibold disabled:opacity-40">
+            <button type="button" disabled={pending || pose === "stand"} onClick={() => { setSitting(false); onStand?.(); }} className="rounded-full border border-[#e4d8c4] px-2 py-1 text-[10px] font-semibold disabled:opacity-40">
               Stand
             </button>
           </div>
@@ -2795,6 +2807,7 @@ function RoomView({
   pose = "stand",
   guests = [],
   selfId,
+  onSlept,
 }: {
   at: Loc;
   walkTo: Loc | null;
@@ -2818,6 +2831,7 @@ function RoomView({
   pose?: Pose;
   guests?: ScenePerson[];
   selfId?: string;
+  onSlept?: () => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const rig = useRef({ yaw: 0.55, zoom: 1.15 });
@@ -2835,7 +2849,10 @@ function RoomView({
     setDraft(null);
   }
   const live = useRef({ edit, selected });
-  const cbs = useRef({ walked: onWalked, enter: onEdit });
+  const cbs = useRef({ walked: onWalked, enter: onEdit, slept: onSlept });
+  cbs.current.walked = onWalked;
+  cbs.current.enter = onEdit;
+  cbs.current.slept = onSlept;
   const atKey = `${at.spot}:${at.roomNo}`;
   const walkKey = walkTo ? `${walkTo.spot}:${walkTo.roomNo}` : "";
   const furnRef = useRef<Map<string, THREE.Group>>(new Map());
@@ -2858,7 +2875,7 @@ function RoomView({
 
   useEffect(() => {
     live.current = { edit, selected };
-    cbs.current = { walked: onWalked, enter: onEdit };
+    cbs.current = { walked: onWalked, enter: onEdit, slept: onSlept };
     taps.current = {
       select: (key) => setSelected(key),
       drop: (x, z) => {
@@ -3449,7 +3466,7 @@ function RoomView({
           }
         }
         if (entry.kind === "room" && !hasBedIn(mine)) {
-          seats.push({ x: rx - (entry.w / 2 - 2), z: rz - (entry.d / 2 - 2.2), rot: 0, bed: true });
+          seats.push({ x: rx - (entry.w / 2 - 2), z: rz - (entry.d / 2 - 2.2), rot: 0, bed: true, y: 0.56 });
         }
         const landPlan = everyRoom.find((item) => item.hall);
         if (entry.kind === "room") dressBedroom(entry.w, entry.d, entry.roomNo, mine, !!landPlan && entry.z0 < landPlan.z0);
@@ -3526,10 +3543,10 @@ function RoomView({
       const first = stand(home);
       const houseSeat = seated ? pickSitTarget({ x: first[0], z: first[1] }, seats) : null;
       if (houseSeat) {
-        me.position.set(houseSeat.x, 0, houseSeat.z);
+        me.position.set(houseSeat.x, sitLift(houseSeat.y, 0.78, houseSeat.bed), houseSeat.z);
         me.rotation.y = houseSeat.rot;
       } else {
-        me.position.set(first[0], seated ? 0 : 0.14, first[1]);
+        me.position.set(first[0], seated ? sitLift(0.86, 0.78) : 0.14, first[1]);
       }
       me.scale.setScalar(0.78);
       board.add(me);
@@ -3629,7 +3646,7 @@ function RoomView({
       const mine = items.filter((entry) => entry.spot === "room" && entry.roomNo === roomNo);
       if (!hasBedIn(mine)) mattress(-(size.w / 2 - 2), -(size.d / 2 - 2.2));
       takeSeats(mine);
-      if (!hasBedIn(mine)) seats.push({ x: -(size.w / 2 - 2), z: -(size.d / 2 - 2.2), rot: 0, bed: true });
+      if (!hasBedIn(mine)) seats.push({ x: -(size.w / 2 - 2), z: -(size.d / 2 - 2.2), rot: 0, bed: true, y: 0.56 });
       const curtain = [0x1f6b45, 0xc4552a, 0x245c78, 0x7a3e6d][(roomNo - 1) % 4];
       add(piece(curtain, 0.35, 1.45, 0.06, size.w * 0.16 + 1.6, 2.05, -size.d / 2 + 0.15));
       dropItems(mine, true);
@@ -3651,21 +3668,23 @@ function RoomView({
     }
 
     const baseDistance = roomDistance;
-    if (!seats.length) seats.push({ x: standX + 1.35, z: standZ - 0.55, rot: Math.PI / 2 });
+    if (!seats.length) seats.push({ x: standX + 1.35, z: standZ - 0.55, rot: Math.PI / 2, y: 0.82 });
+    const bodyScale = house ? 0.78 : 0.92;
     let you = me;
-    let sitVisual: "stand" | "sit" = seated ? "sit" : "stand";
-    let sitDest: { x: number; z: number; rot: number; mode: "stand" | "sit" } | null = null;
+    let sitVisual: "stand" | "sit" | "bed" = seated ? "sit" : "stand";
+    let sitDest: { x: number; z: number; rot: number; y?: number; mode: "stand" | "sit" | "bed" } | null = null;
+    let sleptSent = false;
     if (!house && at.spot === spot && (spot !== "room" || at.roomNo === roomNo)) {
       const startSeat = seated ? pickSitTarget({ x: standX, z: standZ }, seats) : null;
       if (startSeat) {
-        you.position.set(startSeat.x, 0, startSeat.z);
+        you.position.set(startSeat.x, sitLift(startSeat.y, bodyScale, startSeat.bed), startSeat.z);
         you.rotation.y = startSeat.rot;
       } else {
         you.position.set(standX, 0, standZ);
         you.rotation.y = Math.PI;
       }
       spin.add(you);
-      placeGuest(spin, you.position.x, you.position.z, you.rotation.y, 0);
+      placeGuest(spin, you.position.x, you.position.z, you.rotation.y, seated ? sitLift(startSeat?.y, bodyScale, startSeat?.bed) : 0);
     }
     const legs: number[] = [];
     let walkTotal = 0;
@@ -3786,25 +3805,36 @@ function RoomView({
         walkSent = true;
         cbs.current.walked();
       } else {
-        const want: "stand" | "sit" = poseRef.current === "sit" ? "sit" : "stand";
+        const want: "stand" | "sit" | "bed" = poseRef.current === "sit" ? "sit" : poseRef.current === "bed" ? "bed" : "stand";
         if ((!sitDest && want !== sitVisual) || (sitDest && sitDest.mode !== want)) {
           if (want === "sit") {
-            const seat = pickSitTarget({ x: you.position.x, z: you.position.z }, seats) ?? { x: standX + 1.35, z: standZ - 0.55, rot: Math.PI / 2 };
-            sitDest = { x: seat.x, z: seat.z, rot: seat.rot, mode: "sit" };
+            const seat = pickSitTarget({ x: you.position.x, z: you.position.z }, seats) ?? { x: standX + 1.35, z: standZ - 0.55, rot: Math.PI / 2, y: 0.82 };
+            sitDest = { x: seat.x, z: seat.z, rot: seat.rot, y: sitLift(seat.y, bodyScale, seat.bed), mode: "sit" };
+          } else if (want === "bed") {
+            const bed = seats.find((seat) => seat.bed) ?? pickSitTarget({ x: you.position.x, z: you.position.z }, seats) ?? { x: standX, z: standZ - 1.2, rot: 0, bed: true, y: 0.9 };
+            sitDest = { x: bed.x, z: bed.z, rot: bed.rot, y: lieLift(bed.y), mode: "bed" };
           } else {
-            sitDest = { x: you.position.x, z: you.position.z, rot: you.rotation.y, mode: "stand" };
+            sitDest = { x: you.position.x, z: you.position.z, rot: you.rotation.y, y: 0, mode: "stand" };
           }
           if (sitVisual !== "stand") {
-            you = swapHuman(you, createRealisticHuman({ lookId: look, seated: false, scale: house ? 0.78 : 0.92 }));
+            you = swapHuman(you, createRealisticHuman({ lookId: look, seated: false, scale: bodyScale }));
             sitVisual = "stand";
           }
         }
         if (sitDest && walkToward(you, sitDest, dt)) {
           you.rotation.y = sitDest.rot;
           if (sitDest.mode === "sit") {
-            you = swapHuman(you, createRealisticHuman({ lookId: look, seated: true, scale: house ? 0.78 : 0.92 }));
+            you = swapHuman(you, createRealisticHuman({ lookId: look, seated: true, scale: bodyScale }));
             you.rotation.y = sitDest.rot;
-            you.position.y = 0;
+            you.position.y = sitDest.y ?? sitLift(0.86, bodyScale);
+          } else if (sitDest.mode === "bed") {
+            you.rotation.x = -Math.PI / 2;
+            you.rotation.y = sitDest.rot;
+            you.position.y = sitDest.y ?? 0.72;
+            if (!sleptSent) {
+              sleptSent = true;
+              cbs.current.slept?.();
+            }
           }
           sitVisual = sitDest.mode;
           sitDest = null;
@@ -4007,6 +4037,8 @@ export function HouseRoom({
   const studio = beds <= 1 && !upstairs;
   const [shop, setShop] = useState(entry === "shop");
   const [edit, setEdit] = useState(false);
+  const [sleeping, setSleeping] = useState(false);
+  const sleptLock = useRef(false);
   const [group, setGroup] = useState<FurnitureGroup>("Parlour");
   const [spot, setSpot] = useState<HomeSpot>(studio ? "room" : "parlour");
   const [roomNo, setRoomNo] = useState(1);
@@ -4107,9 +4139,18 @@ export function HouseRoom({
         at={at}
         walkTo={walk ? walk.to : null}
         onWalked={arrived}
-        pose={pose}
+        pose={sleeping ? "bed" : pose}
         guests={visitors}
         selfId={selfId}
+        onSlept={() => {
+          if (sleptLock.current) return;
+          sleptLock.current = true;
+          onSleep?.();
+          window.setTimeout(() => {
+            setSleeping(false);
+            sleptLock.current = false;
+          }, 700);
+        }}
       />
       {walk ? (
         <div className="absolute bottom-[15.5rem] left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full bg-[#17241e]/95 px-3 py-2 text-xs font-semibold text-white shadow-lg">
@@ -4144,12 +4185,6 @@ export function HouseRoom({
       ) : null}
       <p className="pointer-events-none absolute left-3 top-20 z-10 rounded-full bg-white px-3 py-2 text-xs font-semibold shadow">{name}</p>
       <div className="absolute left-2 right-16 top-32 z-30 flex flex-wrap gap-1">
-        {onSit ? (
-          <>
-            <button type="button" disabled={pending || pose === "sit"} onClick={() => onSit?.()} className="rounded-full bg-white px-3 py-1 text-[10px] font-semibold shadow disabled:opacity-40">Sit</button>
-            <button type="button" disabled={pending || pose === "stand"} onClick={() => onStand?.()} className="rounded-full bg-white px-3 py-1 text-[10px] font-semibold shadow disabled:opacity-40">Stand</button>
-          </>
-        ) : null}
         {visitors.some((person) => person.id !== selfId) && onFawwwk ? (
           <button
             type="button"
@@ -4161,7 +4196,17 @@ export function HouseRoom({
           </button>
         ) : null}
         {onSleep ? (
-          <button type="button" disabled={pending || Boolean(walk)} onClick={() => walkTo(at.spot === "room" ? at : { spot: "room", roomNo: 1 }, onSleep)} className="rounded-full bg-[#17241e] px-3 py-1 text-[10px] font-semibold text-white shadow disabled:opacity-40">Sleep</button>
+          <button
+            type="button"
+            disabled={pending || Boolean(walk) || sleeping}
+            onClick={() => {
+              setSleeping(true);
+              walkTo(at.spot === "room" ? at : { spot: "room", roomNo: 1 });
+            }}
+            className="rounded-full bg-[#17241e] px-3 py-1 text-[10px] font-semibold text-white shadow disabled:opacity-40"
+          >
+            Sleep
+          </button>
         ) : null}
         {onShower ? (
           <button type="button" disabled={pending || Boolean(walk)} onClick={() => walkTo({ spot: "bathroom", roomNo: 1 }, onShower)} className="rounded-full bg-[#245c78] px-3 py-1 text-[10px] font-semibold text-white shadow disabled:opacity-40">Shower</button>
@@ -4204,7 +4249,13 @@ export function HouseRoom({
         ))}
       </div>
       {!edit ? (
-        <div className="absolute bottom-44 left-1/2 z-20 flex -translate-x-1/2 gap-2">
+        <div className="absolute bottom-44 left-1/2 z-20 flex -translate-x-1/2 flex-wrap items-center justify-center gap-1.5">
+          {onSit ? (
+            <>
+              <button type="button" disabled={pending || pose === "sit" || sleeping} onClick={() => onSit?.()} className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold shadow-lg disabled:opacity-40">Sit</button>
+              <button type="button" disabled={pending || pose === "stand" || sleeping} onClick={() => onStand?.()} className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold shadow-lg disabled:opacity-40">Stand</button>
+            </>
+          ) : null}
           {onHouses ? (
             <button type="button" onClick={onHouses} className="rounded-full bg-[#1f6b45] px-4 py-2.5 text-sm font-semibold text-white shadow-lg">Houses</button>
           ) : null}
