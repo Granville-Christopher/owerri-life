@@ -16,29 +16,6 @@ function crowdLook(person: CrowdPerson): LookId {
   return lookForGender(null, person.id);
 }
 
-function nameSprite(text: string) {
-  const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 64;
-  const ctx = canvas.getContext("2d");
-  if (ctx) {
-    ctx.fillStyle = "rgba(23,36,30,0.88)";
-    ctx.fillRect(8, 8, 240, 48);
-    ctx.fillStyle = "#e0b15a";
-    ctx.fillRect(8, 8, 240, 4);
-    ctx.fillStyle = "#f6f1e6";
-    ctx.font = "bold 28px sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(text.slice(0, 16), 128, 36);
-  }
-  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), depthTest: false, transparent: true }));
-  sprite.position.set(0, 2.08, 0);
-  sprite.scale.set(1.55, 0.38, 1);
-  sprite.renderOrder = 12;
-  return sprite;
-}
-
 export function addPlayerGuests(
   parent: THREE.Object3D,
   people: CrowdPerson[],
@@ -55,7 +32,6 @@ export function addPlayerGuests(
       const row = Math.floor(index / 3);
       body.position.set(origin.x + (col - 1) * 1.2, 0, origin.z - row * 1.15);
       body.rotation.y = origin.rot ?? Math.PI;
-      body.add(nameSprite(person.name));
       parent.add(body);
     });
 }

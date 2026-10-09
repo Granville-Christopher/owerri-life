@@ -228,13 +228,25 @@ export function FlightScene({
   useEffect(() => {
     const root = host.current;
     if (!root) return;
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(root.clientWidth || 1, root.clientHeight || 1);
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.05;
-    root.appendChild(renderer.domElement);
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "low-power" });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+      renderer.setSize(root.clientWidth || 1, root.clientHeight || 1);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.05;
+      root.appendChild(renderer.domElement);
+    } catch {
+      arrive();
+      return;
+    }
+    const onLost = (event: Event) => {
+      event.preventDefault();
+      arrive();
+    };
+    renderer.domElement.addEventListener("webglcontextlost", onLost);
+    try {
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color("#050814");
@@ -417,12 +429,19 @@ export function FlightScene({
       alive = false;
       window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", onResize);
+      renderer.domElement.removeEventListener("webglcontextlost", onLost);
       cityMap.dispose();
       cloudTex.dispose();
       title.dispose();
       renderer.dispose();
       if (root.contains(renderer.domElement)) root.removeChild(renderer.domElement);
     };
+    } catch {
+      renderer.domElement.removeEventListener("webglcontextlost", onLost);
+      renderer.dispose();
+      if (root.contains(renderer.domElement)) root.removeChild(renderer.domElement);
+      arrive();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [city, look]);
 

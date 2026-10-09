@@ -173,6 +173,21 @@ export function GameShell({ view }: { view: GameView }) {
 
   const person = [...view.nearby, ...view.known, ...view.city].find((item) => item.id === personId) ?? null;
   const me = view.me;
+  const onTrip = isTripPlace(me.locationId);
+  const [skyReady, setSkyReady] = useState(false);
+
+  useEffect(() => {
+    if (onTrip && (tab === "room" || tab === "home")) setTab("map");
+  }, [onTrip, tab]);
+
+  useEffect(() => {
+    if (!flight) {
+      setSkyReady(false);
+      return;
+    }
+    const id = window.setTimeout(() => setSkyReady(true), 80);
+    return () => window.clearTimeout(id);
+  }, [flight]);
   const crowd = [...view.calls].reverse().find((call) => call.fromId !== me.id);
   const crowdText = crowd
     ? crowd.kind === "spray"
@@ -235,8 +250,8 @@ export function GameShell({ view }: { view: GameView }) {
         ) : null}
         <main className={`absolute inset-0 ${!account && (tab === "home" || tab === "room" || tab === "map") ? "overflow-hidden" : !account && tab === "phone" ? "overflow-hidden px-3 pb-24 pt-[4.5rem]" : "overflow-y-auto px-4 pb-28 pt-20"}`}>
           {account ? <AccountPage view={view} pending={pending} run={run} onBack={() => setAccount(false)} /> : null}
-          {!account && tab === "home" ? <HomePanel view={view} run={run} pending={pending} onOpenMap={() => setTab("map")} onOpenRoom={() => { setRoomEntry("look"); setTab("room"); }} onRide={beginRide} /> : null}
-          {!account && tab === "room" ? (
+          {!account && tab === "home" && !onTrip && !flight ? <HomePanel view={view} run={run} pending={pending} onOpenMap={() => setTab("map")} onOpenRoom={() => { setRoomEntry("look"); setTab("room"); }} onRide={beginRide} /> : null}
+          {!account && tab === "room" && !onTrip && !flight ? (
             <HouseRoom
               name={homeById(me.homeId).name}
               look={me.look}
@@ -276,7 +291,7 @@ export function GameShell({ view }: { view: GameView }) {
               }}
             />
           ) : null}
-          {!account && tab === "map" ? (
+          {!account && tab === "map" && !flight ? (
             <MapPanel
               view={view}
               run={run}
@@ -397,12 +412,17 @@ export function GameShell({ view }: { view: GameView }) {
           </div>
         </div>
         <nav className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-full bg-white p-1.5 text-[11px] font-semibold shadow-xl">
-          <button type="button" className={`flex w-16 flex-col items-center gap-0.5 rounded-2xl px-2 py-1.5 ${!account && (tab === "home" || tab === "map") ? "bg-[#17241e] text-white" : "text-[#5d6b62]"}`} onClick={() => { setAccount(false); setTab("home"); }}><span className="text-base leading-none">⌖</span>Map</button>
+          <button type="button" className={`flex w-16 flex-col items-center gap-0.5 rounded-2xl px-2 py-1.5 ${!account && (tab === "home" || tab === "map") ? "bg-[#17241e] text-white" : "text-[#5d6b62]"}`} onClick={() => { setAccount(false); setTab(onTrip ? "map" : "home"); }}><span className="text-base leading-none">⌖</span>Map</button>
           <button
             type="button"
             className="flex w-16 flex-col items-center gap-0.5 rounded-2xl px-2 py-1.5 text-[#5d6b62]"
             onClick={() => {
               setAccount(false);
+              if (onTrip) {
+                flash("You are on vacation. Fly home to shop your house.", true);
+                setTab("map");
+                return;
+              }
               setRoomEntry("shop");
               setShopNonce((value) => value + 1);
               setTab("room");
@@ -428,6 +448,7 @@ export function GameShell({ view }: { view: GameView }) {
         </nav>
         {ride ? <RideScene vehicle={ride.vehicle} carId={ride.carId} onArrive={finishRide} /> : null}
         {flight ? (
+          skyReady ? (
           <FlightScene
             city={flight.city}
             look={me.look}
@@ -448,6 +469,9 @@ export function GameShell({ view }: { view: GameView }) {
               });
             }}
           />
+          ) : (
+            <div className="fixed inset-0 z-[300] bg-[#050814]" />
+          )
         ) : null}
         {homeSheet && !ride ? (
           <div className="absolute inset-0 z-[60]" onClick={() => setHomeSheet(false)}>
@@ -1561,7 +1585,7 @@ function AirportDesk({ pending, onFly }: { pending: boolean; onFly: (tripId: str
     <div className="grid gap-2 rounded-2xl bg-[#f4efe4] p-3">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#a9782a]">Departures</p>
-        <p className="mt-1 text-sm text-[#5d6b62]">The price is the flight and the vacation together. When the days end, you are inside your house. Rent can fall due while you are gone. A lecture you miss is missed. An open police invite still counts.</p>
+        <p className="mt-1 text-sm text-[#5d6b62]">The price is the flight and the vacation together. You land in that city's hotel. Sit, sleep, then fly home when you are done. Rent can fall due while you are gone. A lecture you miss is missed. An open police invite still counts.</p>
       </div>
       {TRIPS.map((trip) => (
         <button
