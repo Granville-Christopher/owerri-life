@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import * as THREE from "three";
 import { CAR_CATALOG, carById } from "@/lib/game/content";
-import { makeEnvironment } from "./realCars";
-import { makePhotoCar, makePhotoVehicle } from "./photoVehicles";
+import { buildCabMesh, buildDetailedCarMesh } from "./carModels";
+import { loadAllRealCars, makeEnvironment, makeRealCar, realKindFor } from "./realCars";
 
 type RideVehicle = "car" | "bus" | "cab" | "okada";
 
@@ -556,16 +556,25 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
     // ── Your vehicle ─────────────────────────────────────────────────
     const rig = new THREE.Group();
     scene.add(rig);
+    let alive = true;
     if (vehicle === "bus") {
-      rig.add(makePhotoVehicle("bus"));
+      rig.add(block(2.35, 0.35, 7.2, 0x1f6b45));
+      rig.add(block(2.2, 1.7, 6.6, 0xf4efe4, 0, 1.15, 0));
+      rig.add(block(2.25, 0.7, 5.4, 0x8ec4ea, 0, 1.45, 0.1));
+      rig.add(block(2.05, 0.7, 0.08, 0xd7eef8, 0, 1.4, 3.32));
+      rig.add(block(2.1, 0.16, 0.2, 0xfff6d8, 0, 0.7, 3.4));
+      [-2.2, 2.1].forEach((z) => {
+        wheel(-1.15, 0.34, z).forEach((part) => rig.add(part));
+        wheel(1.15, 0.34, z).forEach((part) => rig.add(part));
+      });
     } else if (vehicle === "cab") {
-      rig.add(makePhotoVehicle("cab"));
+      rig.add(buildCabMesh());
     } else if (vehicle === "okada") {
-      rig.add(makePhotoVehicle("okada"));
+      rig.add(buildOkadaMesh());
     } else {
-      rig.add(makePhotoCar(deal.id));
+      rig.add(buildDetailedCarMesh(deal, undefined, true));
     }
-    // seat camera stays in the vehicle's own space
+    const placeholder = rig.children[rig.children.length - 1];
     const real: { eye: THREE.Vector3 | null; steer: THREE.Object3D | null } = {
       eye: vehicle === "okada" ? new THREE.Vector3(0, 1.32, 0.42) : null,
       steer: null,
@@ -576,21 +585,42 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
 
     // ── Other traffic ────────────────────────────────────────────────
     const trafficDeals = CAR_CATALOG.filter((c) => c.id !== "bugatti");
+    const paints = [0xf2c14e, 0xc4552a, 0x17241e, 0x245c78, 0x1f6b45, 0xf4efe4, 0x8c2438, 0x3d4f6f];
     type Flow = { mesh: THREE.Object3D; s0: number; speed: number; lane: number; dir: 1 | -1 };
     const flow: Flow[] = [];
     const sameStarts = [startAt + 22, startAt + 45, startAt + 60, startAt + 85, startAt + 105, startAt + 130, startAt + 150, startAt - 28, startAt + 170, startAt + 190];
     const oppStarts = [startAt + 35, startAt + 50, startAt + 70, startAt + 95, startAt + 120, startAt + 145, startAt + 170, startAt + 12, startAt + 195, startAt + 215, startAt + 235, startAt + 80];
     const pick = () => trafficDeals[Math.floor(rand() * trafficDeals.length)];
-    sameStarts.forEach((s0, i) => {
-      const model = makePhotoCar(pick().id);
+    sameStarts.forEach((s0) => {
+      const model = buildDetailedCarMesh(pick(), paints[Math.floor(rand() * paints.length)], true);
       scene.add(model);
       flow.push({ mesh: model, s0, speed: 0.55 + rand() * 0.95, lane: OUTER_LANE, dir: 1 });
-      void i;
     });
     oppStarts.forEach((s0, i) => {
-      const model = makePhotoCar(pick().id);
+      const model = buildDetailedCarMesh(pick(), paints[Math.floor(rand() * paints.length)], true);
       scene.add(model);
       flow.push({ mesh: model, s0, speed: 0.8 + rand() * 0.6, lane: i % 2 === 0 ? OWN_LANE : OUTER_LANE, dir: -1 });
+    });
+    void loadAllRealCars().then(() => {
+      if (!alive) return;
+      if (vehicle === "car" || vehicle === "cab") {
+        const kind = vehicle === "cab" ? "sedan" : realKindFor(deal);
+        const made = makeRealCar(kind, { color: vehicle === "cab" ? 0xf2c14e : deal.defaultColor });
+        if (made) {
+          rig.remove(placeholder);
+          rig.add(made.group);
+          real.eye = vehicle === "cab" ? made.rear : made.driver;
+          real.steer = made.steer;
+        }
+      }
+      flow.forEach((item, index) => {
+        const deal2 = trafficDeals[(index * 5 + 3) % trafficDeals.length];
+        const made = makeRealCar(realKindFor(deal2), { color: paints[(index * 3) % paints.length], plain: true });
+        if (!made) return;
+        scene.remove(item.mesh);
+        item.mesh = made.group;
+        scene.add(made.group);
+      });
     });
 
     // people on the pavement
@@ -636,7 +666,6 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
     let steer = 0;
     let lastTick = performance.now();
     let frame = 0;
-    let alive = true;
     const started = performance.now();
     const loop = () => {
       if (!alive) return;

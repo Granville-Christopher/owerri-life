@@ -1,0 +1,2 @@
+supercar.glb — Ferrari 488 GTB by Karol Miklas, CC-BY 4.0, via three.js examples.
+sedan.glb — Khronos / glTF Sample Assets CarConcept, CC-BY 4.0.

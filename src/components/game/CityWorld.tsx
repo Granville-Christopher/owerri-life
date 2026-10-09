@@ -3,7 +3,8 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { PLACES, type Place } from "@/lib/game/content";
-import { makeTrafficPhoto } from "./photoVehicles";
+import { buildDetailedCarMesh } from "./carModels";
+import { makeRealCar } from "./realCars";
 
 const SPAN = 5.6;
 const LIMIT = 480;
@@ -392,9 +393,12 @@ export function CityWorld({
     }
 
     let cityCar = 0;
-    function carMesh(_color: number) {
-      const mesh = makeTrafficPhoto(cityCar);
+    const CITY_CATS = ["Sedan", "SUV", "Sports Coupe", "Pickup", "Electric"] as const;
+    function carMesh(color: number) {
+      const cat = CITY_CATS[cityCar % CITY_CATS.length];
+      const made = makeRealCar(cat === "Sports Coupe" ? "supercar" : "sedan", { color, plain: true });
       cityCar += 1;
+      const mesh = made ? made.group : buildDetailedCarMesh({ category: cat, defaultColor: color }, color, true);
       mesh.scale.setScalar(0.72);
       return mesh;
     }
@@ -511,13 +515,14 @@ export function CityWorld({
     const landmark = new Set(["sam-mbakwe", "state-cid", "imsu", "futo", "fedpoly-nekede", "eke-ukwu", "relief-market", "ikenegbu-market", "owerri-mall", "heroes-square", "stadium", "owerri-west-palms", "cartel-beach", "heartland-resort", "nworie-park", "amusement-park", "city-bank", "teaching-hospital", "general-hospital", "umezuruike-hospital", "st-davids", "shelly-hospital", "imo-specialist"]);
     const roadside = new Set(["mama-nkechi", "feedwell"]);
     const phoneShops = new Set(["anonymous-gadgets", "sugar-gadgets", "buc-phones", "elion-phones", "ocha-gadgets", "maxii-gadgets", "easy-life", "gadgets-plug"]);
-    const pinned = new Set(["car-stand", "assumpta-cathedral", "everyday", "wetheral-strip", ...phoneShops]);
+    const pinned = new Set(["car-stand", "assumpta-cathedral", "sam-mbakwe", "wetheral-strip", ...phoneShops]);
     const hotels = new Set(PLACES.filter((place) => place.kind === "hotel").map((place) => place.id));
     const pickups = new Set(PLACES.filter((place) => place.kind === "pickup").map((place) => place.id));
     const kindOf = new Map(PLACES.map((place) => [place.id, place.kind]));
     function footOf(id: string) {
       const kind = kindOf.get(id) ?? "public";
-      if (id === "sam-mbakwe") return { hx: 28, hz: 20 };
+      if (id === "sam-mbakwe") return { hx: 100, hz: 72 };
+      if (id === "everyday") return { hx: 12, hz: 10 };
       if (id === "assumpta-cathedral") return { hx: 26, hz: 20 };
       if (schools.has(id)) return { hx: 48, hz: 36 };
       if (id === "stadium" || id === "heroes-square") return { hx: 22, hz: 18 };
@@ -704,8 +709,11 @@ export function CityWorld({
       } else {
         mart.x = church.x + 44;
         mart.z = church.z;
-        parkOffRoad(mart, 12, 10);
       }
+      parkOffRoad(mart, 12, 10);
+      keepClear.push({ x: mart.x, z: mart.z, hx: 12, hz: 10 });
+    } else if (mart) {
+      parkOffRoad(mart, 12, 10);
       keepClear.push({ x: mart.x, z: mart.z, hx: 12, hz: 10 });
     }
     function roadSpan(axis: "x" | "z", fixed: number, from: number, to: number) {
@@ -808,7 +816,17 @@ export function CityWorld({
       parkOffRoad(item, foot.hx, foot.hz);
       keepClear.push({ x: item.x, z: item.z, hx: foot.hx, hz: foot.hz });
     }
+    const polyAt = laid.get("fedpoly-nekede");
+    const riceAt = {
+      x: (polyAt?.x ?? spot(26, 88).x) + 118,
+      z: (polyAt?.z ?? spot(26, 88).z) + 10,
+    };
+    const farmBoxes = [
+      { x: -320, z: 260, hx: 50, hz: 38 },
+      { x: riceAt.x, z: riceAt.z, hx: 50, hz: 38 },
+    ];
     function hitsPeer(self: string, x: number, z: number, hx: number, hz: number) {
+      if (farmBoxes.some((farm) => boxesClash(x, z, hx, hz, farm.x, farm.z, farm.hx, farm.hz, 10))) return true;
       return laidSpots.some((other) => {
         if (other.id === self) return false;
         const o = footOf(other.id);
@@ -865,6 +883,8 @@ export function CityWorld({
         shoveOut(item, Math.max(foot.hx, foot.hz) + 4);
       }
     }
+    const martAfter = laid.get("everyday");
+    if (martAfter) parkOffRoad(martAfter, 12, 10);
     for (const item of laidSpots) {
       if (pickups.has(item.id) || hotels.has(item.id) || item.id === "channel-garden") {
         const foot = footOf(item.id);
@@ -872,6 +892,8 @@ export function CityWorld({
       }
     }
     const airportAt = laid.get("sam-mbakwe");
+    if (airportAt) keepClear.push({ x: airportAt.x, z: airportAt.z, hx: 100, hz: 72 });
+    keepClear.push({ x: riceAt.x, z: riceAt.z, hx: 50, hz: 38 });
     function nearAirport(x: number, z: number) {
       if (!airportAt) return false;
       return Math.abs(x - airportAt.x) < 100 && Math.abs(z - airportAt.z) < 72;
@@ -928,7 +950,7 @@ export function CityWorld({
             if (hotels.has(spot.id)) return Math.abs(x - spot.x) < 10 && Math.abs(z - spot.z) < 6;
             return false;
           });
-          if (onStrip(x, z, 2) || crowded) continue;
+          if (onStrip(x, z, 2) || crowded || Math.abs(x - riceAt.x) < 50 && Math.abs(z - riceAt.z) < 38) continue;
           house(x, z, 0xf4efe4, 1.15, 0x2f6b45);
         }
       }
@@ -1007,7 +1029,7 @@ export function CityWorld({
     byPlace("ikenegbu", 18, -16, -0.2, "Ikenegbu rooms", "The cheap side of town", "#8a5a2a");
     byPlace("eke-ukwu", 40, 22, 0.5, "Ad board", "This face is for sale", "#a9782a");
     placeSign(-320, 312, 0.2, "Egbu farms", "Cassava every Saturday", "#3d6b4f");
-    placeSign(210, 300, 0.1, "Nekede rice", "Opens with your level", "#143d2c");
+    placeSign(riceAt.x, riceAt.z + 52, 0.1, "Nekede rice", "Beside Federal Polytechnic Nekede", "#143d2c");
     const otamiriSign = otamiriPts[52];
     const otamiriBack = otamiriPts[49];
     const otamiriFore = otamiriPts[55];
@@ -1253,7 +1275,7 @@ export function CityWorld({
       pill(label, new THREE.Vector3(x, 4, z));
     }
     field(-320, 260, "Egbu farmland · level 3");
-    field(210, 248, "Nekede rice · level 4");
+    field(riceAt.x, riceAt.z, "Nekede rice · level 4");
 
     function palmEstate(x: number, z: number) {
       const group = new THREE.Group();

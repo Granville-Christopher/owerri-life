@@ -22,7 +22,8 @@ import { PickupStreetScene } from "./PickupStreetScene";
 import { createRealisticHuman } from "@/lib/game/humanModel";
 import { HospitalScene } from "./HospitalScene";
 import { PoliceStationScene } from "./PoliceStationScene";
-import { makePhotoCar, makeTrafficPhoto } from "./photoVehicles";
+import { buildDetailedCarMesh } from "./carModels";
+import { loadAllRealCars, loadRealCar, makeRealCar, realKindFor } from "./realCars";
 
 export function PersonFigure({
   look,
@@ -1074,10 +1075,13 @@ function frontBoard(title: string, line: string, fill: string, ink: string) {
   return map;
 }
 
-let parkedPhoto = 0;
-function parkedCar(_color: number, x: number, z: number, rot = Math.PI) {
-  const car = makeTrafficPhoto(parkedPhoto);
-  parkedPhoto += 1;
+const PARKED_CATS = ["Sedan", "SUV", "Sports Coupe", "Pickup"] as const;
+let parkedIndex = 0;
+function parkedCar(color: number, x: number, z: number, rot = Math.PI) {
+  const cat = PARKED_CATS[parkedIndex % PARKED_CATS.length];
+  parkedIndex += 1;
+  const made = makeRealCar(cat === "Sports Coupe" ? "supercar" : "sedan", { color, plain: true });
+  const car = made ? made.group : buildDetailedCarMesh({ category: cat, defaultColor: color }, color, true);
   car.position.set(x, 0, z);
   car.rotation.y = rot;
   return car;
@@ -3414,14 +3418,27 @@ function RoomView({
           garage.add(empty);
         }
         fleet.forEach((id, index) => {
-          const parked = makePhotoCar(id);
-          parked.position.set(-bayW / 2 + 4.2 + index * 5.4, 0, 0.3);
-          garage.add(parked);
-          const tag = labelSprite(carById(id)?.name ?? id);
+          const deal = carById(id);
+          const holder = new THREE.Group();
+          holder.position.set(-bayW / 2 + 4.2 + index * 5.4, 0, 0.3);
+          garage.add(holder);
+          const place = () => {
+            holder.clear();
+            if (deal) {
+              const made = makeRealCar(realKindFor(deal), { color: deal.defaultColor });
+              holder.add(made ? made.group : buildDetailedCarMesh(deal));
+            } else {
+              holder.add(buildDetailedCarMesh({ category: "Sedan", defaultColor: 0x245c78 }, 0x245c78));
+            }
+          };
+          place();
+          if (deal) void loadRealCar(realKindFor(deal)).then(place);
+          const tag = labelSprite(deal?.name ?? id);
           tag.scale.set(3.4, 0.85, 1);
           tag.position.set(-bayW / 2 + 4.2 + index * 5.4, 2.35, 2.4);
           garage.add(tag);
         });
+        void loadAllRealCars();
         cursor += 12;
         widest = Math.max(widest, bayW);
         target = board;

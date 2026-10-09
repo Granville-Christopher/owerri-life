@@ -3,6 +3,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import type { CarDeal } from "@/lib/game/content";
+import { buildDetailedCarMesh } from "./carModels";
 
 // Two real, detailed car models in public/models/cars:
 //   supercar.glb — Ferrari 488 GTB by Karol Miklas (CC-BY 4.0), via three.js
@@ -201,4 +202,12 @@ export function makeRealCar(kind: RealKind, options: RealCarOptions): { group: T
     }
   }
   return { group, driver: loaded.driver.clone(), rear: loaded.rear.clone(), steer };
+}
+
+/** GLB when the model is ready, otherwise a solid 3D body — never a flat photo. */
+export function carGroupFor(car: Pick<CarDeal, "category" | "defaultColor">, opts?: { color?: number; plain?: boolean }): THREE.Group {
+  const color = opts?.color ?? car.defaultColor;
+  const made = makeRealCar(realKindFor(car), { color, plain: opts?.plain });
+  if (made) return made.group;
+  return buildDetailedCarMesh(car, color, opts?.plain ?? false);
 }

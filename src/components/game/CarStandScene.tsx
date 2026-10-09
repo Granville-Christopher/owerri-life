@@ -7,8 +7,9 @@ import { createRealisticHuman } from "@/lib/game/humanModel";
 import { naira } from "@/lib/game/format";
 import { attachSceneCameraControls } from "./sceneCameraControls";
 import { CAR_CATALOG, type CarDeal } from "@/lib/game/content";
-import { makeEnvironment } from "./realCars";
-import { makePhotoCar, photoForVehicle } from "./photoVehicles";
+import { loadRealCar, makeEnvironment, makeRealCar, realKindFor } from "./realCars";
+import { buildDetailedCarMesh } from "./carModels";
+import { photoForVehicle } from "./photoVehicles";
 
 export type { CarDeal };
 export { CAR_CATALOG };
@@ -190,8 +191,17 @@ export function CarStandScene({
     showroom.add(turntable);
     turntableRef.current = turntable;
 
-    const featuredCarMesh = makePhotoCar(selectedCar);
-    turntable.add(featuredCarMesh);
+    const featuredHolder = new THREE.Group();
+    turntable.add(featuredHolder);
+    const putCar = (into: THREE.Group, car: CarDeal) => {
+      into.clear();
+      const made = makeRealCar(realKindFor(car), { color: car.defaultColor });
+      into.add(made ? made.group : buildDetailedCarMesh(car));
+    };
+    putCar(featuredHolder, selectedCar);
+    void loadRealCar(realKindFor(selectedCar)).then(() => {
+      if (alive) putCar(featuredHolder, selectedCar);
+    });
 
     // ─────────────────────────────────────────────────────────────
     // 2. SHOWROOM DISPLAY LOT CARS (Surrounding Rows)
@@ -206,10 +216,14 @@ export function CarStandScene({
     lotSpots.forEach(([lx, lz, ry], index) => {
       const pick = lotCars[(index * 2 + (selectedCar.id.length % 2)) % lotCars.length];
       if (!pick) return;
-      const lot = makePhotoCar(pick);
+      const lot = new THREE.Group();
       lot.position.set(lx, 0, lz);
       lot.rotation.y = ry;
+      putCar(lot, pick);
       showroom.add(lot);
+      void loadRealCar(realKindFor(pick)).then(() => {
+        if (alive) putCar(lot, pick);
+      });
     });
 
     // ─────────────────────────────────────────────────────────────
