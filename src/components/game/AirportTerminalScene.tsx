@@ -7,6 +7,7 @@ import type { LookId } from "@/lib/game/types";
 import { addPlayerGuests, createRealisticHuman, type CrowdPerson } from "@/lib/game/humanModel";
 import { naira } from "@/lib/game/format";
 import { attachSceneCameraControls } from "./sceneCameraControls";
+import { addAirlinerLivery } from "./airlinerLivery";
 
 // Flight Information Display System Canvas Texture
 function createFIDSTexture(): THREE.CanvasTexture {
@@ -239,6 +240,7 @@ export function AirportTerminalScene({
     tailFin.rotation.x = -0.4;
     tailFin.castShadow = true;
     planeGroup.add(tailFin);
+    addAirlinerLivery(planeGroup, { radius: 1.2, height: 2.2, length: 12, axis: "z" });
 
     // ─────────────────────────────────────────────────────────────
     // 3. FLIGHT INFORMATION DISPLAY SYSTEM (FIDS) BOARD

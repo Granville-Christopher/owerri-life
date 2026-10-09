@@ -6,6 +6,7 @@ import { makeRenderer } from "@/lib/game/renderQuality";
 import { PLACES, type Place } from "@/lib/game/content";
 import { buildDetailedCarMesh } from "./carModels";
 import { makeRealCar } from "./realCars";
+import { addAirlinerLivery } from "./airlinerLivery";
 
 const SPAN = 5.6;
 const LIMIT = 480;
@@ -1206,6 +1207,12 @@ export function CityWorld({
         const stab = new THREE.Mesh(new THREE.BoxGeometry(0.7 * scale, 0.06 * scale, 2.6 * scale), new THREE.MeshLambertMaterial({ color: 0xd5dee8 }));
         stab.position.set(-3 * scale, 0.95 * scale, 0);
         plane.add(fuse, nose, wing, fin, stab);
+        addAirlinerLivery(plane, {
+          radius: 0.4 * scale,
+          height: 0.85 * scale,
+          length: 6.4 * scale,
+          axis: "x",
+        });
         if (jet) {
           for (const side of [-1.5, 1.5]) {
             const engine = new THREE.Mesh(new THREE.CylinderGeometry(0.2 * scale, 0.22 * scale, 1.3 * scale, 8), new THREE.MeshLambertMaterial({ color: 0x7d8b99 }));

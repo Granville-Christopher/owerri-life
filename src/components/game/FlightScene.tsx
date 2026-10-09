@@ -7,6 +7,7 @@ import { makeRenderer } from "@/lib/game/renderQuality";
 import { createRealisticHuman, weakGpu } from "@/lib/game/humanModel";
 import type { LookId } from "@/lib/game/types";
 import { loadRealAirliner } from "@/components/game/realPlane";
+import { addAirlinerLivery, paintCabinDoor, paintOwerriTitle } from "@/components/game/airlinerLivery";
 import { attachSceneCameraControls, clampViewZoom, VIEW_ZOOM } from "@/components/game/sceneCameraControls";
 
 const FLIGHT_MS = 22000;
@@ -70,74 +71,6 @@ function paintCloud(): THREE.CanvasTexture {
       ctx.arc(x, y, r, 0, Math.PI * 2);
       ctx.fill();
     }
-  }
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
-
-function paintTitle(): THREE.CanvasTexture {
-  const canvas = document.createElement("canvas");
-  canvas.width = 2048;
-  canvas.height = 512;
-  const ctx = canvas.getContext("2d");
-  if (ctx) {
-    ctx.clearRect(0, 0, 2048, 512);
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.lineJoin = "round";
-    ctx.lineCap = "round";
-    ctx.font = "900 179px Impact, Arial Black, sans-serif";
-    ctx.strokeStyle = "#0e1c16";
-    ctx.lineWidth = 36;
-    ctx.strokeText("OWERRI LIFE", 1024, 250);
-    ctx.strokeStyle = "#143d2c";
-    ctx.lineWidth = 19;
-    ctx.strokeText("OWERRI LIFE", 1024, 250);
-    ctx.fillStyle = "#e0b15a";
-    ctx.fillText("OWERRI LIFE", 1024, 250);
-  }
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 8;
-  tex.needsUpdate = true;
-  return tex;
-}
-
-function paintDoor(): THREE.CanvasTexture {
-  const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 512;
-  const ctx = canvas.getContext("2d");
-  if (ctx) {
-    ctx.fillStyle = "#d8dee6";
-    ctx.fillRect(0, 0, 256, 512);
-    ctx.strokeStyle = "#1a2430";
-    ctx.lineWidth = 16;
-    ctx.strokeRect(8, 8, 240, 496);
-    ctx.strokeStyle = "#8a93a0";
-    ctx.lineWidth = 6;
-    ctx.strokeRect(22, 22, 212, 468);
-    ctx.fillStyle = "#16344c";
-    ctx.beginPath();
-    ctx.ellipse(128, 148, 46, 56, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "#c5ccd6";
-    ctx.lineWidth = 8;
-    ctx.stroke();
-    ctx.fillStyle = "#143d2c";
-    ctx.fillRect(40, 236, 176, 64);
-    ctx.fillStyle = "#e0b15a";
-    ctx.font = "bold 42px sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("EXIT", 128, 268);
-    ctx.fillStyle = "#c4a15a";
-    ctx.fillRect(168, 340, 52, 16);
-    ctx.fillStyle = "#1a2430";
-    ctx.fillRect(172, 344, 44, 8);
-    ctx.fillStyle = "#c4552a";
-    ctx.fillRect(28, 452, 200, 18);
   }
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
@@ -330,28 +263,8 @@ function buildFallbackAirliner() {
   const stab = new THREE.Mesh(new THREE.BoxGeometry(6.4, 0.1, 1.5), white);
   stab.position.set(0, 0.55, -8.1);
   plane.add(stab);
+  addAirlinerLivery(plane, { radius: 1.22, height: 0, length: 16.5, axis: "z" });
   return plane;
-}
-
-function hullMeshes(root: THREE.Object3D) {
-  const meshes: THREE.Mesh[] = [];
-  root.traverse((obj) => {
-    if (obj instanceof THREE.Mesh) meshes.push(obj);
-  });
-  return meshes;
-}
-
-function hullX(meshes: THREE.Mesh[], fromX: number, y: number, z: number, dirX: number) {
-  const ray = new THREE.Raycaster(new THREE.Vector3(fromX, y, z), new THREE.Vector3(dirX, 0, 0), 0, 12);
-  const hit = ray.intersectObjects(meshes, false)[0];
-  return hit ? hit.point.x : null;
-}
-
-function skinX(meshes: THREE.Mesh[], centreX: number, y: number, z: number, side: number, radius: number) {
-  const start = centreX + side * Math.min(4.4, Math.max(2.1, radius * 2.6));
-  const hit = hullX(meshes, start, y, z, -side);
-  const x = hit ?? centreX + side * radius;
-  return x + side * 0.02;
 }
 
 function dressAirliner(plane: THREE.Group, title: THREE.Texture, doorTex: THREE.Texture) {
@@ -359,98 +272,14 @@ function dressAirliner(plane: THREE.Group, title: THREE.Texture, doorTex: THREE.
   const box = new THREE.Box3().setFromObject(plane);
   const size = box.getSize(new THREE.Vector3());
   const centre = box.getCenter(new THREE.Vector3());
-  const meshes = hullMeshes(plane);
-  const probeYs = [-0.22, -0.14, -0.06, 0.02, 0.1].map((t) => centre.y + size.y * t);
-  let radius = Math.min(1.28, size.y * 0.18);
-  let windowY = centre.y + 0.38;
-  for (const y of probeYs) {
-    const right = hullX(meshes, centre.x + Math.min(4.2, size.x * 0.16), y, centre.z, -1);
-    const left = hullX(meshes, centre.x - Math.min(4.2, size.x * 0.16), y, centre.z, 1);
-    if (right == null && left == null) continue;
-    const span = ((right != null ? Math.abs(right - centre.x) : 0) + (left != null ? Math.abs(left - centre.x) : 0)) / (right != null && left != null ? 2 : 1);
-    if (span > 0.45 && span < Math.min(2.4, size.x * 0.14)) {
-      radius = span;
-      windowY = y + span * 0.22;
-      break;
-    }
-  }
-  const doorZs = [box.max.z - size.z * 0.16, box.min.z + size.z * 0.15];
-  const overwingZ = centre.z + size.z * 0.02;
-  const skip = [...doorZs, overwingZ];
-  const near = (z: number, spots: number[], pad: number) => spots.some((spot) => Math.abs(z - spot) < pad);
-
-  const glass = new THREE.MeshLambertMaterial({ color: 0x1a3a55, emissive: 0x6ec8ff, emissiveIntensity: 0.7 });
-  const rimMat = new THREE.MeshLambertMaterial({ color: 0x2a3340 });
-  const winCount = 18;
-  const z0 = box.min.z + size.z * 0.22;
-  const z1 = box.max.z - size.z * 0.22;
-  for (let i = 0; i < winCount; i += 1) {
-    const z = z0 + (i / (winCount - 1)) * (z1 - z0);
-    if (near(z, skip, size.z * 0.045)) continue;
-    for (const side of [-1, 1]) {
-      const x = skinX(meshes, centre.x, windowY, z, side, radius);
-      const rim = new THREE.Mesh(new THREE.CircleGeometry(0.16, 12), rimMat);
-      rim.scale.set(1, 1.35, 1);
-      rim.position.set(x, windowY, z);
-      rim.rotation.y = side > 0 ? Math.PI / 2 : -Math.PI / 2;
-      plane.add(rim);
-      const pane = new THREE.Mesh(new THREE.CircleGeometry(0.12, 12), glass);
-      pane.scale.set(1, 1.35, 1);
-      pane.position.set(x + side * 0.012, windowY, z);
-      pane.rotation.y = side > 0 ? Math.PI / 2 : -Math.PI / 2;
-      plane.add(pane);
-    }
-  }
-
-  const doorH = Math.min(1.72, radius * 1.35);
-  const doorW = Math.min(0.82, size.z * 0.042);
-  const doorY = windowY - doorH * 0.18;
-  const doorMat = new THREE.MeshBasicMaterial({ map: doorTex, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
-  const frameMat = new THREE.MeshBasicMaterial({ color: 0x1a2430, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
-  for (const z of doorZs) {
-    for (const side of [-1, 1]) {
-      const x = skinX(meshes, centre.x, doorY, z, side, radius);
-      const frame = new THREE.Mesh(new THREE.PlaneGeometry(doorW + 0.1, doorH + 0.12), frameMat);
-      frame.position.set(x, doorY, z);
-      frame.rotation.y = side > 0 ? Math.PI / 2 : -Math.PI / 2;
-      plane.add(frame);
-      const leaf = new THREE.Mesh(new THREE.PlaneGeometry(doorW, doorH), doorMat);
-      leaf.position.set(x + side * 0.012, doorY, z);
-      leaf.rotation.y = side > 0 ? Math.PI / 2 : -Math.PI / 2;
-      plane.add(leaf);
-    }
-  }
-  const hatchW = doorW * 0.62;
-  const hatchH = doorH * 0.42;
-  for (const side of [-1, 1]) {
-    const x = skinX(meshes, centre.x, windowY, overwingZ, side, radius);
-    const hatch = new THREE.Mesh(new THREE.PlaneGeometry(hatchW, hatchH), doorMat);
-    hatch.position.set(x + side * 0.012, windowY, overwingZ);
-    hatch.rotation.y = side > 0 ? Math.PI / 2 : -Math.PI / 2;
-    plane.add(hatch);
-  }
-
-  const titleMat = new THREE.MeshBasicMaterial({
-    map: title,
-    transparent: true,
-    side: THREE.DoubleSide,
-    depthWrite: false,
-    depthTest: true,
-    polygonOffset: true,
-    polygonOffsetFactor: -4,
-    polygonOffsetUnits: -4,
+  addAirlinerLivery(plane, {
+    radius: Math.min(1.5, Math.max(0.95, size.y * 0.155)),
+    height: centre.y - size.y * 0.12,
+    length: size.z * 0.62,
+    axis: "z",
+    title,
+    door: doorTex,
   });
-  const decalW = Math.min(16.5, size.z * 0.78) * (2 / 3);
-  const decalH = Math.min(1.6, radius * 1.15);
-  const titleZ = centre.z + size.z * 0.04;
-  const titleY = windowY + radius * 0.55;
-  for (const side of [-1, 1]) {
-    const x = skinX(meshes, centre.x, titleY, titleZ, side, radius);
-    const decal = new THREE.Mesh(new THREE.PlaneGeometry(decalW, decalH), titleMat);
-    decal.position.set(x + side * 0.02, titleY, titleZ);
-    decal.rotation.y = side > 0 ? Math.PI / 2 : -Math.PI / 2;
-    plane.add(decal);
-  }
   const red = new THREE.PointLight(0xff2a2a, 2.4, 8);
   red.position.set(box.min.x, centre.y, centre.z);
   const green = new THREE.PointLight(0x22c55e, 2.4, 8);
@@ -565,25 +394,21 @@ export function FlightScene({
     );
     scene.add(stars);
 
-    const title = paintTitle();
-    const doorTex = paintDoor();
+    const title = paintOwerriTitle();
+    const doorTex = paintCabinDoor();
     let alive = true;
     const flight = new THREE.Group();
     scene.add(flight);
     const exterior = new THREE.Group();
     flight.add(exterior);
-    let planeAsked = false;
-    const askPlane = () => {
-      if (planeAsked) return;
-      planeAsked = true;
-      void loadRealAirliner().then((model) => {
-        if (!alive) return;
-        const plane = model ?? buildFallbackAirliner();
-        dressAirliner(plane, title, doorTex);
-        exterior.add(plane);
-      });
-    };
-    if (!lite) askPlane();
+    const fallbackPlane = buildFallbackAirliner();
+    exterior.add(fallbackPlane);
+    void loadRealAirliner().then((model) => {
+      if (!alive || !model) return;
+      dressAirliner(model, title, doorTex);
+      exterior.remove(fallbackPlane);
+      exterior.add(model);
+    });
 
     lookRig.current = { yaw: 0, pitch: 0, zoom: 1 };
     const cabin = buildCabin(lite, doorTex);
@@ -670,7 +495,6 @@ export function FlightScene({
         camera.updateProjectionMatrix();
         camReady = false;
       } else {
-        askPlane();
         cabin.visible = false;
         exterior.visible = true;
         const swing = Math.sin(now / 4200) * 3.2;
