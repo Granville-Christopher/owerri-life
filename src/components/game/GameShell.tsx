@@ -2124,6 +2124,7 @@ function PeoplePanel({
           <p className="mt-2 text-[10px] leading-4 text-[#d5e4d8]">Private chat. Only you and {peer.name} can see this.</p>
           {peer.id !== POLICE_ID ? (
             <div className="mt-2 flex flex-wrap gap-1">
+              <button type="button" disabled={pending} className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold" onClick={() => onMeet(peer.id)}>Meet</button>
               <button type="button" disabled={pending} className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold" onClick={() => run(() => inviteOver(peer.id))}>Invite over</button>
               <button type="button" disabled={pending} className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold" onClick={() => run(() => visitHouseOf(peer.id)).then((result) => { if (result.ok) onVisit?.(); })}>Visit house</button>
               <button type="button" disabled={pending} className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold" onClick={() => { const amount = Number(window.prompt("How much naira?", "5000")); if (amount) run(() => sendMoney(peer.id, amount)); }}>Send money</button>
@@ -2186,7 +2187,6 @@ function PeoplePanel({
             >
               <VoiceNoteButton peerId={peer.id} disabled={pending} />
               <input value={text} onChange={(event) => setText(event.target.value)} placeholder="Message" className="min-w-0 flex-1 rounded-full border border-[#e4d8c4] bg-white px-3 py-2 text-sm" />
-              <button type="button" className="rounded-full border border-[#1f6b45] px-3 py-2 text-sm font-semibold text-[#1f6b45]" disabled={pending} onClick={() => onMeet(peer.id)}>Meet</button>
               <button className="rounded-full bg-[#1f6b45] px-4 py-2 text-sm font-semibold text-[#f6f1e6]" disabled={pending}>Send</button>
             </form>
           </div>
