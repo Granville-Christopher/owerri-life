@@ -410,7 +410,7 @@ export function CityWorld({
         const mesh = carMesh(color);
         const along = min + ((i + 0.5) / count) * span;
         mesh.position.set(axis === "x" ? along : fixed, 0, axis === "z" ? along : fixed);
-        mesh.rotation.y = axis === "x" ? (direction > 0 ? 0 : Math.PI) : direction > 0 ? Math.PI / 2 : -Math.PI / 2;
+        mesh.rotation.y = axis === "x" ? (direction > 0 ? Math.PI / 2 : -Math.PI / 2) : direction > 0 ? 0 : Math.PI;
         scene.add(mesh);
         traffic.push({ mesh, along, axis, fixed, speed: 0.16 * direction, min, max });
       }
@@ -439,7 +439,7 @@ export function CityWorld({
         if (onStrip(x, z, 0)) continue;
         const mesh = carMesh(color);
         mesh.position.set(x, 0, z);
-        if (axis === "z") mesh.rotation.y = Math.PI / 2;
+        if (axis === "x") mesh.rotation.y = Math.PI / 2;
         scene.add(mesh);
       }
     }
