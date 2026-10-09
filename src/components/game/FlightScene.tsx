@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import * as THREE from "three";
-import { createRealisticHuman } from "@/lib/game/humanModel";
+import { createRealisticHuman, weakGpu } from "@/lib/game/humanModel";
 import type { LookId } from "@/lib/game/types";
 import { loadRealAirliner } from "@/components/game/realPlane";
 
@@ -102,23 +102,23 @@ function paintTitle(): THREE.CanvasTexture {
   return tex;
 }
 
-function cloth(color: number, rough = 0.82) {
-  return new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: 0.04, envMapIntensity: 0.35 });
+function cloth(color: number) {
+  return new THREE.MeshLambertMaterial({ color });
 }
 
 function block(w: number, h: number, d: number, color: number, x = 0, y = 0, z = 0, mat?: THREE.Material) {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat ?? cloth(color));
   mesh.position.set(x, y, z);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
+  mesh.castShadow = false;
+  mesh.receiveShadow = false;
   return mesh;
 }
 
 function seatMesh() {
   const seat = new THREE.Group();
-  const leather = cloth(0x1a3d52, 0.62);
-  const dark = cloth(0x101820, 0.7);
-  const metal = new THREE.MeshStandardMaterial({ color: 0x8a93a0, roughness: 0.35, metalness: 0.55 });
+  const leather = cloth(0x1a3d52);
+  const dark = cloth(0x101820);
+  const metal = new THREE.MeshLambertMaterial({ color: 0x8a93a0 });
   seat.add(block(0.5, 0.1, 0.52, 0x1a3d52, 0, 0.5, 0.02, leather));
   seat.add(block(0.5, 0.58, 0.1, 0x245c78, 0, 0.84, -0.22, leather));
   seat.add(block(0.42, 0.16, 0.08, 0x17394c, 0, 1.16, -0.23, leather));
@@ -136,14 +136,14 @@ function seatMesh() {
   return seat;
 }
 
-function buildCabin() {
+function buildCabin(lite: boolean) {
   const cabin = new THREE.Group();
-  const carpet = cloth(0x3a2a22, 0.92);
-  const aisle = cloth(0x5a4638, 0.88);
-  const wall = cloth(0xd8dee6, 0.78);
-  const cream = cloth(0xe8edf2, 0.74);
-  const binMat = cloth(0xc5ccd6, 0.55);
-  const gold = cloth(0xc4a15a, 0.45);
+  const carpet = cloth(0x3a2a22);
+  const aisle = cloth(0x5a4638);
+  const wall = cloth(0xd8dee6);
+  const cream = cloth(0xe8edf2);
+  const binMat = cloth(0xc5ccd6);
+  const gold = cloth(0xc4a15a);
 
   cabin.add(block(3.35, 0.06, 14.4, 0x3a2a22, 0, 0.03, 0, carpet));
   cabin.add(block(0.62, 0.02, 14.2, 0x5a4638, 0, 0.065, 0, aisle));
@@ -160,16 +160,16 @@ function buildCabin() {
   for (let i = 0; i < 10; i += 1) {
     const z = 5.6 - i * 1.22;
     for (const side of [-1, 1]) {
-      const frame = block(0.04, 0.34, 0.42, 0x9aa4b0, side * 1.6, 1.32, z, cloth(0x9aa4b0, 0.5));
+      const frame = block(0.04, 0.34, 0.42, 0x9aa4b0, side * 1.6, 1.32, z, cloth(0x9aa4b0));
       cabin.add(frame);
       const pane = new THREE.Mesh(
         new THREE.PlaneGeometry(0.3, 0.24),
-        new THREE.MeshStandardMaterial({ color: 0x7eb4d8, emissive: 0x4a7aa0, emissiveIntensity: 0.85, roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.7 }),
+        new THREE.MeshLambertMaterial({ color: 0x7eb4d8, emissive: 0x3a6280, emissiveIntensity: 0.4, transparent: true, opacity: 0.7 }),
       );
       pane.position.set(side * 1.58, 1.32, z);
       pane.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
       cabin.add(pane);
-      const reading = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.04, 10), cloth(0xf4e4b8, 0.4));
+      const reading = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.04, 8), cloth(0xf4e4b8));
       reading.position.set(side * 0.95, 1.84, z);
       cabin.add(reading);
     }
@@ -177,7 +177,7 @@ function buildCabin() {
     cabin.add(vent);
   }
 
-  const bulk = cloth(0x1f6b45, 0.7);
+  const bulk = cloth(0x1f6b45);
   cabin.add(block(3.2, 2.05, 0.12, 0x1f6b45, 0, 1.05, 6.95, bulk));
   cabin.add(block(0.7, 1.55, 0.04, 0x143d2c, 0, 0.9, 6.88, cloth(0x143d2c)));
   const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.18), new THREE.MeshBasicMaterial({ color: 0xe0b15a }));
@@ -200,11 +200,13 @@ function buildCabin() {
       cabin.add(chair);
       const playerSeat = row === 2 && x === -1.14;
       if (playerSeat) continue;
-      if ((row + Math.abs(x * 10)) % 4 === 0) continue;
+      if (lite && (row > 4 || (row + Math.abs(x)) % 2 === 0)) continue;
+      if (!lite && (row + Math.abs(x * 10)) % 4 === 0) continue;
       const person = createRealisticHuman({
         lookId: looks[(row * 3 + Math.abs(x * 10)) % looks.length],
         seated: true,
         scale: 0.78,
+        lite,
         customShirt: shirts[(row + Math.round(x + 2)) % shirts.length],
       });
       person.position.set(x, 0.12, z + 0.04);
@@ -216,13 +218,11 @@ function buildCabin() {
   const cabinLight = new THREE.PointLight(0xffe4c4, 1.15, 14);
   cabinLight.position.set(0, 1.75, 1.2);
   cabin.add(cabinLight);
-  const cabinFill = new THREE.PointLight(0xd7e6f5, 0.45, 16);
-  cabinFill.position.set(0, 1.6, -3);
-  cabin.add(cabinFill);
-  const aisleLight = new THREE.SpotLight(0xfff1dc, 0.55, 10, 0.7, 0.4);
-  aisleLight.position.set(0, 2.0, 2);
-  aisleLight.target.position.set(0, 0, 2);
-  cabin.add(aisleLight, aisleLight.target);
+  if (!lite) {
+    const cabinFill = new THREE.PointLight(0xd7e6f5, 0.45, 16);
+    cabinFill.position.set(0, 1.6, -3);
+    cabin.add(cabinFill);
+  }
   return cabin;
 }
 
@@ -286,14 +286,17 @@ export function FlightScene({
   useEffect(() => {
     const root = host.current;
     if (!root) return;
+    const lite = weakGpu();
     let renderer: THREE.WebGLRenderer;
     try {
-      renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "low-power" });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+      renderer = new THREE.WebGLRenderer({ antialias: !lite, powerPreference: "low-power", alpha: false });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, lite ? 1 : 1.5));
       renderer.setSize(root.clientWidth || 1, root.clientHeight || 1);
       renderer.outputColorSpace = THREE.SRGBColorSpace;
-      renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1.18;
+      if (!lite) {
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.18;
+      }
       root.appendChild(renderer.domElement);
     } catch {
       arrive();
@@ -316,13 +319,16 @@ export function FlightScene({
     const cityGlow = new THREE.DirectionalLight(0xe0b15a, 0.38);
     cityGlow.position.set(6, -18, 8);
     scene.add(cityGlow);
-    const pmrem = new THREE.PMREMGenerator(renderer);
-    const envScene = new THREE.Scene();
-    envScene.add(new THREE.HemisphereLight(0xc5d8f0, 0x2a2018, 2.2));
-    const envMap = pmrem.fromScene(envScene, 0.05).texture;
-    scene.environment = envMap;
-    scene.environmentIntensity = 0.85;
-    pmrem.dispose();
+    let envMap: THREE.Texture | null = null;
+    if (!lite) {
+      const pmrem = new THREE.PMREMGenerator(renderer);
+      const envScene = new THREE.Scene();
+      envScene.add(new THREE.HemisphereLight(0xc5d8f0, 0x2a2018, 2.2));
+      envMap = pmrem.fromScene(envScene, 0.05).texture;
+      scene.environment = envMap;
+      scene.environmentIntensity = 0.85;
+      pmrem.dispose();
+    }
 
     const cityMap = paintCity();
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), new THREE.MeshBasicMaterial({ map: cityMap }));
@@ -330,7 +336,7 @@ export function FlightScene({
     ground.position.y = -28;
     scene.add(ground);
 
-    for (let i = 0; i < 70; i += 1) {
+    for (let i = 0; i < (lite ? 18 : 70); i += 1) {
       const h = 1.2 + Math.random() * 6;
       const tower = new THREE.Mesh(
         new THREE.BoxGeometry(1.4 + Math.random() * 2.2, h, 1.4 + Math.random() * 2.2),
@@ -342,7 +348,7 @@ export function FlightScene({
 
     const cloudTex = paintCloud();
     const clouds: THREE.Mesh[] = [];
-    for (let i = 0; i < 16; i += 1) {
+    for (let i = 0; i < (lite ? 6 : 16); i += 1) {
       const cloud = new THREE.Mesh(
         new THREE.PlaneGeometry(28 + (i % 5) * 8, 12 + (i % 3) * 4),
         new THREE.MeshBasicMaterial({ map: cloudTex, transparent: true, opacity: 0.45, depthWrite: false, side: THREE.DoubleSide }),
@@ -354,7 +360,7 @@ export function FlightScene({
     }
 
     const stars = new THREE.Points(
-      new THREE.BufferGeometry().setFromPoints(Array.from({ length: 240 }, () => new THREE.Vector3((Math.random() - 0.5) * 400, 20 + Math.random() * 80, (Math.random() - 0.5) * 400))),
+      new THREE.BufferGeometry().setFromPoints(Array.from({ length: lite ? 80 : 240 }, () => new THREE.Vector3((Math.random() - 0.5) * 400, 20 + Math.random() * 80, (Math.random() - 0.5) * 400))),
       new THREE.PointsMaterial({ color: 0xffffff, size: 0.35 }),
     );
     scene.add(stars);
@@ -365,14 +371,20 @@ export function FlightScene({
     scene.add(flight);
     const exterior = new THREE.Group();
     flight.add(exterior);
-    void loadRealAirliner().then((model) => {
-      if (!alive || !model) return;
-      dressAirliner(model, title);
-      exterior.add(model);
-    });
+    let planeAsked = false;
+    const askPlane = () => {
+      if (planeAsked) return;
+      planeAsked = true;
+      void loadRealAirliner().then((model) => {
+        if (!alive || !model) return;
+        dressAirliner(model, title);
+        exterior.add(model);
+      });
+    };
+    if (!lite) askPlane();
 
-    const cabin = buildCabin();
-    const you = createRealisticHuman({ lookId: look, seated: true, scale: 0.8 });
+    const cabin = buildCabin(lite);
+    const you = createRealisticHuman({ lookId: look, seated: true, scale: 0.8, lite });
     you.position.set(-1.14, 0.12, 4.7 - 2 * 1.28);
     you.rotation.y = 0;
     cabin.add(you);
@@ -381,6 +393,7 @@ export function FlightScene({
       lookId: "ngozi",
       seated: false,
       scale: 0.86,
+      lite,
       customShirt: 0x1f6b45,
       customPants: 0x17241e,
     });
@@ -404,6 +417,7 @@ export function FlightScene({
     let camReady = false;
     const loop = () => {
       if (!alive) return;
+      try {
       const now = performance.now();
       const t = Math.min(1, (now - started) / FLIGHT_MS);
       const z = t * 140;
@@ -439,6 +453,7 @@ export function FlightScene({
         camera.updateProjectionMatrix();
         camReady = false;
       } else {
+        askPlane();
         cabin.visible = false;
         exterior.visible = true;
         const swing = Math.sin(now / 4200) * 3.2;
@@ -458,6 +473,9 @@ export function FlightScene({
       renderer.render(scene, camera);
       if (t >= 1) arrive();
       frame = window.requestAnimationFrame(loop);
+      } catch {
+        arrive();
+      }
     };
     loop();
     const onResize = () => fit();
@@ -470,7 +488,7 @@ export function FlightScene({
       cityMap.dispose();
       cloudTex.dispose();
       title.dispose();
-      envMap.dispose();
+      envMap?.dispose();
       renderer.dispose();
       if (root.contains(renderer.domElement)) root.removeChild(renderer.domElement);
     };

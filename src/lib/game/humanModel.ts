@@ -44,38 +44,38 @@ export interface HumanOptions {
   customShirt?: number | string;
   customPants?: number | string;
   hairStyle?: "fade" | "braids" | "afro" | "parted" | "bun";
+  lite?: boolean;
+}
+
+export function weakGpu() {
+  if (typeof window === "undefined") return true;
+  const nav = navigator as Navigator & { deviceMemory?: number };
+  const coarse = window.matchMedia?.("(pointer: coarse)").matches;
+  const narrow = window.innerWidth < 900;
+  return Boolean(coarse || narrow || (nav.deviceMemory != null && nav.deviceMemory <= 4) || (navigator.hardwareConcurrency ?? 8) <= 4);
 }
 
 function skinPaint(color: THREE.Color) {
-  return new THREE.MeshStandardMaterial({
-    color,
-    roughness: 0.52,
-    metalness: 0.02,
-    envMapIntensity: 0.35,
-  });
+  return new THREE.MeshLambertMaterial({ color });
 }
 
-function clothPaint(color: THREE.ColorRepresentation, rough = 0.84) {
-  return new THREE.MeshStandardMaterial({
-    color,
-    roughness: rough,
-    metalness: 0.04,
-    envMapIntensity: 0.2,
-  });
+function clothPaint(color: THREE.ColorRepresentation) {
+  return new THREE.MeshLambertMaterial({ color });
 }
 
-function mesh(geo: THREE.BufferGeometry, mat: THREE.Material) {
+function mesh(geo: THREE.BufferGeometry, mat: THREE.Material, shade = false) {
   const next = new THREE.Mesh(geo, mat);
-  next.castShadow = true;
-  next.receiveShadow = true;
+  next.castShadow = shade;
+  next.receiveShadow = shade;
   return next;
 }
 
-function hand(skin: THREE.Material, seated: boolean) {
+function hand(skin: THREE.Material, seated: boolean, lite: boolean) {
   const group = new THREE.Group();
-  const palm = mesh(new THREE.SphereGeometry(0.038, 12, 10), skin);
+  const palm = mesh(new THREE.SphereGeometry(0.038, lite ? 8 : 12, lite ? 6 : 10), skin);
   palm.scale.set(0.95, 1.05, 1.35);
   group.add(palm);
+  if (lite) return group;
   const thumb = mesh(new THREE.CapsuleGeometry(0.01, 0.028, 3, 6), skin);
   thumb.position.set(0.028, 0.004, 0.01);
   thumb.rotation.z = -0.85;
@@ -117,7 +117,9 @@ export function createRealisticHuman(options: HumanOptions = {}): THREE.Group {
     scale = 1,
     customShirt,
     customPants,
+    lite = weakGpu(),
   } = options;
+  const segs = lite ? 10 : 16;
 
   const pal = LOOKS.find((l) => l.id === lookId) ?? LOOKS[1];
   const person = new THREE.Group();
@@ -126,16 +128,16 @@ export function createRealisticHuman(options: HumanOptions = {}): THREE.Group {
   const skin = new THREE.Color(pal.skin);
   const skinMat = skinPaint(skin);
   const deepSkin = skinPaint(skin.clone().multiplyScalar(0.78));
-  const shirtMat = clothPaint(customShirt != null ? customShirt : pal.shirt, 0.78);
-  const pantsMat = clothPaint(customPants != null ? customPants : isFemale ? 0x1f2937 : 0x151c2e, 0.88);
-  const hairMat = clothPaint(pal.hair, 0.7);
-  const beltMat = clothPaint(0x1c1917, 0.5);
-  const buckleMat = clothPaint(0xd6c38a, 0.35);
-  const shoeMat = clothPaint(0x111827, 0.55);
-  const soleMat = clothPaint(0xf8fafc, 0.7);
-  const whiteMat = new THREE.MeshStandardMaterial({ color: 0xf7f4ee, roughness: 0.28, metalness: 0.05 });
-  const irisMat = clothPaint(0x3a2418, 0.4);
-  const pupilMat = clothPaint(0x090807, 0.25);
+  const shirtMat = clothPaint(customShirt != null ? customShirt : pal.shirt);
+  const pantsMat = clothPaint(customPants != null ? customPants : isFemale ? 0x1f2937 : 0x151c2e);
+  const hairMat = clothPaint(pal.hair);
+  const beltMat = clothPaint(0x1c1917);
+  const buckleMat = clothPaint(0xd6c38a);
+  const shoeMat = clothPaint(0x111827);
+  const soleMat = clothPaint(0xf8fafc);
+  const whiteMat = new THREE.MeshLambertMaterial({ color: 0xf7f4ee });
+  const irisMat = clothPaint(0x3a2418);
+  const pupilMat = clothPaint(0x090807);
   const lipMat = skinPaint(skin.clone().lerp(new THREE.Color(0x8c3d3d), 0.35));
 
   const hipY = seated ? 0.84 : 1.02;
@@ -144,7 +146,7 @@ export function createRealisticHuman(options: HumanOptions = {}): THREE.Group {
   const shoulderW = isFemale ? 0.215 : 0.25;
 
   const head = new THREE.Group();
-  const skull = mesh(new THREE.SphereGeometry(0.162, 28, 22), skinMat);
+  const skull = mesh(new THREE.SphereGeometry(0.162, segs, segs), skinMat);
   skull.scale.set(0.94, 1.14, 1.02);
   head.add(skull);
 
@@ -182,21 +184,21 @@ export function createRealisticHuman(options: HumanOptions = {}): THREE.Group {
     iris.position.set(side * 0.052, 0.017, 0.17);
     const pupil = mesh(new THREE.SphereGeometry(0.006, 10, 8), pupilMat);
     pupil.position.set(side * 0.052, 0.017, 0.178);
-    const glint = mesh(new THREE.SphereGeometry(0.0035, 8, 6), whiteMat);
-    glint.position.set(side * 0.048, 0.024, 0.182);
-    const upperLid = mesh(new THREE.SphereGeometry(0.026, 12, 8), skinMat);
-    upperLid.scale.set(1.25, 0.28, 0.5);
-    upperLid.position.set(side * 0.052, 0.034, 0.152);
-    const lowerLid = mesh(new THREE.SphereGeometry(0.024, 10, 8), skinMat);
-    lowerLid.scale.set(1.2, 0.22, 0.42);
-    lowerLid.position.set(side * 0.052, 0.004, 0.154);
     const brow = mesh(new THREE.CapsuleGeometry(0.008, 0.048, 4, 8), hairMat);
     brow.rotation.z = Math.PI / 2 + side * -0.22;
     brow.position.set(side * 0.05, 0.058, 0.15);
-    const lash = mesh(new THREE.CapsuleGeometry(0.004, 0.03, 3, 6), hairMat);
-    lash.rotation.z = Math.PI / 2;
-    lash.position.set(side * 0.052, 0.03, 0.168);
-    head.add(socket, white, iris, pupil, glint, upperLid, lowerLid, brow, lash);
+    head.add(socket, white, iris, pupil, brow);
+    if (!lite) {
+      const glint = mesh(new THREE.SphereGeometry(0.0035, 8, 6), whiteMat);
+      glint.position.set(side * 0.048, 0.024, 0.182);
+      const upperLid = mesh(new THREE.SphereGeometry(0.026, 12, 8), skinMat);
+      upperLid.scale.set(1.25, 0.28, 0.5);
+      upperLid.position.set(side * 0.052, 0.034, 0.152);
+      const lowerLid = mesh(new THREE.SphereGeometry(0.024, 10, 8), skinMat);
+      lowerLid.scale.set(1.2, 0.22, 0.42);
+      lowerLid.position.set(side * 0.052, 0.004, 0.154);
+      head.add(glint, upperLid, lowerLid);
+    }
   }
 
   const bridge = mesh(new THREE.CapsuleGeometry(0.012, 0.05, 5, 8), skinMat);
@@ -322,7 +324,7 @@ export function createRealisticHuman(options: HumanOptions = {}): THREE.Group {
       upper.position.set(0, 0.2, 0);
       const lower = mesh(new THREE.CapsuleGeometry(0.04, 0.24, 5, 12), skinMat);
       lower.position.set(0, 0.48, 0);
-      const palm = hand(skinMat, false);
+      const palm = hand(skinMat, false, lite);
       palm.position.set(0, 0.66, 0);
       arm.add(upper, lower, palm);
       arm.rotation.z = side * -0.45;
@@ -335,7 +337,7 @@ export function createRealisticHuman(options: HumanOptions = {}): THREE.Group {
       const lower = mesh(new THREE.CapsuleGeometry(0.04, 0.22, 5, 12), skinMat);
       lower.rotation.x = 1.12;
       lower.position.set(0, -0.22, 0.3);
-      const palm = hand(skinMat, true);
+      const palm = hand(skinMat, true, lite);
       palm.rotation.x = 0.4;
       palm.position.set(0, -0.22, 0.48);
       arm.add(upper, elbow, lower, palm);
@@ -347,7 +349,7 @@ export function createRealisticHuman(options: HumanOptions = {}): THREE.Group {
       elbow.position.set(0, -0.32, 0.02);
       const lower = mesh(new THREE.CapsuleGeometry(0.04, 0.24, 5, 12), skinMat);
       lower.position.set(0, -0.48, 0.028);
-      const palm = hand(skinMat, false);
+      const palm = hand(skinMat, false, lite);
       palm.position.set(0, -0.66, 0.03);
       arm.add(upper, elbow, lower, palm);
       arm.rotation.z = side * 0.09;

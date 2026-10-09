@@ -3055,10 +3055,11 @@ function RoomView({
     if (!root) return;
     const items: PlacedPiece[] = JSON.parse(placedKey);
     const house = spot === "house";
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const lite = typeof window !== "undefined" && (window.innerWidth < 900 || window.matchMedia("(pointer: coarse)").matches);
+    const renderer = new THREE.WebGLRenderer({ antialias: !lite, powerPreference: "low-power" });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, lite ? 1.25 : 2));
     renderer.setSize(root.clientWidth, root.clientHeight);
-    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.enabled = !lite;
     renderer.shadowMap.type = THREE.PCFShadowMap;
     root.appendChild(renderer.domElement);
 
