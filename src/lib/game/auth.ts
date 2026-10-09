@@ -137,3 +137,33 @@ export async function currentPlayer() {
   const db = await readDb();
   return db.players.find((player) => player.id === id) ?? null;
 }
+
+const ADMIN_COOKIE = "ol_admin";
+
+export async function setAdminSession(id: string) {
+  const jar = await cookies();
+  jar.set(ADMIN_COOKIE, sign(id), {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/secure",
+    maxAge: 60 * 60 * 24 * 14,
+    secure: process.env.NODE_ENV === "production",
+  });
+}
+
+export async function clearAdminSession() {
+  const jar = await cookies();
+  jar.set(ADMIN_COOKIE, "", { httpOnly: true, sameSite: "lax", path: "/secure", maxAge: 0, secure: process.env.NODE_ENV === "production" });
+}
+
+export async function currentAdmin() {
+  const jar = await cookies();
+  const token = jar.get(ADMIN_COOKIE)?.value;
+  if (!token) return null;
+  const id = readToken(token);
+  if (!id) return null;
+  const db = await readDb();
+  const admin = db.admins.find((item) => item.id === id);
+  if (!admin) return null;
+  return { id: admin.id, username: admin.username, email: admin.email };
+}

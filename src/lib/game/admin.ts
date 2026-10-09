@@ -3,15 +3,74 @@
 import { homeAreaId, placeById } from "./content";
 import { poolsOf, wallet } from "./engine";
 import { naira, stamp } from "./format";
-import { currentPlayer } from "./auth";
-import { isAdmin } from "./adminAccess";
+import { authBlocked, authCleared, authFailed, burnPasswordCheck, clearAdminSession, currentAdmin, hashPassword, needsUpgrade, setAdminSession, verifyPassword } from "./auth";
+import { passwordProblem } from "./password";
 import { mutate, readDb } from "./store";
 import type { MoneySource, Player } from "./types";
 
 async function adminId() {
-  const player = await currentPlayer();
-  if (!player || player.banned || !isAdmin(player)) return null;
-  return player.id;
+  const admin = await currentAdmin();
+  if (!admin) return null;
+  return admin.id;
+}
+
+function adminNameOk(username: string) {
+  if (!/^[a-zA-Z0-9_]{3,16}$/.test(username)) return "Username needs 3 to 16 characters. Letters, numbers, and underscores are allowed.";
+  if (/^\d+$/.test(username)) return "A username cannot be only numbers. Add a letter or an underscore.";
+  if (/^_+$/.test(username)) return "A username cannot be only underscores. Add a letter or a number.";
+  return null;
+}
+
+export async function registerAdmin(usernameRaw: string, emailRaw: string, password: string) {
+  const username = usernameRaw.trim();
+  const email = emailRaw.trim().toLowerCase();
+  const blocked = authBlocked(`admin-join:${email}`);
+  if (blocked) return { ok: false as const, error: blocked };
+  const nameError = adminNameOk(username);
+  if (nameError) return { ok: false as const, error: nameError };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false as const, error: "Enter a real email." };
+  const passwordError = passwordProblem(password);
+  if (passwordError) return { ok: false as const, error: passwordError };
+  const created = await mutate<{ ok: true; id: string } | { ok: false; error: string }>((db) => {
+    const taken = db.admins.some((item) => item.email === email || item.username.toLowerCase() === username.toLowerCase());
+    if (taken) return { save: false, value: { ok: false, error: "That admin email or username is already registered." } };
+    const id = crypto.randomUUID();
+    db.admins.push({ id, username, email, passwordHash: hashPassword(password), createdAt: new Date().toISOString() });
+    return { save: true, value: { ok: true, id } };
+  });
+  if (!created.ok) {
+    authFailed(`admin-join:${email}`);
+    return created;
+  }
+  authCleared(`admin-join:${email}`);
+  await setAdminSession(created.id);
+  return { ok: true as const, notice: "Admin account created." };
+}
+
+export async function loginAdmin(emailRaw: string, password: string) {
+  const email = emailRaw.trim().toLowerCase();
+  const blocked = authBlocked(`admin-login:${email}`);
+  if (blocked) return { ok: false as const, error: blocked };
+  const outcome = await mutate<{ ok: true; id: string } | { ok: false; error: string }>((db) => {
+    const admin = db.admins.find((item) => item.email === email);
+    const matches = admin ? verifyPassword(password, admin.passwordHash) : (burnPasswordCheck(password), false);
+    if (!admin || !matches) return { save: false, value: { ok: false, error: "Email or password is wrong." } };
+    const upgrade = needsUpgrade(admin.passwordHash);
+    if (upgrade) admin.passwordHash = hashPassword(password);
+    return { save: upgrade, value: { ok: true, id: admin.id } };
+  });
+  if (!outcome.ok) {
+    authFailed(`admin-login:${email}`);
+    return outcome;
+  }
+  authCleared(`admin-login:${email}`);
+  await setAdminSession(outcome.id);
+  return { ok: true as const, notice: "Signed in." };
+}
+
+export async function logoutAdmin() {
+  await clearAdminSession();
+  return { ok: true as const, notice: "Signed out." };
 }
 
 function publicUser(player: Player, balance: number) {
@@ -130,7 +189,6 @@ export async function adminTake(userId: string, amount: number) {
 export async function adminBan(userId: string, banned: boolean) {
   const id = await adminId();
   if (!id) return { ok: false as const, error: "Admin only." };
-  if (userId === id) return { ok: false as const, error: "You cannot close your own account." };
   return mutate<{ ok: true; notice: string } | { ok: false; error: string }>((db) => {
     const player = db.players.find((item) => item.id === userId);
     if (!player) return { save: false, value: { ok: false, error: "No such user." } };

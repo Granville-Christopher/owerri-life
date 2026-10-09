@@ -50,7 +50,7 @@ function client() {
 }
 
 function emptyDb(): DB {
-  return { players: [], ledger: [], chat: seedChat, messages: [], reports: [], fixtures: buildSlate(), bets: [], requests: [], calls: [], payments: [] };
+  return { players: [], ledger: [], chat: seedChat, messages: [], reports: [], fixtures: buildSlate(), bets: [], requests: [], calls: [], payments: [], admins: [] };
 }
 
 function hydrate(parsed: Partial<DB> | null): DB {
@@ -87,6 +87,7 @@ function hydrate(parsed: Partial<DB> | null): DB {
     requests: parsed.requests ?? [],
     calls: parsed.calls ?? [],
     payments: parsed.payments ?? [],
+    admins: parsed.admins ?? [],
   };
 }
 

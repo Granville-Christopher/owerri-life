@@ -10,6 +10,7 @@ import {
   adminRelease,
   adminSendHome,
   adminTake,
+  logoutAdmin,
 } from "@/lib/game/admin";
 import { naira } from "@/lib/game/format";
 import type { MoneySource } from "@/lib/game/types";
@@ -41,6 +42,7 @@ export function AdminConsole({
   openBets,
   chat,
   focus,
+  adminName,
 }: {
   users: UserRow[];
   reports: Array<{ id: string; targetName: string; note: string; at: string; reporter: string }>;
@@ -48,6 +50,7 @@ export function AdminConsole({
   openBets: number;
   chat: number;
   focus: Detail | null;
+  adminName: string;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -69,8 +72,27 @@ export function AdminConsole({
   return (
     <main className="min-h-screen bg-[#f6f1e6] px-4 py-6 text-[#17241e]">
       <div className="mx-auto max-w-5xl">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#a9782a]">Owerri Life</p>
-        <h1 className="font-display text-3xl">Admin</h1>
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#a9782a]">Owerri Life</p>
+            <h1 className="font-display text-3xl">Admin</h1>
+            <p className="mt-1 text-sm text-[#5d6b62]">Signed in as {adminName}</p>
+          </div>
+          <button
+            type="button"
+            disabled={pending}
+            className="rounded-full bg-white px-3 py-2 text-xs font-semibold ring-1 ring-[#e4d8c4] disabled:opacity-40"
+            onClick={() =>
+              go(async () => {
+                const result = await logoutAdmin();
+                if (result.ok) router.push("/secure/restricted/admin");
+                return result;
+              })
+            }
+          >
+            Sign out
+          </button>
+        </div>
         <p className="mt-1 text-sm text-[#5d6b62]">
           {users.length} users · {reports.length} open reports · {openBets} open bets · {chat} chat lines · {payments.filter((row) => row.status === "paid").length} recent paid top-ups
         </p>
@@ -96,7 +118,7 @@ export function AdminConsole({
                 {shown.map((user) => (
                   <tr key={user.id} className="border-t border-[#efe4d2]">
                     <td className="px-3 py-2">
-                      <a className="font-semibold underline" href={`/admin?user=${user.id}`}>{user.username}</a>
+                      <a className="font-semibold underline" href={`/secure/restricted/admin?user=${user.id}`}>{user.username}</a>
                       <span className="block text-xs text-[#5d6b62]">{user.email}</span>
                     </td>
                     <td className="px-3 py-2">{naira(user.balance)}</td>

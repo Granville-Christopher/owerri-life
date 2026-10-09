@@ -227,6 +227,14 @@ export interface FriendRequest {
   toId: string;
 }
 
+export interface AdminAccount {
+  id: string;
+  username: string;
+  email: string;
+  passwordHash: string;
+  createdAt: string;
+}
+
 export interface DB {
   players: Player[];
   ledger: LedgerEntry[];
@@ -238,6 +246,7 @@ export interface DB {
   requests: FriendRequest[];
   calls: FloorCall[];
   payments: Payment[];
+  admins: AdminAccount[];
 }
 
 export interface CreateInput {
