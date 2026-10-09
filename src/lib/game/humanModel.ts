@@ -208,27 +208,32 @@ export function createRealisticHuman(options: HumanOptions = {}): THREE.Group {
   }
 
   const buildLeg = (seatedLeg: boolean) => {
+    const gap = 0.04;
     for (const side of [-1, 1]) {
       const leg = new THREE.Group();
-      const thigh = mesh(new THREE.BoxGeometry(limbW + 0.02, thighLen, limbW + 0.02), pantsMat);
+      const thigh = mesh(new THREE.BoxGeometry(0.2, thighLen, 0.2), pantsMat);
       thigh.position.y = -thighLen / 2;
 
+      const kneeCap = mesh(new THREE.BoxGeometry(0.16, 0.1, 0.16), skinMat);
+      kneeCap.position.y = -thighLen - 0.02;
+
       const knee = new THREE.Group();
-      knee.position.y = -thighLen;
-      const shin = mesh(new THREE.BoxGeometry(limbW, shinLen, limbW), pantsMat);
+      knee.position.y = -thighLen - gap - 0.06;
+      const shin = mesh(new THREE.BoxGeometry(0.16, shinLen, 0.16), pantsMat);
       shin.position.y = -shinLen / 2;
-      const foot = mesh(new THREE.BoxGeometry(limbW + 0.06, footH, limbW + 0.18), plastic(0x111827));
-      foot.position.set(0, -shinLen - footH * 0.35, 0.04);
+      const foot = mesh(new THREE.BoxGeometry(0.18, footH, 0.32), plastic(0x111827));
+      foot.position.set(0, -shinLen - footH * 0.4, 0.06);
       knee.add(shin, foot);
 
-      leg.add(thigh, knee);
+      leg.add(thigh, kneeCap, knee);
       if (seatedLeg) {
         thigh.rotation.x = Math.PI / 2;
-        thigh.position.set(0, -thighLen * 0.15, thighLen * 0.42);
-        knee.position.set(0, -thighLen * 0.55, thighLen * 0.88);
-        knee.rotation.x = 1.05;
+        thigh.position.set(0, -0.04, thighLen * 0.45);
+        kneeCap.position.set(0, -0.06, thighLen * 0.9);
+        knee.position.set(0, -0.08, thighLen * 0.95);
+        knee.rotation.x = 1.15;
       }
-      leg.position.set(side * 0.11, hipY, 0);
+      leg.position.set(side * 0.18, hipY, 0);
       leg.userData.knee = knee;
       person.add(leg);
       limbs.legs.push(leg);
