@@ -545,18 +545,18 @@ export function GameShell({ view }: { view: GameView }) {
               <SlideSheet
                 label="Wallet"
                 title="Top up"
-                detail="Pay with Paystack. Naira lands after Paystack confirms. Purchased naira cannot pay a meet-up."
+                detail="You pay real naira. Paystack adds a much larger city balance after it confirms. Bigger payments get a better rate. Purchased naira cannot pay a meet-up."
                 onClose={() => setTopUpOpen(false)}
               >
                 <div className="grid gap-2">
-                  {TOP_UPS.map((amount) => (
+                  {TOP_UPS.map((pack) => (
                     <button
-                      key={amount}
+                      key={pack.pay}
                       type="button"
                       disabled={pending}
                       onClick={() => {
                         startTransition(async () => {
-                          const result = await beginTopUp(amount);
+                          const result = await beginTopUp(pack.pay);
                           if (result.ok) {
                             window.location.assign(result.url);
                             return;
@@ -564,10 +564,13 @@ export function GameShell({ view }: { view: GameView }) {
                           flash(result.error, true);
                         });
                       }}
-                      className="flex items-center justify-between rounded-2xl bg-white px-3 py-3 text-left text-sm disabled:opacity-40"
+                      className="flex items-center justify-between gap-3 rounded-2xl bg-white px-3 py-3 text-left text-sm disabled:opacity-40"
                     >
-                      <span className="font-semibold">{naira(amount)}</span>
-                      <span className="text-xs font-semibold text-[#1f6b45]">Pay</span>
+                      <span>
+                        <span className="block font-semibold">Get {naira(pack.credit)}</span>
+                        <span className="text-xs text-[#5d6b62]">Pay {naira(pack.pay)} · {Math.round(pack.credit / pack.pay).toLocaleString("en-NG")} in the game per ₦1</span>
+                      </span>
+                      <span className="shrink-0 text-xs font-semibold text-[#1f6b45]">Pay {naira(pack.pay)}</span>
                     </button>
                   ))}
                 </div>
@@ -634,7 +637,7 @@ function AccountPage({
         <p className="text-xs uppercase tracking-[0.16em] text-[#d5e4d8]">Balance</p>
         <p className="font-display text-3xl">{naira(view.balance)}</p>
         <p className="mt-2 text-xs text-[#d5e4d8]">Earned {naira(view.pools.earned)} · Gifted {naira(view.pools.gifted)} · Purchased {naira(view.pools.purchased)}</p>
-        <p className="mt-2 text-xs text-[#d5e4d8]">Top up with Paystack. Purchased naira cannot pay a meet-up.</p>
+        <p className="mt-2 text-xs text-[#d5e4d8]">Top up with Paystack. ₦500 buys ₦250,000 in the city. Bigger payments get a better rate. Purchased naira cannot pay a meet-up.</p>
       </section>
       <section className="rounded-[1.6rem] bg-white p-4">
         <h3 className="font-semibold">Skills</h3>

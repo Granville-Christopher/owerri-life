@@ -18,6 +18,7 @@ import {
   homeById,
   lectureLabel,
   npcById,
+  DORIME_AMOUNTS,
   TREATMENT_FEE,
   tripById,
   isTripPlace,
@@ -299,14 +300,14 @@ export function travelOptions(fromId: string, toId: string, hasCar: boolean, bal
   const km = distanceKm(fromId, toId);
   const modes: Array<{ mode: TravelMode; label: string; cost: number; hours: number; available: boolean; reason?: string }> = [
     { mode: "trek", label: "Trek", cost: 0, hours: Math.max(1, Math.round(km / 3)), available: true },
-    { mode: "bus", label: "Busimo", cost: Math.round(5_000_000 + 300_000 * km), hours: Math.max(1, Math.round(km / 10)), available: true },
-    { mode: "keke", label: "Keke", cost: Math.round(10_000_000 + 500_000 * km), hours: Math.max(1, Math.round(km / 12)), available: true },
-    { mode: "okada", label: "Okada", cost: Math.round(15_000_000 + 800_000 * km), hours: Math.max(1, Math.round(km / 18)), available: true },
-    { mode: "cab", label: "Cab", cost: Math.round(30_000_000 + 1_500_000 * km), hours: Math.max(1, Math.round(km / 20)), available: true },
+    { mode: "bus", label: "Busimo", cost: Math.round(12_000 + 4_000 * km), hours: Math.max(1, Math.round(km / 10)), available: true },
+    { mode: "keke", label: "Keke", cost: Math.round(18_000 + 6_000 * km), hours: Math.max(1, Math.round(km / 12)), available: true },
+    { mode: "okada", label: "Okada", cost: Math.round(25_000 + 9_000 * km), hours: Math.max(1, Math.round(km / 18)), available: true },
+    { mode: "cab", label: "Cab", cost: Math.round(45_000 + 15_000 * km), hours: Math.max(1, Math.round(km / 20)), available: true },
     {
       mode: "car",
       label: "Your car",
-      cost: Math.round(8_000_000 + 800_000 * km),
+      cost: Math.round(15_000 + 5_000 * km),
       hours: Math.max(1, Math.round(km / 20)),
       available: hasCar,
       reason: hasCar ? undefined : "The birth lottery did not give you a car.",
@@ -399,8 +400,8 @@ export function dorime(player: Player, ledger: LedgerEntry[], amount: number): S
   if (!club) return fail(player, ledger, "Dorime is for the club.");
   if (!player.indoors) return fail(player, ledger, "Enter the club first.");
   const cost = Math.round(amount);
-  if (![2000, 5000, 10000, 20000].includes(cost)) return fail(player, ledger, "Pick ₦2,000, ₦5,000, ₦10,000, or ₦20,000.");
-  const lift = cost >= 20000 ? 24 : cost >= 10000 ? 18 : cost >= 5000 ? 14 : 10;
+  if (!(DORIME_AMOUNTS as readonly number[]).includes(cost)) return fail(player, ledger, "Pick a dorime amount.");
+  const lift = cost >= 500_000 ? 24 : cost >= 200_000 ? 18 : cost >= 80_000 ? 14 : 10;
   return spendTime(player, ledger, 1, cost, `Dorime · ${place.name}`, (next) => {
     next.needs.fun = clamp(next.needs.fun + lift);
     next.needs.social = clamp(next.needs.social + lift);
@@ -942,7 +943,7 @@ export function treat(player: Player, ledger: LedgerEntry[]): Step {
     return fail(player, ledger, "Severe sickness needs a hospital. Open Health on the map.");
   }
   if (!atHospital && !atChemist) return fail(player, ledger, "Buy drugs at Eke Ukwu Market, or go to a hospital.");
-  const cost = TREATMENT_FEE[player.locationId] ?? (atHospital ? 8000 : 1500);
+  const cost = TREATMENT_FEE[player.locationId] ?? (atHospital ? 80_000 : 20_000);
   const where = atHospital ? place.name : "the chemist";
   return spendTime(player, ledger, 2, cost, `Treatment · ${where}`, (next) => {
     next.sick = "none";
@@ -1065,8 +1066,8 @@ export function placeBet(
   sharedCode = "",
 ): { ok: true; player: Player; ledger: LedgerEntry[]; bets: Bet[]; notice: string } | { ok: false; error: string } {
   const amount = Math.round(stake);
-  if (!Number.isFinite(amount) || amount < 100) return { ok: false, error: "The smallest stake is ₦100." };
-  if (amount > 1_000_000) return { ok: false, error: "The largest stake on one ticket is ₦1,000,000." };
+  if (!Number.isFinite(amount) || amount < 10_000) return { ok: false, error: "The smallest stake is ₦10,000." };
+  if (amount > 50_000_000) return { ok: false, error: "The largest stake on one ticket is ₦50,000,000." };
   if (!selections.length) return { ok: false, error: "Add at least one game." };
   const seen = new Set<string>();
   const legs: SlipLeg[] = [];
@@ -1372,7 +1373,7 @@ export function goToHouse(
   return succeed(next, book, [`You are at ${where.name}. Sit, stand, or talk.`]);
 }
 
-export const FOOD_GIFT = { cost: 5000, hunger: 50, name: "a plate of food" };
+export const FOOD_GIFT = { cost: 40_000, hunger: 50, name: "a plate of food" };
 
 export function payPeer(
   player: Player,
@@ -1382,8 +1383,8 @@ export function payPeer(
   reason: string,
 ): { ok: true; player: Player; other: Player; ledger: LedgerEntry[]; notice: string } | { ok: false; error: string } {
   const cost = Math.round(amount);
-  if (!Number.isFinite(cost) || cost < 500 || cost > 20_000_000) {
-    return { ok: false, error: "Send between ₦500 and ₦20,000,000." };
+  if (!Number.isFinite(cost) || cost < 5_000 || cost > 500_000_000) {
+    return { ok: false, error: "Send between ₦5,000 and ₦500,000,000." };
   }
   const at = stamp(player.day, player.hour);
   const paid = debit(ledger, player, cost, reason, at);
@@ -1428,8 +1429,8 @@ export function createNewPlayer(input: CreateInput, id: string, rng: () => numbe
     homes: [lottery === "heir" ? "new-owerri-flat" : "ikenegbu-room"],
     hasCar: lottery === "heir",
     cars: lottery === "heir" ? ["Executive Sedan"] : [],
-    loanRemaining: lottery === "struggle" ? 20000 : 0,
-    loanWeekly: lottery === "struggle" ? 2000 : 0,
+    loanRemaining: lottery === "struggle" ? 1_000_000 : 0,
+    loanWeekly: lottery === "struggle" ? 100_000 : 0,
     arrears: 0,
     weeksUnpaid: 0,
     billsOnDay: null,
@@ -1469,16 +1470,16 @@ export function createNewPlayer(input: CreateInput, id: string, rng: () => numbe
       ? {
           lottery,
           title: "Heir",
-          cash: 180000,
+          cash: 2_000_000,
           home: "Harmony Heights mini-flat",
           perk: "A car and a level 3 job, starting today.",
         }
       : {
           lottery,
           title: "Struggle",
-          cash: 8000,
+          cash: 50_000,
           home: "Ekwema Crescent room",
-          perk: "A ₦20,000 starter loan, Hustle 2, and skills that rise 25% faster.",
+          perk: "A ₦1,000,000 starter loan, Hustle 2, and skills that rise 25% faster.",
         };
   ledger = credit(ledger, player, reveal.cash, "gifted", `Birth lottery · ${reveal.title}`, stamp(1, 8));
   if (lottery === "heir") {

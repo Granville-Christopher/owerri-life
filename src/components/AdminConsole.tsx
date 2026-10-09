@@ -68,7 +68,7 @@ export function AdminConsole({
 }: {
   users: UserRow[];
   reports: Array<{ id: string; targetName: string; note: string; at: string; reporter: string }>;
-  payments: Array<{ id: string; reference: string; amount: number; status: string; at: string; username: string }>;
+  payments: Array<{ id: string; reference: string; amount: number; credit: number; status: string; at: string; username: string }>;
   openBets: number;
   chat: number;
   focus: Detail | null;
@@ -296,10 +296,11 @@ export function AdminConsole({
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="font-semibold">{payment.username}</p>
+                      <p className="mt-1 text-xs text-[#5d6b62]">Paid {naira(payment.amount)} · got {naira(payment.credit)}</p>
                       <p className="mt-1 break-all font-mono text-xs text-[#5d6b62]">{payment.reference}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold">{naira(payment.amount)}</p>
+                      <p className="font-semibold">{naira(payment.credit)}</p>
                       <p className={`mt-1 text-xs font-semibold uppercase tracking-wide ${payment.status === "paid" ? "text-[#1f6b45]" : payment.status === "failed" ? "text-[#8c3d2f]" : "text-[#a9782a]"}`}>{payment.status}</p>
                     </div>
                   </div>

@@ -106,7 +106,7 @@ export function dreamProgress(player: Pick<Player, "dream" | "job" | "skills" | 
     return { current: level, target: 5, text: "Career level" };
   }
   if (player.dream === "landlord") {
-    return { current: Math.max(0, balance), target: 1_000_000, text: "Cash toward ₦1,000,000" };
+    return { current: Math.max(0, balance), target: 50_000_000, text: "Cash toward ₦50,000,000" };
   }
   if (player.dream === "sound") {
     return { current: player.skills.music, target: 10, text: "Music skill" };

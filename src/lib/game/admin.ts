@@ -160,6 +160,7 @@ export async function adminSnapshot() {
         id: payment.id,
         reference: payment.reference,
         amount: payment.amount,
+        credit: payment.credit ?? payment.amount,
         status: payment.status,
         at: payment.at,
         username: db.players.find((player) => player.id === payment.playerId)?.username ?? "Unknown",
@@ -194,7 +195,7 @@ export async function adminGrant(userId: string, amount: number, source: MoneySo
   const id = await adminId();
   if (!id) return { ok: false as const, error: "Admin only." };
   const gain = Math.round(amount);
-  if (gain < 1 || gain > 50_000_000) return { ok: false as const, error: "Amount must be between ₦1 and ₦50,000,000." };
+  if (gain < 1 || gain > 2_000_000_000) return { ok: false as const, error: "Amount must be between ₦1 and ₦2,000,000,000." };
   if (source !== "earned" && source !== "gifted" && source !== "purchased") return { ok: false as const, error: "Pick a money type." };
   return mutate<{ ok: true; notice: string } | { ok: false; error: string }>((db) => {
     const player = db.players.find((item) => item.id === userId);
@@ -208,7 +209,7 @@ export async function adminTake(userId: string, amount: number) {
   const id = await adminId();
   if (!id) return { ok: false as const, error: "Admin only." };
   const cost = Math.round(amount);
-  if (cost < 1 || cost > 50_000_000) return { ok: false as const, error: "Amount must be between ₦1 and ₦50,000,000." };
+  if (cost < 1 || cost > 2_000_000_000) return { ok: false as const, error: "Amount must be between ₦1 and ₦2,000,000,000." };
   return mutate<{ ok: true; notice: string } | { ok: false; error: string }>((db) => {
     const player = db.players.find((item) => item.id === userId);
     if (!player) return { save: false, value: { ok: false, error: "No such user." } };

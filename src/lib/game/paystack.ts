@@ -1,5 +1,5 @@
 import { createHmac, randomBytes, timingSafeEqual } from "crypto";
-import { TOP_UPS } from "./content";
+import { topUpByPay } from "./content";
 import { stamp } from "./format";
 import { siteUrl } from "@/lib/site";
 import { mutate, readDb } from "./store";
@@ -18,8 +18,8 @@ function entry(playerId: string, amount: number, source: MoneySource, reason: st
 }
 
 export async function openTopUp(playerId: string, email: string, amount: number) {
-  const gain = Math.round(amount);
-  if (!(TOP_UPS as readonly number[]).includes(gain)) return { ok: false as const, error: "Pick a top-up amount." };
+  const pack = topUpByPay(amount);
+  if (!pack) return { ok: false as const, error: "Pick a top-up amount." };
   const key = await secret();
   if (!key.startsWith("sk_")) return { ok: false as const, error: "Paystack is not set up yet." };
   const reference = `ol_${randomBytes(12).toString("hex")}`;
@@ -28,7 +28,8 @@ export async function openTopUp(playerId: string, email: string, amount: number)
       id: crypto.randomUUID(),
       reference,
       playerId,
-      amount: gain,
+      amount: pack.pay,
+      credit: pack.credit,
       status: "pending",
       at: new Date().toISOString(),
     });
@@ -39,11 +40,11 @@ export async function openTopUp(playerId: string, email: string, amount: number)
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       email,
-      amount: gain * 100,
+      amount: pack.pay * 100,
       reference,
       currency: "NGN",
       callback_url: `${siteUrl()}/topup/return`,
-      metadata: { playerId, gameAmount: gain },
+      metadata: { playerId, gameAmount: pack.credit, paidNaira: pack.pay },
     }),
   });
   const body = (await response.json()) as { status?: boolean; data?: { authorization_url?: string }; message?: string };
@@ -97,7 +98,8 @@ export async function settlePaystack(reference: string) {
     }
     row.status = "paid";
     row.paidAt = new Date().toISOString();
-    db.ledger.push(entry(player.id, row.amount, "purchased", "Paystack top-up", stamp(player.day, player.hour)));
+    const credit = row.credit ?? row.amount;
+    db.ledger.push(entry(player.id, credit, "purchased", "Paystack top-up", stamp(player.day, player.hour)));
     return { save: true, value: { ok: true, notice: "Top-up added. Purchased naira cannot pay a meet-up." } };
   });
 }

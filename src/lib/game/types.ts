@@ -173,6 +173,7 @@ export interface Payment {
   reference: string;
   playerId: string;
   amount: number;
+  credit?: number;
   status: "pending" | "paid" | "failed";
   at: string;
   paidAt?: string;
