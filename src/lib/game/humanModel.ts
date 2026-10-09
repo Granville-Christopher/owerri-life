@@ -55,36 +55,171 @@ export function weakGpu() {
   return Boolean(coarse || narrow || (nav.deviceMemory != null && nav.deviceMemory <= 4) || (navigator.hardwareConcurrency ?? 8) <= 4);
 }
 
+function hexOf(color: THREE.ColorRepresentation) {
+  return `#${new THREE.Color(color).getHexString()}`;
+}
+
 function skinPaint(color: THREE.Color) {
-  return new THREE.MeshLambertMaterial({ color });
+  return new THREE.MeshPhongMaterial({
+    color,
+    shininess: 22,
+    specular: 0x2a2218,
+    emissive: color.clone().multiplyScalar(0.04),
+  });
 }
 
 function clothPaint(color: THREE.ColorRepresentation) {
-  return new THREE.MeshLambertMaterial({ color });
+  return new THREE.MeshPhongMaterial({
+    color,
+    shininess: 10,
+    specular: 0x111111,
+  });
 }
 
-function mesh(geo: THREE.BufferGeometry, mat: THREE.Material, shade = false) {
+function mesh(geo: THREE.BufferGeometry, mat: THREE.Material, shade = true) {
   const next = new THREE.Mesh(geo, mat);
   next.castShadow = shade;
   next.receiveShadow = shade;
   return next;
 }
 
+function lathe(profile: Array<[number, number]>, segs: number, mat: THREE.Material) {
+  const pts = profile.map(([radius, y]) => new THREE.Vector2(radius, y));
+  const geo = new THREE.LatheGeometry(pts, segs);
+  geo.computeVertexNormals();
+  return mesh(geo, mat);
+}
+
+function faceTexture(skin: THREE.Color, hair: THREE.ColorRepresentation, female: boolean, lite: boolean) {
+  const size = lite ? 128 : 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const raw = canvas.getContext("2d");
+  if (!raw) return null;
+  const pen: CanvasRenderingContext2D = raw;
+  const s = size / 256;
+  pen.scale(s, s);
+  const skinHex = hexOf(skin);
+  const deep = hexOf(skin.clone().multiplyScalar(0.72));
+  const blush = hexOf(skin.clone().lerp(new THREE.Color(0xa24a4a), female ? 0.18 : 0.08));
+  const lip = hexOf(skin.clone().lerp(new THREE.Color(female ? 0x8a3038 : 0x6a3030), female ? 0.42 : 0.22));
+  const hairHex = hexOf(hair);
+
+  pen.fillStyle = skinHex;
+  pen.fillRect(0, 0, 256, 256);
+
+  const shade = pen.createRadialGradient(128, 142, 18, 128, 148, 110);
+  shade.addColorStop(0, skinHex);
+  shade.addColorStop(0.55, skinHex);
+  shade.addColorStop(1, deep);
+  pen.fillStyle = shade;
+  pen.fillRect(40, 60, 176, 160);
+
+  pen.fillStyle = blush;
+  pen.globalAlpha = 0.28;
+  pen.beginPath();
+  pen.ellipse(96, 148, 22, 14, 0, 0, Math.PI * 2);
+  pen.ellipse(160, 148, 22, 14, 0, 0, Math.PI * 2);
+  pen.fill();
+  pen.globalAlpha = 1;
+
+  pen.fillStyle = hairHex;
+  pen.beginPath();
+  pen.ellipse(128, 58, 78, 36, 0, 0, Math.PI * 2);
+  pen.fill();
+  pen.fillRect(48, 48, 160, 22);
+
+  function eye(cx: number) {
+    pen.fillStyle = "#f4f1ea";
+    pen.beginPath();
+    pen.ellipse(cx, 122, female ? 11 : 10, female ? 7.2 : 6.4, 0, 0, Math.PI * 2);
+    pen.fill();
+    pen.fillStyle = "#3a2418";
+    pen.beginPath();
+    pen.ellipse(cx, 123, 5.2, 5.2, 0, 0, Math.PI * 2);
+    pen.fill();
+    pen.fillStyle = "#0b0908";
+    pen.beginPath();
+    pen.ellipse(cx, 123, 2.4, 2.4, 0, 0, Math.PI * 2);
+    pen.fill();
+    pen.fillStyle = "#ffffff";
+    pen.beginPath();
+    pen.ellipse(cx - 1.6, 121, 1.4, 1.4, 0, 0, Math.PI * 2);
+    pen.fill();
+    pen.strokeStyle = deep;
+    pen.lineWidth = 1.4;
+    pen.beginPath();
+    pen.ellipse(cx, 122, female ? 11 : 10, female ? 7.2 : 6.4, 0, 0, Math.PI * 2);
+    pen.stroke();
+    pen.strokeStyle = hairHex;
+    pen.lineWidth = 2.6;
+    pen.lineCap = "round";
+    pen.beginPath();
+    pen.moveTo(cx - 12, 110);
+    pen.quadraticCurveTo(cx, female ? 104 : 107, cx + 12, 110);
+    pen.stroke();
+  }
+  eye(108);
+  eye(148);
+
+  pen.fillStyle = deep;
+  pen.beginPath();
+  pen.moveTo(128, 128);
+  pen.lineTo(118, 150);
+  pen.lineTo(138, 150);
+  pen.closePath();
+  pen.globalAlpha = 0.35;
+  pen.fill();
+  pen.globalAlpha = 1;
+  pen.fillStyle = skinHex;
+  pen.beginPath();
+  pen.ellipse(128, 148, 8, 10, 0, 0, Math.PI * 2);
+  pen.fill();
+  pen.fillStyle = deep;
+  pen.globalAlpha = 0.45;
+  pen.beginPath();
+  pen.ellipse(124, 152, 2.2, 1.6, 0, 0, Math.PI * 2);
+  pen.ellipse(132, 152, 2.2, 1.6, 0, 0, Math.PI * 2);
+  pen.fill();
+  pen.globalAlpha = 1;
+
+  pen.strokeStyle = lip;
+  pen.lineWidth = female ? 3.4 : 2.6;
+  pen.lineCap = "round";
+  pen.beginPath();
+  pen.moveTo(116, 168);
+  pen.quadraticCurveTo(128, female ? 174 : 171, 140, 168);
+  pen.stroke();
+  pen.strokeStyle = deep;
+  pen.lineWidth = 1.2;
+  pen.beginPath();
+  pen.moveTo(118, 168);
+  pen.quadraticCurveTo(128, 170, 138, 168);
+  pen.stroke();
+
+  const map = new THREE.CanvasTexture(canvas);
+  map.colorSpace = THREE.SRGBColorSpace;
+  map.anisotropy = 4;
+  map.needsUpdate = true;
+  return map;
+}
+
 function hand(skin: THREE.Material, seated: boolean, lite: boolean) {
   const group = new THREE.Group();
-  const palm = mesh(new THREE.SphereGeometry(0.038, lite ? 8 : 12, lite ? 6 : 10), skin);
-  palm.scale.set(0.95, 1.05, 1.35);
+  const palm = mesh(new THREE.SphereGeometry(0.036, lite ? 10 : 14, lite ? 8 : 12), skin);
+  palm.scale.set(0.9, 1.02, 1.28);
   group.add(palm);
   if (lite) return group;
-  const thumb = mesh(new THREE.CapsuleGeometry(0.01, 0.028, 3, 6), skin);
-  thumb.position.set(0.028, 0.004, 0.01);
+  const thumb = mesh(new THREE.CapsuleGeometry(0.01, 0.026, 4, 8), skin);
+  thumb.position.set(0.026, 0.004, 0.01);
   thumb.rotation.z = -0.85;
   thumb.rotation.x = 0.4;
   group.add(thumb);
   for (let i = 0; i < 4; i += 1) {
-    const finger = mesh(new THREE.CapsuleGeometry(0.007, 0.032, 3, 6), skin);
-    finger.position.set(-0.018 + i * 0.012, seated ? -0.002 : -0.028, 0.028);
-    finger.rotation.x = seated ? 0.9 : 0.25;
+    const finger = mesh(new THREE.CapsuleGeometry(0.007, 0.03, 4, 8), skin);
+    finger.position.set(-0.016 + i * 0.011, seated ? -0.002 : -0.026, 0.026);
+    finger.rotation.x = seated ? 0.9 : 0.22;
     group.add(finger);
   }
   return group;
@@ -92,22 +227,53 @@ function hand(skin: THREE.Material, seated: boolean, lite: boolean) {
 
 function shoePair(upper: THREE.Material, sole: THREE.Material) {
   const shoe = new THREE.Group();
-  const body = mesh(new THREE.SphereGeometry(0.068, 12, 10), upper);
-  body.scale.set(0.88, 0.58, 1.42);
-  body.position.set(0, 0.032, 0.04);
-  const toe = mesh(new THREE.SphereGeometry(0.048, 10, 8), upper);
-  toe.scale.set(0.92, 0.5, 1.15);
-  toe.position.set(0, 0.022, 0.11);
-  const rubber = mesh(new THREE.BoxGeometry(0.118, 0.028, 0.25), sole);
-  rubber.position.set(0, -0.018, 0.045);
-  const stripe = mesh(new THREE.BoxGeometry(0.02, 0.018, 0.16), sole);
-  stripe.position.set(0.05, 0.02, 0.04);
-  shoe.add(body, toe, rubber, stripe);
+  const body = mesh(new THREE.CapsuleGeometry(0.052, 0.12, 6, 12), upper);
+  body.rotation.x = Math.PI / 2;
+  body.scale.set(0.92, 0.72, 0.85);
+  body.position.set(0, 0.03, 0.05);
+  const rubber = mesh(new THREE.BoxGeometry(0.11, 0.024, 0.24), sole);
+  rubber.position.set(0, -0.012, 0.04);
+  shoe.add(body, rubber);
   return shoe;
 }
 
+function hairCap(hairMat: THREE.Material, female: boolean, lookId: LookId, segs: number) {
+  const hair = new THREE.Group();
+  const cap = mesh(new THREE.SphereGeometry(female ? 0.172 : 0.168, segs, Math.max(12, segs - 6), 0, Math.PI * 2, 0, Math.PI * (female ? 0.62 : 0.52)), hairMat);
+  cap.position.set(0, female ? 0.018 : 0.028, -0.012);
+  hair.add(cap);
+  if (!female) {
+    const nape = mesh(new THREE.SphereGeometry(0.08, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.7), hairMat);
+    nape.scale.set(1.15, 0.7, 0.9);
+    nape.position.set(0, -0.02, -0.12);
+    hair.add(nape);
+    return hair;
+  }
+  const fall = mesh(new THREE.SphereGeometry(0.13, segs - 4, 12, 0, Math.PI * 2, 0, Math.PI * 0.85), hairMat);
+  fall.scale.set(1.08, 1.2, 0.92);
+  fall.position.set(0, -0.06, -0.11);
+  hair.add(fall);
+  if (lookId === "zara") {
+    const tail = mesh(new THREE.CapsuleGeometry(0.05, 0.26, 6, 12), hairMat);
+    tail.position.set(0, -0.16, -0.14);
+    hair.add(tail);
+  } else if (lookId === "ada" || lookId === "ngozi") {
+    for (const side of [-1, 1]) {
+      const braid = mesh(new THREE.CapsuleGeometry(0.024, 0.2, 6, 10), hairMat);
+      braid.position.set(side * 0.1, -0.08, -0.08);
+      braid.rotation.z = side * 0.22;
+      hair.add(braid);
+    }
+  } else {
+    const bun = mesh(new THREE.SphereGeometry(0.09, 14, 12), hairMat);
+    bun.position.set(0, 0.14, -0.05);
+    hair.add(bun);
+  }
+  return hair;
+}
+
 /**
- * Anatomically proportioned person with a face, hair, clothes, hands, and sneakers.
+ * One person: painted face, hair cap, lathe body. No torus rings, no stacked discs.
  */
 export function createRealisticHuman(options: HumanOptions = {}): THREE.Group {
   const {
@@ -119,7 +285,9 @@ export function createRealisticHuman(options: HumanOptions = {}): THREE.Group {
     customPants,
     lite = weakGpu(),
   } = options;
-  const segs = lite ? 10 : 16;
+  const segs = lite ? 20 : 28;
+  const limbSegs = lite ? 12 : 16;
+  const capSegs = lite ? 6 : 8;
 
   const pal = LOOKS.find((l) => l.id === lookId) ?? LOOKS[1];
   const person = new THREE.Group();
@@ -127,7 +295,6 @@ export function createRealisticHuman(options: HumanOptions = {}): THREE.Group {
 
   const skin = new THREE.Color(pal.skin);
   const skinMat = skinPaint(skin);
-  const deepSkin = skinPaint(skin.clone().multiplyScalar(0.78));
   const shirtMat = clothPaint(customShirt != null ? customShirt : pal.shirt);
   const pantsMat = clothPaint(customPants != null ? customPants : isFemale ? 0x1f2937 : 0x151c2e);
   const hairMat = clothPaint(pal.hair);
@@ -135,181 +302,110 @@ export function createRealisticHuman(options: HumanOptions = {}): THREE.Group {
   const buckleMat = clothPaint(0xd6c38a);
   const shoeMat = clothPaint(0x111827);
   const soleMat = clothPaint(0xf8fafc);
-  const whiteMat = new THREE.MeshLambertMaterial({ color: 0xf7f4ee });
-  const irisMat = clothPaint(0x3a2418);
-  const pupilMat = clothPaint(0x090807);
-  const lipMat = skinPaint(skin.clone().lerp(new THREE.Color(0x8c3d3d), 0.35));
 
   const hipY = seated ? 0.84 : 1.02;
   const torsoY = seated ? 1.34 : 1.52;
   const headY = seated ? 1.74 : 1.92;
-  const shoulderW = isFemale ? 0.215 : 0.25;
+  const shoulderW = isFemale ? 0.2 : 0.235;
 
   const head = new THREE.Group();
-  const skull = mesh(new THREE.SphereGeometry(0.162, segs, segs), skinMat);
-  skull.scale.set(0.94, 1.14, 1.02);
+  const skullGeo = new THREE.SphereGeometry(isFemale ? 0.15 : 0.156, segs, segs - 4);
+  skullGeo.rotateY(-Math.PI / 2);
+  const faceMap = typeof document !== "undefined" ? faceTexture(skin, pal.hair, isFemale, lite) : null;
+  const headMat = new THREE.MeshPhongMaterial({
+    color: faceMap ? 0xffffff : pal.skin,
+    map: faceMap ?? undefined,
+    shininess: 22,
+    specular: 0x2a2218,
+    emissive: skin.clone().multiplyScalar(0.04),
+  });
+  const skull = mesh(skullGeo, headMat);
+  skull.scale.set(0.94, 1.12, 1.0);
   head.add(skull);
 
-  const temples = mesh(new THREE.SphereGeometry(0.1, 16, 14), skinMat);
-  temples.scale.set(1.28, 0.7, 0.78);
-  temples.position.set(0, 0.01, 0.02);
-  head.add(temples);
-
-  const jaw = mesh(new THREE.SphereGeometry(0.1, 16, 14), skinMat);
-  jaw.scale.set(isFemale ? 0.92 : 1.02, 0.78, 0.95);
-  jaw.position.set(0, -0.1, 0.035);
-  head.add(jaw);
-
-  const chin = mesh(new THREE.SphereGeometry(0.048, 12, 10), skinMat);
-  chin.scale.set(isFemale ? 0.88 : 1.08, 0.78, 1.12);
-  chin.position.set(0, -0.168, 0.078);
+  const chin = mesh(new THREE.SphereGeometry(0.04, 12, 10), skinMat);
+  chin.scale.set(isFemale ? 0.9 : 1.05, 0.7, 0.95);
+  chin.position.set(0, -0.15, 0.06);
   head.add(chin);
 
   for (const side of [-1, 1]) {
-    const ear = mesh(new THREE.SphereGeometry(0.03, 12, 10), deepSkin);
-    ear.scale.set(0.5, 1.2, 0.72);
-    ear.position.set(side * 0.162, -0.008, -0.012);
-    ear.rotation.z = side * -0.2;
+    const ear = mesh(new THREE.SphereGeometry(0.028, 12, 10), skinMat);
+    ear.scale.set(0.42, 1.15, 0.7);
+    ear.position.set(side * 0.148, -0.01, -0.01);
+    ear.rotation.z = side * -0.18;
     head.add(ear);
   }
 
-  for (const side of [-1, 1]) {
-    const socket = mesh(new THREE.SphereGeometry(0.032, 12, 10), deepSkin);
-    socket.scale.set(1.15, 0.7, 0.45);
-    socket.position.set(side * 0.052, 0.02, 0.138);
-    const white = mesh(new THREE.SphereGeometry(0.024, 14, 12), whiteMat);
-    white.scale.set(1.2, 0.82, 0.62);
-    white.position.set(side * 0.052, 0.018, 0.155);
-    const iris = mesh(new THREE.SphereGeometry(0.012, 12, 10), irisMat);
-    iris.position.set(side * 0.052, 0.017, 0.17);
-    const pupil = mesh(new THREE.SphereGeometry(0.006, 10, 8), pupilMat);
-    pupil.position.set(side * 0.052, 0.017, 0.178);
-    const brow = mesh(new THREE.CapsuleGeometry(0.008, 0.048, 4, 8), hairMat);
-    brow.rotation.z = Math.PI / 2 + side * -0.22;
-    brow.position.set(side * 0.05, 0.058, 0.15);
-    head.add(socket, white, iris, pupil, brow);
-    if (!lite) {
-      const glint = mesh(new THREE.SphereGeometry(0.0035, 8, 6), whiteMat);
-      glint.position.set(side * 0.048, 0.024, 0.182);
-      const upperLid = mesh(new THREE.SphereGeometry(0.026, 12, 8), skinMat);
-      upperLid.scale.set(1.25, 0.28, 0.5);
-      upperLid.position.set(side * 0.052, 0.034, 0.152);
-      const lowerLid = mesh(new THREE.SphereGeometry(0.024, 10, 8), skinMat);
-      lowerLid.scale.set(1.2, 0.22, 0.42);
-      lowerLid.position.set(side * 0.052, 0.004, 0.154);
-      head.add(glint, upperLid, lowerLid);
-    }
-  }
+  const nose = mesh(new THREE.SphereGeometry(0.018, 12, 10), skinMat);
+  nose.scale.set(0.62, 1.05, 1.15);
+  nose.position.set(0, -0.02, 0.148);
+  head.add(nose);
 
-  const bridge = mesh(new THREE.CapsuleGeometry(0.012, 0.05, 5, 8), skinMat);
-  bridge.rotation.x = -0.42;
-  bridge.position.set(0, 0.006, 0.168);
-  const tip = mesh(new THREE.SphereGeometry(0.02, 12, 10), skinMat);
-  tip.position.set(0, -0.032, 0.19);
-  head.add(bridge, tip);
-  for (const side of [-1, 1]) {
-    const nostril = mesh(new THREE.SphereGeometry(0.009, 8, 8), deepSkin);
-    nostril.position.set(side * 0.014, -0.04, 0.178);
-    head.add(nostril);
-  }
+  head.add(hairCap(hairMat, isFemale, lookId, segs));
 
-  const philtrum = mesh(new THREE.CapsuleGeometry(0.006, 0.018, 3, 6), deepSkin);
-  philtrum.position.set(0, -0.07, 0.168);
-  const upperLip = mesh(new THREE.CapsuleGeometry(0.01, 0.036, 4, 8), lipMat);
-  upperLip.rotation.z = Math.PI / 2;
-  upperLip.position.set(0, -0.09, 0.165);
-  const lowerLip = mesh(new THREE.CapsuleGeometry(0.012, 0.03, 4, 8), lipMat);
-  lowerLip.rotation.z = Math.PI / 2;
-  lowerLip.position.set(0, -0.112, 0.16);
-  head.add(philtrum, upperLip, lowerLip);
-
-  if (isFemale) {
-    const crown = mesh(new THREE.SphereGeometry(0.178, 22, 16), hairMat);
-    crown.scale.set(1.06, 0.82, 1.1);
-    crown.position.set(0, 0.05, -0.018);
-    const fringe = mesh(new THREE.SphereGeometry(0.12, 14, 12), hairMat);
-    fringe.scale.set(1.35, 0.35, 0.7);
-    fringe.position.set(0, 0.1, 0.08);
-    const back = mesh(new THREE.SphereGeometry(0.15, 16, 14), hairMat);
-    back.position.set(0, 0.01, -0.12);
-    const nape = mesh(new THREE.CapsuleGeometry(0.075, 0.2, 5, 12), hairMat);
-    nape.position.set(0, -0.06, -0.13);
-    head.add(crown, fringe, back, nape);
-    if (lookId === "zara") {
-      const fall = mesh(new THREE.CapsuleGeometry(0.055, 0.28, 5, 10), hairMat);
-      fall.position.set(0, -0.12, -0.15);
-      head.add(fall);
-    } else {
-      const bun = mesh(new THREE.SphereGeometry(0.11, 14, 12), hairMat);
-      bun.position.set(0, 0.18, -0.06);
-      head.add(bun);
-    }
-    if (lookId === "ada" || lookId === "ngozi") {
-      for (const side of [-1, 1]) {
-        const braid = mesh(new THREE.CapsuleGeometry(0.026, 0.18, 5, 8), hairMat);
-        braid.position.set(side * 0.11, -0.04, -0.08);
-        braid.rotation.z = side * 0.28;
-        head.add(braid);
-      }
-    }
-  } else {
-    const cap = mesh(new THREE.SphereGeometry(0.17, 22, 16), hairMat);
-    cap.scale.set(1.02, 0.7, 1.06);
-    cap.position.set(0, 0.055, -0.012);
-    const fringe = mesh(new THREE.SphereGeometry(0.1, 12, 10), hairMat);
-    fringe.scale.set(1.45, 0.28, 0.55);
-    fringe.position.set(0, 0.108, 0.09);
-    const nape = mesh(new THREE.SphereGeometry(0.09, 12, 10), hairMat);
-    nape.position.set(0, -0.01, -0.125);
-    head.add(cap, fringe, nape);
-    for (const side of [-1, 1]) {
-      const sideburn = mesh(new THREE.CapsuleGeometry(0.016, 0.05, 4, 8), hairMat);
-      sideburn.position.set(side * 0.14, -0.02, 0.02);
-      head.add(sideburn);
-    }
-  }
-
-  const neck = mesh(new THREE.CylinderGeometry(isFemale ? 0.05 : 0.058, 0.068, 0.15, 14), skinMat);
-  neck.position.set(0, -0.25, 0.012);
+  const neck = mesh(new THREE.CylinderGeometry(isFemale ? 0.048 : 0.055, 0.062, 0.14, limbSegs), skinMat);
+  neck.position.set(0, -0.22, 0.01);
   head.add(neck);
   head.position.set(0, headY, seated ? 0.04 : 0);
   person.add(head);
 
   const torso = new THREE.Group();
-  const chest = mesh(new THREE.CapsuleGeometry(isFemale ? 0.145 : 0.165, 0.22, 6, 14), shirtMat);
-  chest.scale.set(isFemale ? 1.12 : 1.22, 1, 0.78);
-  chest.position.set(0, 0.06, 0.015);
-  const belly = mesh(new THREE.CapsuleGeometry(isFemale ? 0.125 : 0.14, 0.16, 6, 12), shirtMat);
-  belly.scale.set(isFemale ? 1.02 : 1.08, 1, 0.82);
-  belly.position.set(0, -0.16, 0.01);
-  torso.add(chest, belly);
-  if (isFemale) {
-    for (const side of [-1, 1]) {
-      const bust = mesh(new THREE.SphereGeometry(0.07, 14, 12), shirtMat);
-      bust.position.set(side * 0.07, 0.1, 0.095);
-      torso.add(bust);
-    }
-  }
-  const collar = mesh(new THREE.TorusGeometry(0.072, 0.016, 8, 16, Math.PI), shirtMat);
-  collar.rotation.x = Math.PI / 2;
-  collar.rotation.z = Math.PI;
-  collar.position.set(0, 0.2, 0.03);
-  const skinCollar = mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.04, 14), skinMat);
-  skinCollar.position.set(0, 0.22, 0.02);
-  const hem = mesh(new THREE.TorusGeometry(0.15, 0.012, 6, 16), shirtMat);
-  hem.rotation.x = Math.PI / 2;
-  hem.position.set(0, -0.26, 0);
-  const belt = mesh(new THREE.TorusGeometry(0.148, 0.016, 8, 18), beltMat);
-  belt.rotation.x = Math.PI / 2;
-  belt.position.set(0, -0.29, 0);
-  const buckle = mesh(new THREE.BoxGeometry(0.065, 0.04, 0.028), buckleMat);
-  buckle.position.set(0, -0.29, 0.155);
-  torso.add(collar, skinCollar, hem, belt, buckle);
+  const shirt = lathe(
+    isFemale
+      ? [
+          [0.05, 0.3],
+          [0.078, 0.27],
+          [0.168, 0.18],
+          [0.178, 0.06],
+          [0.15, -0.04],
+          [0.122, -0.16],
+          [0.138, -0.3],
+        ]
+      : [
+          [0.055, 0.3],
+          [0.082, 0.26],
+          [0.188, 0.16],
+          [0.178, 0.02],
+          [0.152, -0.1],
+          [0.14, -0.2],
+          [0.15, -0.3],
+        ],
+    segs,
+    shirtMat,
+  );
+  shirt.scale.set(1, 1, isFemale ? 0.7 : 0.74);
+  torso.add(shirt);
+  const collar = mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.045, limbSegs), skinMat);
+  collar.position.set(0, 0.24, 0.01);
+  torso.add(collar);
   torso.position.set(0, torsoY, 0);
   person.add(torso);
 
-  const hips = mesh(new THREE.SphereGeometry(0.155, 16, 14), pantsMat);
-  hips.scale.set(isFemale ? 1.22 : 1.12, 0.72, 0.88);
+  const hips = new THREE.Group();
+  const pelvis = lathe(
+    isFemale
+      ? [
+          [0.132, 0.12],
+          [0.172, 0.02],
+          [0.158, -0.08],
+          [0.118, -0.16],
+        ]
+      : [
+          [0.138, 0.12],
+          [0.158, 0.02],
+          [0.148, -0.08],
+          [0.118, -0.16],
+        ],
+    segs,
+    pantsMat,
+  );
+  pelvis.scale.set(1, 1, 0.78);
+  const belt = mesh(new THREE.CylinderGeometry(isFemale ? 0.15 : 0.145, isFemale ? 0.148 : 0.142, 0.04, segs), beltMat);
+  belt.scale.set(1, 1, 0.78);
+  belt.position.set(0, 0.08, 0);
+  const buckle = mesh(new THREE.BoxGeometry(0.06, 0.032, 0.02), buckleMat);
+  buckle.position.set(0, 0.08, 0.12);
+  hips.add(pelvis, belt, buckle);
   hips.position.set(0, hipY, 0);
   person.add(hips);
 
@@ -317,44 +413,38 @@ export function createRealisticHuman(options: HumanOptions = {}): THREE.Group {
 
   for (const side of [-1, 1]) {
     const arm = new THREE.Group();
-    const deltoid = mesh(new THREE.SphereGeometry(0.078, 14, 12), shirtMat);
-    arm.add(deltoid);
     if (cheering) {
-      const upper = mesh(new THREE.CapsuleGeometry(0.05, 0.26, 5, 12), shirtMat);
-      upper.position.set(0, 0.2, 0);
-      const lower = mesh(new THREE.CapsuleGeometry(0.04, 0.24, 5, 12), skinMat);
-      lower.position.set(0, 0.48, 0);
+      const upper = mesh(new THREE.CapsuleGeometry(0.046, 0.24, capSegs, limbSegs), shirtMat);
+      upper.position.set(0, 0.18, 0);
+      const lower = mesh(new THREE.CapsuleGeometry(0.036, 0.22, capSegs, limbSegs), skinMat);
+      lower.position.set(0, 0.46, 0);
       const palm = hand(skinMat, false, lite);
-      palm.position.set(0, 0.66, 0);
+      palm.position.set(0, 0.64, 0);
       arm.add(upper, lower, palm);
       arm.rotation.z = side * -0.45;
     } else if (seated) {
-      const upper = mesh(new THREE.CapsuleGeometry(0.05, 0.24, 5, 12), shirtMat);
+      const upper = mesh(new THREE.CapsuleGeometry(0.046, 0.22, capSegs, limbSegs), shirtMat);
       upper.rotation.x = 0.55;
-      upper.position.set(0, -0.12, 0.08);
-      const elbow = mesh(new THREE.SphereGeometry(0.04, 12, 10), skinMat);
-      elbow.position.set(0, -0.2, 0.2);
-      const lower = mesh(new THREE.CapsuleGeometry(0.04, 0.22, 5, 12), skinMat);
+      upper.position.set(0, -0.1, 0.07);
+      const lower = mesh(new THREE.CapsuleGeometry(0.036, 0.2, capSegs, limbSegs), skinMat);
       lower.rotation.x = 1.12;
-      lower.position.set(0, -0.22, 0.3);
+      lower.position.set(0, -0.2, 0.28);
       const palm = hand(skinMat, true, lite);
       palm.rotation.x = 0.4;
-      palm.position.set(0, -0.22, 0.48);
-      arm.add(upper, elbow, lower, palm);
+      palm.position.set(0, -0.2, 0.46);
+      arm.add(upper, lower, palm);
       arm.rotation.z = side * 0.08;
     } else {
-      const upper = mesh(new THREE.CapsuleGeometry(0.05, 0.26, 5, 12), shirtMat);
-      upper.position.set(0, -0.16, 0.012);
-      const elbow = mesh(new THREE.SphereGeometry(0.042, 12, 10), skinMat);
-      elbow.position.set(0, -0.32, 0.02);
-      const lower = mesh(new THREE.CapsuleGeometry(0.04, 0.24, 5, 12), skinMat);
-      lower.position.set(0, -0.48, 0.028);
+      const upper = mesh(new THREE.CapsuleGeometry(0.046, 0.24, capSegs, limbSegs), shirtMat);
+      upper.position.set(0, -0.14, 0.01);
+      const lower = mesh(new THREE.CapsuleGeometry(0.036, 0.22, capSegs, limbSegs), skinMat);
+      lower.position.set(0, -0.44, 0.02);
       const palm = hand(skinMat, false, lite);
-      palm.position.set(0, -0.66, 0.03);
-      arm.add(upper, elbow, lower, palm);
-      arm.rotation.z = side * 0.09;
+      palm.position.set(0, -0.62, 0.03);
+      arm.add(upper, lower, palm);
+      arm.rotation.z = side * 0.08;
     }
-    arm.position.set(side * shoulderW, torsoY + 0.12, 0);
+    arm.position.set(side * shoulderW, torsoY + 0.14, 0);
     person.add(arm);
     limbs.arms.push(arm);
   }
@@ -362,42 +452,36 @@ export function createRealisticHuman(options: HumanOptions = {}): THREE.Group {
   if (seated) {
     for (const side of [-1, 1]) {
       const leg = new THREE.Group();
-      const thigh = mesh(new THREE.CapsuleGeometry(0.068, 0.34, 5, 12), pantsMat);
+      const thigh = mesh(new THREE.CapsuleGeometry(0.062, 0.32, capSegs, limbSegs), pantsMat);
       thigh.rotation.x = Math.PI / 2;
-      thigh.position.set(0, 0, 0.22);
-      const knee = mesh(new THREE.SphereGeometry(0.065, 12, 10), pantsMat);
-      knee.position.set(0, 0, 0.44);
-      const calf = mesh(new THREE.CapsuleGeometry(0.055, 0.34, 5, 12), pantsMat);
-      calf.position.set(0, -0.22, 0.44);
+      thigh.position.set(0, 0, 0.2);
+      const calf = mesh(new THREE.CapsuleGeometry(0.05, 0.32, capSegs, limbSegs), pantsMat);
+      calf.position.set(0, -0.2, 0.42);
       const shoe = shoePair(shoeMat, soleMat);
-      shoe.position.set(0, -0.58, 0.52);
-      leg.add(thigh, knee, calf, shoe);
-      leg.position.set(side * 0.11, hipY - 0.06, 0);
+      shoe.position.set(0, -0.54, 0.5);
+      leg.add(thigh, calf, shoe);
+      leg.position.set(side * 0.1, hipY - 0.06, 0);
       person.add(leg);
     }
   } else {
     for (const side of [-1, 1]) {
       const leg = new THREE.Group();
-      const thigh = mesh(new THREE.CapsuleGeometry(0.068, 0.36, 5, 12), pantsMat);
-      thigh.position.set(0, -0.22, 0);
-      const knee = mesh(new THREE.SphereGeometry(0.062, 12, 10), pantsMat);
-      knee.position.set(0, -0.44, 0.01);
-      const calf = mesh(new THREE.CapsuleGeometry(0.052, 0.34, 5, 12), pantsMat);
-      calf.position.set(0, -0.66, 0);
-      const ankle = mesh(new THREE.SphereGeometry(0.04, 10, 8), pantsMat);
-      ankle.position.set(0, -0.86, 0.01);
+      const thigh = mesh(new THREE.CapsuleGeometry(0.062, 0.34, capSegs, limbSegs), pantsMat);
+      thigh.position.set(0, -0.2, 0);
+      const calf = mesh(new THREE.CapsuleGeometry(0.048, 0.32, capSegs, limbSegs), pantsMat);
+      calf.position.set(0, -0.62, 0);
       const shoe = shoePair(shoeMat, soleMat);
-      shoe.position.set(0, -1.0, 0.05);
-      leg.add(thigh, knee, calf, ankle, shoe);
-      leg.position.set(side * 0.11, hipY, 0);
+      shoe.position.set(0, -0.96, 0.05);
+      leg.add(thigh, calf, shoe);
+      leg.position.set(side * 0.1, hipY, 0);
       person.add(leg);
       limbs.legs.push(leg);
     }
   }
 
   const shadow = new THREE.Mesh(
-    new THREE.CircleGeometry(0.32, 20),
-    new THREE.MeshBasicMaterial({ color: 0x05070a, transparent: true, opacity: 0.38, depthWrite: false }),
+    new THREE.CircleGeometry(0.28, 24),
+    new THREE.MeshBasicMaterial({ color: 0x05070a, transparent: true, opacity: 0.32, depthWrite: false }),
   );
   shadow.rotation.x = -Math.PI / 2;
   shadow.position.set(0, 0.02, seated ? 0.26 : 0);
