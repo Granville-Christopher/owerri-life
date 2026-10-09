@@ -819,9 +819,13 @@ export function CityWorld({
       keepClear.push({ x: item.x, z: item.z, hx: foot.hx, hz: foot.hz });
     }
     const polyAt = laid.get("fedpoly-nekede");
+    const polyX = polyAt?.x ?? spot(26, 88).x;
+    const polyZ = polyAt?.z ?? spot(26, 88).z;
+    // Campus gate and approach are on +X; the isometric camera looks from +X/+Z.
+    // Put the whole rice field behind the poly (far side: -X, -Z).
     const riceAt = {
-      x: (polyAt?.x ?? spot(26, 88).x) + 118,
-      z: (polyAt?.z ?? spot(26, 88).z) + 10,
+      x: polyX - 130,
+      z: polyZ - 100,
     };
     const farmBoxes = [
       { x: -320, z: 260, hx: 50, hz: 38 },
@@ -1043,7 +1047,7 @@ export function CityWorld({
     byPlace("ikenegbu", 18, -16, -0.2, "Ikenegbu rooms", "The cheap side of town", "#8a5a2a");
     byPlace("eke-ukwu", 40, 22, 0.5, "Ad board", "This face is for sale", "#a9782a");
     placeSign(-320, 312, 0.2, "Egbu farms", "Cassava every Saturday", "#3d6b4f");
-    placeSign(riceAt.x, riceAt.z + 52, 0.1, "Nekede rice", "Beside Federal Polytechnic Nekede", "#143d2c");
+    placeSign(riceAt.x, riceAt.z - 52, 0.1, "Nekede rice", "Behind Federal Polytechnic Nekede", "#143d2c");
     const otamiriSign = otamiriPts[52];
     const otamiriBack = otamiriPts[49];
     const otamiriFore = otamiriPts[55];
