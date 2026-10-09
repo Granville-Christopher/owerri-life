@@ -1319,6 +1319,90 @@ export const PLACES: Place[] = [
     summary: "The lot behind the river bank. Rows of cars, and one you can drive home.",
     activities: ["Buy a car"],
   },
+  {
+    id: "trip-ph",
+    name: "Hotel Presidential, Port Harcourt",
+    area: "Port Harcourt",
+    kind: "hotel",
+    x: -520,
+    y: -40,
+    hours: "Always open",
+    tier: "Trip",
+    summary: "Your paid stay in Port Harcourt. Fly home when you are done.",
+    activities: ["Hotel", "Rest"],
+  },
+  {
+    id: "trip-lagos",
+    name: "Eko Hotel, Lagos",
+    area: "Lagos",
+    kind: "hotel",
+    x: -540,
+    y: -80,
+    hours: "Always open",
+    tier: "Trip",
+    summary: "Your paid stay on the island. Fly home when you are done.",
+    activities: ["Hotel", "Rest"],
+  },
+  {
+    id: "trip-calabar",
+    name: "Transcorp Hotel, Calabar",
+    area: "Calabar",
+    kind: "hotel",
+    x: -560,
+    y: -120,
+    hours: "Always open",
+    tier: "Trip",
+    summary: "Your paid stay in the garden city. Fly home when you are done.",
+    activities: ["Hotel", "Rest"],
+  },
+  {
+    id: "trip-abuja",
+    name: "Transcorp Hilton, Abuja",
+    area: "Abuja",
+    kind: "hotel",
+    x: -580,
+    y: -160,
+    hours: "Always open",
+    tier: "Trip",
+    summary: "Your paid stay in the capital. Fly home when you are done.",
+    activities: ["Hotel", "Rest"],
+  },
+  {
+    id: "trip-accra",
+    name: "Labadi Beach Hotel, Accra",
+    area: "Accra",
+    kind: "hotel",
+    x: -600,
+    y: -200,
+    hours: "Always open",
+    tier: "Trip",
+    summary: "Your paid stay on the coast. Fly home when you are done.",
+    activities: ["Hotel", "Rest"],
+  },
+  {
+    id: "trip-dubai",
+    name: "Marina Hotel, Dubai",
+    area: "Dubai",
+    kind: "hotel",
+    x: -620,
+    y: -240,
+    hours: "Always open",
+    tier: "Trip",
+    summary: "Your paid stay in Dubai. Fly home when you are done.",
+    activities: ["Hotel", "Rest"],
+  },
+  {
+    id: "trip-london",
+    name: "The Savoy, London",
+    area: "London",
+    kind: "hotel",
+    x: -640,
+    y: -280,
+    hours: "Always open",
+    tier: "Trip",
+    summary: "Your paid stay in London. Fly home when you are done.",
+    activities: ["Hotel", "Rest"],
+  },
 ];
 
 export const DRINK_PRICE: Record<string, number> = {
@@ -1641,7 +1725,7 @@ export interface Trip {
 }
 
 export const TRIPS: Trip[] = [
-  { id: "ph", city: "Port Harcourt", days: 1, cost: 35000, energy: 70, fun: 72, social: 64, blurb: "A short hop. The waterfront, then home." },
+  { id: "ph", city: "Port Harcourt", days: 1, cost: 35000, energy: 70, fun: 72, social: 64, blurb: "A short hop. The waterfront, then the hotel." },
   { id: "lagos", city: "Lagos", days: 2, cost: 95000, energy: 74, fun: 90, social: 82, blurb: "Island by day, mainland noise at night." },
   { id: "calabar", city: "Calabar", days: 3, cost: 140000, energy: 78, fun: 88, social: 70, blurb: "The garden city. You walk more than you planned." },
   { id: "abuja", city: "Abuja", days: 3, cost: 160000, energy: 88, fun: 70, social: 60, blurb: "Wide roads and a quiet hotel. You actually rest." },
@@ -1652,6 +1736,15 @@ export const TRIPS: Trip[] = [
 
 export function tripById(id: string) {
   return TRIPS.find((trip) => trip.id === id) ?? null;
+}
+
+export function isTripPlace(id: string) {
+  return id.startsWith("trip-");
+}
+
+export function tripFromPlace(id: string) {
+  if (!isTripPlace(id)) return null;
+  return tripById(id.slice(5));
 }
 
 export function lectureLabel(course: Course) {

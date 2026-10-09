@@ -25,6 +25,7 @@ import {
   enterDoor,
   fileActivity,
   takeFlight,
+  returnFlight,
   getTreatment,
   honourPoliceInvite,
   goOutside,
@@ -75,7 +76,7 @@ import {
   useRestroom,
   go,
 } from "@/lib/game/actions";
-import { BET_STAKES, CAREERS, DREAMS, HOMES, LANDS, NPCS, PLACES, TOP_UPS, TRAITS, TREATMENT_FEE, TRIPS, careerById, carById, coursesAt, homeById, lectureLabel, placeActs, placeById, placeClosedNotice, tripById, type Course } from "@/lib/game/content";
+import { BET_STAKES, CAREERS, DREAMS, HOMES, LANDS, NPCS, PLACES, TOP_UPS, TRAITS, TREATMENT_FEE, TRIPS, careerById, carById, coursesAt, homeById, isTripPlace, lectureLabel, placeActs, placeById, placeClosedNotice, tripById, tripFromPlace, type Course } from "@/lib/game/content";
 import { photoForVehicle } from "@/components/game/photoVehicles";
 import { POLICE_ID, multiplyOdds, travelOptions } from "@/lib/game/engine";
 import { clockLabel, dreamProgress, jobTitle, levelPay, moodLabel, naira, skillLabel, skillNeeded, weekday } from "@/lib/game/format";
@@ -104,7 +105,7 @@ export function GameShell({ view }: { view: GameView }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>(view.me.indoors ? "map" : "home");
   const [ride, setRide] = useState<null | { placeId: string; mode: TravelMode; vehicle: "car" | "bus" | "cab" | "okada"; carId?: string; then: "map" | "home" | "room" }>(null);
-  const [flight, setFlight] = useState<null | { tripId: string; city: string }>(null);
+  const [flight, setFlight] = useState<null | { tripId: string; city: string; back?: boolean }>(null);
   const [toast, setToast] = useState<{ id: number; text: string; bad: boolean } | null>(null);
   const [homeSheet, setHomeSheet] = useState(false);
   const [chatWith, setChatWith] = useState<string | null>(null);
@@ -222,7 +223,7 @@ export function GameShell({ view }: { view: GameView }) {
         {toast ? (
           <p
             key={toast.id}
-            className={`ol-toast pointer-events-none absolute inset-x-3 top-[4.5rem] z-30 rounded-2xl px-3 py-2 text-sm shadow-lg ${toast.bad ? "bg-[#f3d6cc] text-[#7a2e1e]" : "bg-[#e5f2df] text-[#143d2c]"}`}
+            className={`ol-toast pointer-events-none absolute inset-x-3 top-16 z-30 rounded-2xl px-3 py-2 text-sm shadow-lg sm:top-[4.5rem] ${toast.bad ? "bg-[#f3d6cc] text-[#7a2e1e]" : "bg-[#e5f2df] text-[#143d2c]"}`}
             onAnimationEnd={() => setToast(null)}
           >
             {toast.text}
@@ -282,6 +283,11 @@ export function GameShell({ view }: { view: GameView }) {
               pending={pending}
               onOpen={setPersonId}
               onGoHome={() => {
+                const trip = tripFromPlace(me.locationId);
+                if (trip) {
+                  setFlight({ tripId: trip.id, city: trip.city, back: true });
+                  return;
+                }
                 const home = homeById(me.homeId);
                 if (me.locationId === home.areaId) {
                   setRoomEntry("look");
@@ -306,6 +312,10 @@ export function GameShell({ view }: { view: GameView }) {
               onFly={(tripId) => {
                 const trip = tripById(tripId);
                 if (trip) setFlight({ tripId: trip.id, city: trip.city });
+              }}
+              onFlyHome={() => {
+                const trip = tripFromPlace(me.locationId);
+                if (trip) setFlight({ tripId: trip.id, city: trip.city, back: true });
               }}
             />
           ) : null}
@@ -353,37 +363,37 @@ export function GameShell({ view }: { view: GameView }) {
           ) : null}
           {!account && tab === "ledger" ? <LedgerPanel view={view} /> : null}
         </main>
-        <div className="pointer-events-none absolute inset-x-0 top-3 z-30 flex justify-center px-3">
-          <div className="pointer-events-auto flex max-w-full items-center gap-3 overflow-x-auto rounded-full bg-white px-4 py-2 text-sm shadow-lg">
-            <span className="shrink-0 font-semibold">{clockLabel(me.day, me.hour)}</span>
-            <span className="shrink-0 text-[#5d6b62]">{moodLabel(me.needs, me.sick)}</span>
-            <span className="shrink-0 text-[#5d6b62]">{view.city.length} online</span>
-            <InstallButton />
-            <button type="button" className="flex shrink-0 items-center gap-1 rounded-full bg-[#eef6ea] py-1 pl-3 pr-1 font-semibold" aria-label="Your balance" onClick={() => setTopUpOpen(true)}>
-              {naira(view.balance)}
-              <span className="grid h-6 w-6 place-items-center rounded-full bg-[#1f6b45] text-sm text-white">+</span>
+        <div className="pointer-events-none absolute inset-x-0 top-2 z-30 flex items-start justify-between gap-2 px-2 sm:top-3 sm:px-3">
+          <div className="pointer-events-auto flex items-center gap-1.5">
+            <button type="button" aria-label="Your account" onClick={() => setAccount(true)} className="rounded-full bg-white p-0.5 shadow-lg">
+              <Avatar look={me.look} name={me.username} size={28} />
             </button>
+            <div className="grid grid-cols-3 gap-0.5 rounded-full bg-white px-2 py-1 shadow-lg">
+              {(
+                [
+                  ["Hunger", me.needs.hunger, "bg-[#e07a3d]"],
+                  ["Energy", me.needs.energy, "bg-[#e0b15a]"],
+                  ["Hygiene", me.needs.hygiene, "bg-[#3d7ea6]"],
+                  ["Bladder", me.needs.bladder, "bg-[#7a5ea7]"],
+                  ["Fun", me.needs.fun, "bg-[#c4552a]"],
+                  ["Social", me.needs.social, "bg-[#1f6b45]"],
+                ] as const
+              ).map(([label, value, color]) => (
+                <span key={label} title={`${label} ${value}`} className="block h-1 w-5 overflow-hidden rounded-full bg-[#efe4d2] sm:h-1.5 sm:w-7">
+                  <span className={`block h-full ${color}`} style={{ width: `${value}%` }} />
+                </span>
+              ))}
+            </div>
           </div>
-        </div>
-        <div className="absolute bottom-24 left-3 z-30 flex items-center gap-2">
-          <button type="button" aria-label="Your account" onClick={() => setAccount(true)} className="rounded-full bg-white p-1 shadow-lg">
-            <Avatar look={me.look} name={me.username} size={48} />
-          </button>
-          <div className="grid grid-cols-3 gap-1 rounded-full bg-white px-3 py-2 shadow-lg">
-            {(
-              [
-                ["Hunger", me.needs.hunger, "bg-[#e07a3d]"],
-                ["Energy", me.needs.energy, "bg-[#e0b15a]"],
-                ["Hygiene", me.needs.hygiene, "bg-[#3d7ea6]"],
-                ["Bladder", me.needs.bladder, "bg-[#7a5ea7]"],
-                ["Fun", me.needs.fun, "bg-[#c4552a]"],
-                ["Social", me.needs.social, "bg-[#1f6b45]"],
-              ] as const
-            ).map(([label, value, color]) => (
-              <span key={label} title={`${label} ${value}`} className="block h-1.5 w-8 overflow-hidden rounded-full bg-[#efe4d2]">
-                <span className={`block h-full ${color}`} style={{ width: `${value}%` }} />
-              </span>
-            ))}
+          <div className="pointer-events-auto flex min-w-0 max-w-[58%] items-center gap-1 overflow-x-auto rounded-full bg-white px-2 py-1 text-[10px] shadow-lg sm:max-w-none sm:gap-3 sm:px-4 sm:py-2 sm:text-sm">
+            <span className="shrink-0 font-semibold">{clockLabel(me.day, me.hour)}</span>
+            <span className="hidden shrink-0 text-[#5d6b62] sm:inline">{moodLabel(me.needs, me.sick)}</span>
+            <span className="hidden shrink-0 text-[#5d6b62] md:inline">{view.city.length} online</span>
+            <span className="hidden sm:inline"><InstallButton /></span>
+            <button type="button" className="flex shrink-0 items-center gap-0.5 rounded-full bg-[#eef6ea] py-0.5 pl-2 pr-0.5 font-semibold sm:gap-1 sm:py-1 sm:pl-3 sm:pr-1" aria-label="Your balance" onClick={() => setTopUpOpen(true)}>
+              {naira(view.balance)}
+              <span className="grid h-4 w-4 place-items-center rounded-full bg-[#1f6b45] text-[10px] text-white sm:h-6 sm:w-6 sm:text-sm">+</span>
+            </button>
           </div>
         </div>
         <nav className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-full bg-white p-1.5 text-[11px] font-semibold shadow-xl">
@@ -402,6 +412,11 @@ export function GameShell({ view }: { view: GameView }) {
           </button>
           <button type="button" className={`flex w-16 flex-col items-center gap-0.5 rounded-2xl px-2 py-1.5 ${!account && tab === "room" ? "bg-[#17241e] text-white" : "text-[#5d6b62]"}`} onClick={() => {
             setAccount(false);
+            const trip = tripFromPlace(view.me.locationId);
+            if (trip) {
+              setFlight({ tripId: trip.id, city: trip.city, back: true });
+              return;
+            }
             if (view.me.locationId !== homeById(view.me.homeId).areaId) {
               setHomeSheet(true);
               return;
@@ -419,8 +434,17 @@ export function GameShell({ view }: { view: GameView }) {
             onArrive={() => {
               const plan = flight;
               setFlight(null);
+              if (plan.back) {
+                run(returnFlight).then((result) => {
+                  if (result.ok) {
+                    setRoomEntry("look");
+                    setTab("room");
+                  }
+                });
+                return;
+              }
               run(() => takeFlight(plan.tripId)).then((result) => {
-                if (result.ok) setTab("room");
+                if (result.ok) setTab("map");
               });
             }}
           />
@@ -885,6 +909,7 @@ function MapPanel({
   onGoHome,
   sheetRoot,
   onFly,
+  onFlyHome,
 }: {
   view: GameView;
   run: Run;
@@ -893,6 +918,7 @@ function MapPanel({
   onGoHome: () => void;
   sheetRoot: HTMLDivElement | null;
   onFly: (tripId: string) => void;
+  onFlyHome: () => void;
 }) {
   const [visit, setVisit] = useState(0);
   const [closedVisit, setClosedVisit] = useState(-1);
@@ -936,6 +962,7 @@ function MapPanel({
           onSpray={(amount) => run(() => spray(amount))}
           onBook={(stay) => run(() => takeRoom(stay))}
           onFlyTrip={onFly}
+          onFlyHome={onFlyHome}
           onOffer={(npcId) => run(() => makeOffer(npcId))}
           onOutside={() => run(goOutside)}
           spendable={view.pools.earned + view.pools.gifted}

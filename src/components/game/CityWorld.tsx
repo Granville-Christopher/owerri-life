@@ -504,7 +504,7 @@ export function CityWorld({
       labelNodes.push({ node: button, point });
     }
 
-    const laidSpots = PLACES.map((place) => {
+    const laidSpots = PLACES.filter((place) => !place.id.startsWith("trip-")).map((place) => {
       const at = spot(place.x, place.y);
       return { id: place.id, x: at.x, z: at.z };
     });
@@ -516,7 +516,7 @@ export function CityWorld({
     const roadside = new Set(["mama-nkechi", "feedwell"]);
     const phoneShops = new Set(["anonymous-gadgets", "sugar-gadgets", "buc-phones", "elion-phones", "ocha-gadgets", "maxii-gadgets", "easy-life", "gadgets-plug"]);
     const pinned = new Set(["car-stand", "assumpta-cathedral", "sam-mbakwe", "wetheral-strip", ...phoneShops]);
-    const hotels = new Set(PLACES.filter((place) => place.kind === "hotel").map((place) => place.id));
+    const hotels = new Set(PLACES.filter((place) => place.kind === "hotel" && !place.id.startsWith("trip-")).map((place) => place.id));
     const pickups = new Set(PLACES.filter((place) => place.kind === "pickup").map((place) => place.id));
     const kindOf = new Map(PLACES.map((place) => [place.id, place.kind]));
     function footOf(id: string) {
@@ -2006,6 +2006,7 @@ export function CityWorld({
     }
 
     for (const place of PLACES) {
+      if (place.id.startsWith("trip-")) continue;
       const at = laid.get(place.id) ?? spot(place.x, place.y);
       const mine = place.id === homeAreaId;
       const hotel = place.kind === "hotel";
@@ -2132,7 +2133,7 @@ export function CityWorld({
     pill("Egbu Road", new THREE.Vector3(spot(92, 22).x, 1, spot(92, 22).z));
     pill("Campus", new THREE.Vector3(spot(76, 18).x, 1, spot(76, 18).z));
 
-    const here = PLACES.find((place) => place.id === locationId);
+    const here = PLACES.find((place) => place.id === locationId && !place.id.startsWith("trip-"));
     const start = here ? (laid.get(here.id) ?? spot(here.x, here.y)) : { x: 0, z: 0 };
     const person = new THREE.Mesh(new THREE.CapsuleGeometry(0.35, 0.9, 4, 8), new THREE.MeshLambertMaterial({ color: 0x1d4a30 }));
     if (here) person.position.set(start.x + 1.4, 1.05, start.z + 0.6);

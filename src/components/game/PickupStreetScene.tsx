@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import type { LookId } from "@/lib/game/types";
-import { createRealisticHuman } from "@/lib/game/humanModel";
+import { addPlayerGuests, createRealisticHuman, type CrowdPerson } from "@/lib/game/humanModel";
 import { naira } from "@/lib/game/format";
 import { attachSceneCameraControls } from "./sceneCameraControls";
 
@@ -36,6 +36,8 @@ export function PickupStreetScene({
   look,
   title,
   people,
+  guests = [],
+  selfId,
   spendable,
   pending,
   onTake,
@@ -43,6 +45,8 @@ export function PickupStreetScene({
   look: LookId;
   title: string;
   people: Array<{ id: string; name: string; asking: number }>;
+  guests?: CrowdPerson[];
+  selfId?: string;
   spendable: number;
   pending: boolean;
   onTake: (npcId: string) => Promise<{ ok: boolean }>;
@@ -145,6 +149,7 @@ export function PickupStreetScene({
     me.position.set(0.4, 0, 4.6);
     me.rotation.y = Math.PI;
     add(me);
+    addPlayerGuests(street, guests, selfId, { x: 0.4, z: 3.4, rot: Math.PI });
 
     const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 80);
     const aim = new THREE.Vector3(10, 7.5, 16).normalize();
@@ -187,7 +192,7 @@ export function PickupStreetScene({
       renderer.dispose();
       if (renderer.domElement.parentElement === root) root.removeChild(renderer.domElement);
     };
-  }, [look, title, people.map((person) => person.id).join(",")]);
+  }, [look, title, people.map((person) => person.id).join(","), guests.map((person) => person.id).join("|"), selfId]);
 
   function dolly(factor: number) {
     rig.current.zoom = Math.min(2.2, Math.max(0.7, rig.current.zoom * factor));

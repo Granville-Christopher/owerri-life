@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import type { LookId } from "@/lib/game/types";
-import { createRealisticHuman } from "@/lib/game/humanModel";
+import { addPlayerGuests, createRealisticHuman, type CrowdPerson } from "@/lib/game/humanModel";
 import { naira } from "@/lib/game/format";
 import { attachSceneCameraControls } from "./sceneCameraControls";
 
@@ -68,10 +68,14 @@ export function AirportTerminalScene({
   look = "chidi",
   username = "Traveler",
   onBookFlight,
+  people = [],
+  selfId,
 }: {
   look?: LookId;
   username?: string;
   onBookFlight?: (tripId: string) => void;
+  people?: CrowdPerson[];
+  selfId?: string;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const rig = useRef({ yaw: 0.25, zoom: 1.1 });
@@ -369,6 +373,7 @@ export function AirportTerminalScene({
     playerAvatar.position.set(0, 0, 5.2);
     playerAvatar.rotation.y = Math.PI; // Facing into terminal
     airport.add(playerAvatar);
+    addPlayerGuests(airport, people, selfId, { x: 0, z: 4.2, rot: Math.PI });
 
     // Player Rolling Suitcase
     box(0.36, 0.56, 0.26, 0xe0b15a, 0.55, 0.28, 5.2); // Gold trim suitcase
@@ -422,7 +427,7 @@ export function AirportTerminalScene({
         root.removeChild(renderer.domElement);
       }
     };
-  }, [look]);
+  }, [look, people.map((person) => person.id).join("|"), selfId]);
 
   const dolly = (factor: number) => {
     rig.current.zoom = Math.max(0.4, Math.min(7.5, rig.current.zoom * factor));

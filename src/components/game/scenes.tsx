@@ -3,7 +3,7 @@
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import * as THREE from "three";
-import { DORIME_AMOUNTS, FURNITURE, FURNITURE_GROUPS, LOOKS, TREATMENT_FEE, canSitAt, carById, clampPlacement, furnitureById, furnitureInstances, homeById, lookForGender, matchLook, npcsAt, placeActs, placeById, placeClosedNotice, placeIn, roomSize, sprayFloor } from "@/lib/game/content";
+import { DORIME_AMOUNTS, FURNITURE, FURNITURE_GROUPS, LOOKS, TREATMENT_FEE, canSitAt, carById, clampPlacement, furnitureById, furnitureInstances, homeById, isTripPlace, lookForGender, matchLook, npcsAt, placeActs, placeById, placeClosedNotice, placeIn, roomSize, sprayFloor } from "@/lib/game/content";
 import type { FurnitureGroup, Home, Place } from "@/lib/game/content";
 import { naira } from "@/lib/game/format";
 import type { FurnitureSpot, Gender, LookId, Placement, Pose } from "@/lib/game/types";
@@ -19,7 +19,7 @@ import { WarehouseScene } from "./WarehouseScene";
 import { attachSceneCameraControls } from "./sceneCameraControls";
 import { RestaurantScene } from "./RestaurantScene";
 import { PickupStreetScene } from "./PickupStreetScene";
-import { createRealisticHuman } from "@/lib/game/humanModel";
+import { addPlayerGuests, createRealisticHuman } from "@/lib/game/humanModel";
 import { HospitalScene } from "./HospitalScene";
 import { PoliceStationScene } from "./PoliceStationScene";
 import { buildDetailedCarMesh } from "./carModels";
@@ -675,6 +675,7 @@ function ClubFloor({
   dancing,
   bubbles = [],
   onPick,
+  look,
 }: {
   name: string;
   username: string;
@@ -686,15 +687,26 @@ function ClubFloor({
   dancing: boolean;
   bubbles?: Array<{ fromId: string; text: string }>;
   onPick: (id: string) => void;
+  look: LookId;
 }) {
   const [open, setOpen] = useState(false);
   const listed = people.slice(0, 50);
   const spots = arrangeClub(people, selfId, besideId);
   const buyer = spots.get(people.find((person) => person.name === (shout || username))?.id ?? "") ?? spotFor(shout || username);
 
+  const clubBuild = useRef((add: (mesh: THREE.Object3D) => void) => {
+    add(piece(0x1a1524, 18, 0.12, 16, 0, 0.06, 0));
+    add(piece(0x3d1a48, 18, 3.4, 0.2, 0, 1.7, -7.8));
+    add(piece(0x24182e, 0.2, 3.4, 16, -9, 1.7, 0));
+    add(piece(0x24182e, 0.2, 3.4, 16, 9, 1.7, 0));
+    add(piece(0xe0b15a, 2.6, 0.7, 1.4, 0, 0.85, -6.2));
+    add(piece(0x17241e, 1.4, 1.1, 0.8, 0, 1.3, -6.4));
+    add(piece(0x7a3e6d, 3.2, 0.08, 3.2, 0, 0.14, 1.2));
+    void name;
+  }).current;
   return (
     <div className="relative h-full min-h-[70vh] overflow-hidden bg-[#07060c]">
-      <ClubHall name={name} />
+      <OrbitRoom look={look} build={clubBuild} people={people} selfId={selfId} />
       <div className="absolute inset-x-3 top-3 z-20">
         <button
           type="button"
@@ -759,6 +771,7 @@ function ClubFloor({
             name={person.name}
             look={lookFrom(person.id, person.look, person.gender)}
             style={spots.get(person.id) ?? spotFor(person.name)}
+            hideBody
             dance={dancing && person.id === selfId && person.pose !== "sit"}
             pose={person.pose ?? "stand"}
             bubble={bubbles?.find((line) => line.fromId === person.id)?.text ?? null}
@@ -790,12 +803,8 @@ function looseSpot(index: number, self: boolean) {
 
 function RoomScene({
   look,
-  kind,
   people,
-  besideId,
   selfId,
-  onPick,
-  walkers,
 }: {
   look: LookId;
   kind: Place["kind"];
@@ -805,42 +814,15 @@ function RoomScene({
   onPick: (id: string) => void;
   walkers: Array<{ name: string; look: LookId }>;
 }) {
-  const scene = sceneFor(kind);
-  const guests = people.filter((person) => person.id !== selfId).slice(0, 3);
-  const self = people.find((person) => person.id === selfId);
-  return (
-    <div className={`ol-stage relative h-full min-h-[70vh] overflow-hidden ${scene.sky}`}>
-      <div className="ol-world">
-        {kind === "airport" ? <AirportApron /> : scene.set}
-        <div className={`ol-floor ${scene.floor} ${kind === "airport" ? "!h-[58%] !bg-transparent !shadow-none" : ""}`} />
-      </div>
-      <Roamer className="ol-roam-1" look={walkers[0]?.look ?? "ibe"} name={walkers[0]?.name ?? "Passer"} />
-      <Roamer className="ol-roam-2" look={walkers[1]?.look ?? "zara"} name={walkers[1]?.name ?? "Guest"} />
-      <div className="absolute inset-0">
-        {guests.map((person, index) => (
-          <PersonPin
-            key={person.id}
-            name={person.name}
-            look={lookFrom(person.id, person.look ?? look, person.gender)}
-            style={looseSpot(index, false)}
-            pose={person.pose ?? "stand"}
-            onClick={() => onPick(person.id)}
-          />
-        ))}
-        {self ? (
-          <div className="ol-roam-self">
-            <PersonPin
-              name={self.name}
-              look={lookFrom(self.id, self.look ?? look, self.gender)}
-              style={{ left: besideId ? "8%" : "0%", top: "0%", position: "relative" }}
-              pose={self.pose ?? "stand"}
-              onClick={() => onPick(self.id)}
-            />
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
+  const build = useRef((add: (mesh: THREE.Object3D) => void) => {
+    add(piece(0xe7dcc8, 14, 0.12, 12, 0, 0.06, 0));
+    add(piece(0xf4efe4, 14, 3.2, 0.16, 0, 1.7, -6));
+    add(piece(0xf3e6d4, 0.16, 3.2, 12, -7, 1.7, 0));
+    add(piece(0xf3e6d4, 0.16, 3.2, 12, 7, 1.7, 0));
+    add(piece(0x6a4630, 2.4, 0.7, 1.1, -2.2, 0.45, -3.4));
+    add(piece(0x1f6b45, 1.6, 0.9, 0.08, 2.4, 1.8, -5.85));
+  }).current;
+  return <OrbitRoom look={look} build={build} people={people} selfId={selfId} />;
 }
 
 function AirportApron() {
@@ -1876,9 +1858,10 @@ function ClubChat({
   );
 }
 
-function BeachHouse({ look }: { look: LookId }) {
+function BeachHouse({ look, people = [], selfId }: { look: LookId; people?: ScenePerson[]; selfId?: string }) {
   const host = useRef<HTMLDivElement>(null);
   const rig = useRef({ yaw: 0.45, zoom: 1.05 });
+  const crowdKey = people.map((person) => person.id).join("|");
 
   useEffect(() => {
     const root = host.current;
@@ -1957,6 +1940,7 @@ function BeachHouse({ look }: { look: LookId }) {
     guest.position.set(0.3, 0.12, 2.2);
     add(guest);
     add(blob(0.3, 2.2, 0.7, 0.45, 0.35));
+    addPlayerGuests(house, people, selfId, { x: 0.3, z: 1.4, rot: Math.PI });
 
     const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 80);
     const aim = new THREE.Vector3(10, 7, 14).normalize();
@@ -1988,7 +1972,7 @@ function BeachHouse({ look }: { look: LookId }) {
       renderer.dispose();
       root.removeChild(renderer.domElement);
     };
-  }, [look]);
+  }, [look, crowdKey, selfId]);
 
   function turn(dir: number) {
     rig.current.yaw += dir * 0.55;
@@ -2016,12 +2000,17 @@ function BeachHouse({ look }: { look: LookId }) {
 function OrbitRoom({
   look,
   build,
+  people = [],
+  selfId,
 }: {
   look: LookId;
   build: (add: (mesh: THREE.Object3D) => void) => void;
+  people?: ScenePerson[];
+  selfId?: string;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const rig = useRef({ yaw: 0.4, zoom: 1 });
+  const crowdKey = people.map((person) => `${person.id}:${person.look}:${person.pose}`).join("|");
   useEffect(() => {
     const root = host.current;
     if (!root) return;
@@ -2042,6 +2031,7 @@ function OrbitRoom({
     me.position.set(0, 0, 3.2);
     me.rotation.y = Math.PI;
     yard.add(me);
+    addPlayerGuests(yard, people, selfId, { x: 0, z: 2.2, rot: Math.PI });
     const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 80);
     const aim = new THREE.Vector3(10, 7, 14).normalize();
     const fit = () => {
@@ -2072,7 +2062,7 @@ function OrbitRoom({
       renderer.dispose();
       root.removeChild(renderer.domElement);
     };
-  }, [look, build]);
+  }, [look, build, crowdKey, selfId]);
   function turn(dir: number) {
     rig.current.yaw += dir * 0.55;
   }
@@ -2095,7 +2085,7 @@ function OrbitRoom({
   );
 }
 
-function CathedralNave({ look }: { look: LookId }) {
+function CathedralNave({ look, people = [], selfId }: { look: LookId; people?: ScenePerson[]; selfId?: string }) {
   const build = useRef((add: (mesh: THREE.Object3D) => void) => {
     add(piece(0xf4efe4, 16, 0.12, 18, 0, 0.06, -1));
     add(piece(0xf7f1e6, 0.4, 6, 16, -6, 3, -1));
@@ -2116,10 +2106,10 @@ function CathedralNave({ look }: { look: LookId }) {
     add(piece(0x3d7ea6, 0.08, 2.4, 1.4, -5.9, 3.2, -2));
     add(piece(0xc4552a, 0.08, 2.4, 1.4, 5.9, 3.2, 1));
   }).current;
-  return <OrbitRoom look={look} build={build} />;
+  return <OrbitRoom look={look} build={build} people={people} selfId={selfId} />;
 }
 
-function PhoneCounter({ look, title }: { look: LookId; title: string }) {
+function PhoneCounter({ look, title, people = [], selfId }: { look: LookId; title: string; people?: ScenePerson[]; selfId?: string }) {
   const build = useRef((add: (mesh: THREE.Object3D) => void) => {
     add(piece(0xf7fbfc, 12, 0.12, 10, 0, 0.06, 0));
     add(piece(0x17241e, 8, 0.28, 0.2, 0, 3.2, -4.6));
@@ -2132,10 +2122,10 @@ function PhoneCounter({ look, title }: { look: LookId; title: string }) {
     add(piece(0xc4552a, 0.35, 0.7, 0.04, 1.6, 1.15, 2.2));
     void title;
   }).current;
-  return <OrbitRoom look={look} build={build} />;
+  return <OrbitRoom look={look} build={build} people={people} selfId={selfId} />;
 }
 
-function EverydayAisle({ look }: { look: LookId }) {
+function EverydayAisle({ look, people = [], selfId }: { look: LookId; people?: ScenePerson[]; selfId?: string }) {
   const build = useRef((add: (mesh: THREE.Object3D) => void) => {
     add(piece(0xf7fbfc, 16, 0.12, 14, 0, 0.06, 0));
     add(piece(0x1f6b45, 16, 0.5, 0.3, 0, 4.2, -6.6));
@@ -2149,7 +2139,7 @@ function EverydayAisle({ look }: { look: LookId }) {
     add(piece(0x143d2c, 4.2, 1.1, 0.8, 0, 0.7, 4.2));
     add(piece(0xf2c14e, 0.8, 0.2, 0.5, 0, 1.35, 4.2));
   }).current;
-  return <OrbitRoom look={look} build={build} />;
+  return <OrbitRoom look={look} build={build} people={people} selfId={selfId} />;
 }
 
 export function VenueInterior({
@@ -2168,6 +2158,7 @@ export function VenueInterior({
   onFood,
   onBook,
   onFlyTrip,
+  onFlyHome,
   onOffer,
   onOutside,
   spendable,
@@ -2213,6 +2204,7 @@ export function VenueInterior({
   onFood: () => void;
   onBook: (stay: "night" | "hour") => void;
   onFlyTrip?: (tripId: string) => void;
+  onFlyHome?: () => void;
   onOffer: (npcId: string) => Promise<{ ok: boolean }>;
   onOutside: () => void;
   spendable: number;
@@ -2257,6 +2249,7 @@ export function VenueInterior({
   const slept = useRef(false);
   const club = acts.dance;
   const inRoom = Boolean(room);
+  const onTrip = isTripPlace(place.id);
   const suite = inRoom || (place.kind === "hotel" && !club);
   const beach = place.id === "cartel-beach";
   const listed = npcsAt(place.id).filter((npc) => npc.asking);
@@ -2313,12 +2306,14 @@ export function VenueInterior({
             }}
           />
         ) : club ? (
-          <ClubFloor name={place.name} username={username} people={people} shout={shout} service={service} besideId={besideId} selfId={selfId} dancing={dancing} bubbles={bubbles} onPick={pickPerson} />
+          <ClubFloor look={look} name={place.name} username={username} people={people} shout={shout} service={service} besideId={besideId} selfId={selfId} dancing={dancing} bubbles={bubbles} onPick={pickPerson} />
         ) : acts.pickup ? (
           <PickupStreetScene
             look={look}
             title={place.name}
             people={listed.map((npc) => ({ id: npc.id, name: npc.name, asking: npc.asking ?? 0 }))}
+            guests={people}
+            selfId={selfId}
             spendable={spendable}
             pending={pending}
             onTake={async (npcId) => {
@@ -2333,31 +2328,31 @@ export function VenueInterior({
         ) : place.kind === "home" && house ? (
           <HouseRoom name={house.name} homeId={house.homeId} furniture={house.furniture} layout={house.layout} beds={house.beds} upstairs={house.upstairs} duplex={house.duplex} cars={cars} look={look} pending={pending} onBuy={onBuyFurniture ?? (() => undefined)} onMove={onMoveFurniture ?? (() => undefined)} onSell={onSellFurniture} onSleep={onHomeSleep} onShower={onHomeShower} onToilet={onHomeToilet} guests={people} selfId={selfId} bubbles={bubbles} onPickGuest={pickPerson} onSit={() => { setSitting(true); onSit?.(); }} onStand={() => { setSitting(false); onStand?.(); }} onFawwwk={onFawwwk} pose={sitting || pose === "sit" ? "sit" : pose} onOutside={onOutside} />
         ) : beach ? (
-          <BeachHouse look={look} />
+          <BeachHouse look={look} people={people} selfId={selfId} />
         ) : place.id === "assumpta-cathedral" ? (
-          <AssumptaCathedralScene look={look} username={username} />
+          <AssumptaCathedralScene look={look} username={username} people={people} selfId={selfId} />
         ) : place.id === "car-stand" ? (
-          <CarStandScene look={look} username={username} owned={cars} pending={pending} onBuy={onBuyCar} />
+          <CarStandScene look={look} username={username} owned={cars} pending={pending} onBuy={onBuyCar} people={people} selfId={selfId} />
         ) : place.id === "sam-mbakwe" || place.kind === "airport" ? (
-          <AirportTerminalScene look={look} username={username} onBookFlight={onFlyTrip} />
+          <AirportTerminalScene look={look} username={username} onBookFlight={onFlyTrip} people={people} selfId={selfId} />
         ) : place.id === "the-warehouse" ? (
-          <WarehouseScene look={look} username={username} />
+          <WarehouseScene look={look} username={username} people={people} selfId={selfId} />
         ) : place.id === "everyday" ? (
-          <EverydayAisle look={look} />
+          <EverydayAisle look={look} people={people} selfId={selfId} />
         ) : place.id === "heroes-square" || place.id === "stadium" ? (
-          <HeroesStadiumScene look={look} username={username} />
+          <HeroesStadiumScene look={look} username={username} people={people} />
         ) : place.id === "state-cid" ? (
-          <PoliceStationScene look={look} title={place.name} />
+          <PoliceStationScene look={look} title={place.name} people={people} selfId={selfId} />
         ) : PHONE_SHOPS.has(place.id) ? (
-          <PhoneStoreScene look={look} title={place.name} placeId={place.id} />
+          <PhoneStoreScene look={look} title={place.name} placeId={place.id} people={people} selfId={selfId} />
         ) : place.kind === "school" ? (
-          <SchoolClassroomScene look={look} title={place.name} placeId={place.id} username={username} />
+          <SchoolClassroomScene look={look} title={place.name} placeId={place.id} username={username} people={people} selfId={selfId} />
         ) : place.kind === "health" ? (
-          <HospitalScene look={look} title={place.name} placeId={place.id} />
+          <HospitalScene look={look} title={place.name} placeId={place.id} people={people} selfId={selfId} />
         ) : place.kind === "market" ? (
-          <OwerriMarketScene look={look} title={place.name} placeId={place.id} username={username} />
+          <OwerriMarketScene look={look} title={place.name} placeId={place.id} username={username} people={people} selfId={selfId} />
         ) : place.kind === "food" ? (
-          <RestaurantScene look={look} title={place.name} placeId={place.id} />
+          <RestaurantScene look={look} title={place.name} placeId={place.id} people={people} selfId={selfId} />
         ) : (
           <>
             <RoomScene look={look} kind={place.kind} people={people} besideId={besideId} selfId={selfId} onPick={pickPerson} walkers={walkers} />
@@ -2380,7 +2375,7 @@ export function VenueInterior({
           </span>
         ))}
         {!club && !acts.pickup && !house && !suite ? (
-          <PeopleLayer people={people} selfId={selfId} besideId={besideId} bubbles={bubbles} pickedId={picked} onPick={pickPerson} />
+          <PeopleLayer people={people.filter((person) => person.id !== selfId)} selfId={selfId} besideId={besideId} bubbles={bubbles} pickedId={picked} onPick={pickPerson} hideBodies />
         ) : null}
         {intimacyWith && partner ? (
           <BedDuvet
@@ -2530,7 +2525,7 @@ export function VenueInterior({
                 {lying ? "Sleeping" : "Sleep"}
               </button>
             </div>
-            {!inRoom && acts.hotel ? (
+            {!inRoom && acts.hotel && !onTrip ? (
               <div className="grid grid-cols-2 gap-1">
                 <button disabled={pending} onClick={() => onBook("hour")} className="rounded-full border border-[#e4d8c4] py-1 text-[10px] font-semibold disabled:opacity-40">
                   Hour · {naira(acts.hotel.hour)}
@@ -2540,7 +2535,7 @@ export function VenueInterior({
                 </button>
               </div>
             ) : null}
-            {inRoom ? (
+            {inRoom && !onTrip ? (
               <button type="button" disabled={pending} onClick={onLeaveRoom} className="text-[10px] text-[#5d6b62]">
                 Leave the room
               </button>
@@ -2569,7 +2564,15 @@ export function VenueInterior({
           </button>
         ) : null}
       </div>
-      {!house ? (
+      {onTrip && onFlyHome ? (
+        <button
+          type="button"
+          onClick={onFlyHome}
+          className="absolute bottom-28 right-3 z-40 rounded-full bg-[#e0b15a] px-5 py-3 text-sm font-semibold text-[#1a140c] shadow-lg"
+        >
+          Fly home
+        </button>
+      ) : !house ? (
         <button
           type="button"
           onClick={() => {
@@ -2611,76 +2614,7 @@ function blob(x: number, z: number, wide: number, deep: number, dark = 0.5) {
 }
 
 function citizen(lookId: LookId) {
-  const palette = LOOKS.find((item) => item.id === lookId) ?? LOOKS[0];
-  const person = new THREE.Group();
-  const skin = new THREE.MeshLambertMaterial({ color: palette.skin });
-  const cloth = new THREE.MeshLambertMaterial({ color: palette.shirt });
-  const hairM = new THREE.MeshLambertMaterial({ color: palette.hair });
-  const pants = new THREE.MeshLambertMaterial({ color: 0x1c2430 });
-  const shoe = new THREE.MeshLambertMaterial({ color: 0x16120f });
-  const eye = new THREE.MeshBasicMaterial({ color: 0x1a1410 });
-  const mouth = new THREE.MeshBasicMaterial({ color: 0x8d4d48 });
-  const mesh = (geometry: THREE.BufferGeometry, material: THREE.Material, parent: THREE.Object3D, x: number, y: number, z: number) => {
-    const part = new THREE.Mesh(geometry, material);
-    part.castShadow = true;
-    part.position.set(x, y, z);
-    parent.add(part);
-    return part;
-  };
-  const limbGeo = (radius: number, length: number) => new THREE.CapsuleGeometry(radius, length, 6, 10);
-
-  // legs hang from the hips so they can swing when walking
-  const leg = (side: number) => {
-    const hip = new THREE.Group();
-    hip.position.set(side * 0.085, 0.92, 0);
-    mesh(limbGeo(0.068, 0.66), pants, hip, 0, -0.41, 0);
-    const foot = mesh(new THREE.BoxGeometry(0.1, 0.07, 0.24), shoe, hip, 0, -0.84, 0.05);
-    foot.scale.set(1, 1, 1);
-    person.add(hip);
-    return hip;
-  };
-  const leftLeg = leg(-1);
-  const rightLeg = leg(1);
-
-  // hips, torso, shoulders
-  const pelvis = mesh(new THREE.SphereGeometry(0.17, 18, 12), pants, person, 0, 0.95, 0);
-  pelvis.scale.set(1, 0.7, 0.62);
-  const torso = mesh(new THREE.CylinderGeometry(0.19, 0.15, 0.56, 20), cloth, person, 0, 1.22, 0);
-  torso.scale.set(1, 1, 0.6);
-  const chest = mesh(new THREE.SphereGeometry(0.19, 18, 12), cloth, person, 0, 1.43, 0);
-  chest.scale.set(1.05, 0.55, 0.62);
-
-  // arms hang from the shoulders
-  const arm = (side: number) => {
-    const shoulder = new THREE.Group();
-    shoulder.position.set(side * 0.235, 1.43, 0);
-    mesh(limbGeo(0.046, 0.5), cloth, shoulder, 0, -0.3, 0).scale.set(1, 1, 1);
-    mesh(new THREE.SphereGeometry(0.052, 12, 10), skin, shoulder, 0, -0.63, 0);
-    shoulder.rotation.z = side * 0.07;
-    person.add(shoulder);
-    return shoulder;
-  };
-  const leftArm = arm(-1);
-  const rightArm = arm(1);
-
-  // neck and head
-  mesh(new THREE.CylinderGeometry(0.052, 0.058, 0.12, 12), skin, person, 0, 1.56, 0);
-  const head = mesh(new THREE.SphereGeometry(0.118, 24, 18), skin, person, 0, 1.68, 0.01);
-  head.scale.set(0.9, 1.12, 1);
-  mesh(new THREE.SphereGeometry(0.026, 8, 6), skin, person, -0.105, 1.68, 0).scale.set(0.5, 1, 0.8);
-  mesh(new THREE.SphereGeometry(0.026, 8, 6), skin, person, 0.105, 1.68, 0).scale.set(0.5, 1, 0.8);
-  mesh(new THREE.SphereGeometry(0.022, 8, 6), skin, person, 0, 1.665, 0.118).scale.set(0.9, 1.1, 1);
-  mesh(new THREE.SphereGeometry(0.014, 8, 6), eye, person, -0.042, 1.7, 0.106);
-  mesh(new THREE.SphereGeometry(0.014, 8, 6), eye, person, 0.042, 1.7, 0.106);
-  mesh(new THREE.SphereGeometry(0.02, 8, 6), mouth, person, 0, 1.628, 0.108).scale.set(1.5, 0.4, 0.4);
-  const hair = mesh(new THREE.SphereGeometry(0.124, 20, 14), hairM, person, 0, 1.74, -0.015);
-  hair.scale.set(0.97, 0.6, 1.02);
-  const back = mesh(new THREE.SphereGeometry(0.12, 16, 12), hairM, person, 0, 1.69, -0.04);
-  back.scale.set(0.95, 0.95, 0.8);
-
-  person.userData.limbs = { leftLeg, rightLeg, leftArm, rightArm };
-  person.position.set(0, 0.12, 0.15);
-  return person;
+  return createRealisticHuman({ lookId, scale: 0.92 });
 }
 
 type HomeSpot = FurnitureSpot | "bathroom" | "landing" | "house";

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import type { LookId } from "@/lib/game/types";
 import { naira } from "@/lib/game/format";
-import { createRealisticHuman } from "@/lib/game/humanModel";
+import { addPlayerGuests, createRealisticHuman, type CrowdPerson } from "@/lib/game/humanModel";
 import { attachSceneCameraControls } from "./sceneCameraControls";
 
 // Canvas texture for phone screens
@@ -207,11 +207,15 @@ export function PhoneStoreScene({
   title = "Anonymous Gadgets",
   placeId = "anonymous-gadgets",
   spendable = 5000000,
+  people = [],
+  selfId,
 }: {
   look?: LookId;
   title?: string;
   placeId?: string;
   spendable?: number;
+  people?: CrowdPerson[];
+  selfId?: string;
 }) {
   const host = useRef<HTMLDivElement>(null);
   // Elevated isometric camera like in the clubs, looking down from above into the compact room
@@ -565,6 +569,7 @@ export function PhoneStoreScene({
     playerAvatar.position.set(0.6, 0, 2.6);
     playerAvatar.rotation.y = Math.PI; // Facing into the showcase
     room.add(playerAvatar);
+    addPlayerGuests(room, people, selfId, { x: 0.6, z: 1.6, rot: Math.PI });
 
     // ─────────────────────────────────────────────────────────────
     // ELEVATED ISOMETRIC CAMERA (Looking down from up like in the clubs!)
@@ -612,7 +617,7 @@ export function PhoneStoreScene({
       renderer.dispose();
       root.removeChild(renderer.domElement);
     };
-  }, [look, title]);
+  }, [look, title, people.map((person) => person.id).join("|"), selfId]);
 
   function turn(dir: number) {
     rig.current.yaw += dir * 0.45;

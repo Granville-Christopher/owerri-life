@@ -20,6 +20,7 @@ import {
   furnish,
   placeFurniture,
   flyAway,
+  flyHome,
   hangOut,
   honourInvite,
   freshSlate,
@@ -479,6 +480,9 @@ export async function leaveSchool() {
 }
 export async function takeFlight(tripId: string) {
   return withPlayer((id) => simple(id, (player, ledger) => flyAway(player, ledger, tripId)));
+}
+export async function returnFlight() {
+  return withPlayer((id) => simple(id, flyHome));
 }
 export async function makeOffer(npcId: string) {
   return withPlayer((id) => simple(id, (player, ledger) => sendOffer(player, ledger, npcId)));

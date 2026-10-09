@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import type { LookId } from "@/lib/game/types";
-import { createRealisticHuman } from "@/lib/game/humanModel";
+import { addPlayerGuests, createRealisticHuman, type CrowdPerson } from "@/lib/game/humanModel";
 import { attachSceneCameraControls } from "./sceneCameraControls";
 import { naira } from "@/lib/game/format";
 
@@ -151,11 +151,15 @@ export function SchoolClassroomScene({
   title = "Imo State University (IMSU)",
   placeId = "imsu",
   username = "Student",
+  people = [],
+  selfId,
 }: {
   look?: LookId;
   title?: string;
   placeId?: string;
   username?: string;
+  people?: CrowdPerson[];
+  selfId?: string;
 }) {
   const host = useRef<HTMLDivElement>(null);
   // High-angle top-down / isometric camera view into the classroom like in clubs
@@ -424,6 +428,7 @@ export function SchoolClassroomScene({
     playerAvatar.position.set(0, 0, -0.6); // Front row, center seat!
     playerAvatar.rotation.y = Math.PI; // Facing front towards blackboard & lecturer
     room.add(playerAvatar);
+    addPlayerGuests(room, people, selfId, { x: 0, z: 0.6, rot: Math.PI });
 
     // Open laptop in front of player
     box(0.38, 0.02, 0.26, 0x334155, 0, 0.92, -1.15);
@@ -496,7 +501,7 @@ export function SchoolClassroomScene({
         root.removeChild(renderer.domElement);
       }
     };
-  }, [look, title]);
+  }, [look, title, people.map((person) => person.id).join("|"), selfId]);
 
   const dolly = (factor: number) => {
     rig.current.zoom = Math.max(0.35, Math.min(8.0, rig.current.zoom * factor));

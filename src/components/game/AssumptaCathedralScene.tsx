@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import type { LookId } from "@/lib/game/types";
-import { createRealisticHuman } from "@/lib/game/humanModel";
+import { addPlayerGuests, createRealisticHuman, type CrowdPerson } from "@/lib/game/humanModel";
 import { attachSceneCameraControls } from "./sceneCameraControls";
 
 // Stained glass canvas texture generator
@@ -89,9 +89,13 @@ function createStainedGlassTexture(theme: "virgin_mary" | "cross" | "chalice"): 
 export function AssumptaCathedralScene({
   look = "chidi",
   username = "Worshipper",
+  people = [],
+  selfId,
 }: {
   look?: LookId;
   username?: string;
+  people?: CrowdPerson[];
+  selfId?: string;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const rig = useRef({ yaw: 0.05, zoom: 1.15 });
@@ -394,6 +398,7 @@ export function AssumptaCathedralScene({
       }
 
       playerGroup.add(playerAvatar);
+      addPlayerGuests(playerGroup, people, selfId, { x: isSitting ? -1.4 : 1.2, z: isSitting ? -1.2 : 1.8, rot: 0 });
     };
     updatePlayerMesh();
 
@@ -446,7 +451,7 @@ export function AssumptaCathedralScene({
         root.removeChild(renderer.domElement);
       }
     };
-  }, [look, isSitting]);
+  }, [look, isSitting, people.map((person) => person.id).join("|"), selfId]);
 
   const dolly = (factor: number) => {
     rig.current.zoom = Math.max(0.4, Math.min(7.5, rig.current.zoom * factor));

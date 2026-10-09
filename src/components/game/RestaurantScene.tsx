@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import type { LookId } from "@/lib/game/types";
-import { createRealisticHuman } from "@/lib/game/humanModel";
+import { addPlayerGuests, createRealisticHuman, type CrowdPerson } from "@/lib/game/humanModel";
 import { attachSceneCameraControls } from "./sceneCameraControls";
 
 function themeFor(placeId: string) {
@@ -41,10 +41,14 @@ export function RestaurantScene({
   look,
   title,
   placeId,
+  people = [],
+  selfId,
 }: {
   look: LookId;
   title: string;
   placeId: string;
+  people?: CrowdPerson[];
+  selfId?: string;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const rig = useRef({ yaw: 0.15, zoom: 1 });
@@ -120,6 +124,7 @@ export function RestaurantScene({
     person("ngozi", -1.5, -4.55, 0, false, theme.shirt);
     person("emeka", 1.6, -4.55, 0, false, theme.shirt);
     person(look, -1.7, -2.15, Math.PI);
+    addPlayerGuests(room, people, selfId, { x: -1.7, z: -1.1, rot: Math.PI });
     person("chidi", 0.15, -2.15, Math.PI);
     person("ibe", 2.05, -2.15, Math.PI);
 
@@ -184,7 +189,7 @@ export function RestaurantScene({
       renderer.dispose();
       if (renderer.domElement.parentElement === root) root.removeChild(renderer.domElement);
     };
-  }, [look, placeId, title]);
+  }, [look, placeId, title, people.map((person) => person.id).join("|"), selfId]);
 
   function turn(dir: number) {
     rig.current.yaw += dir * 0.55;

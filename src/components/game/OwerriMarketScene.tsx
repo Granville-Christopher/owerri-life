@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import type { LookId } from "@/lib/game/types";
-import { createRealisticHuman } from "@/lib/game/humanModel";
+import { addPlayerGuests, createRealisticHuman, type CrowdPerson } from "@/lib/game/humanModel";
 import { naira } from "@/lib/game/format";
 import { attachSceneCameraControls } from "./sceneCameraControls";
 
@@ -60,11 +60,15 @@ export function OwerriMarketScene({
   title = "Relief Market",
   placeId = "relief-market",
   username = "Shopper",
+  people = [],
+  selfId,
 }: {
   look?: LookId;
   title?: string;
   placeId?: string;
   username?: string;
+  people?: CrowdPerson[];
+  selfId?: string;
 }) {
   const host = useRef<HTMLDivElement>(null);
   // High-angle isometric view looking down into the market stalls like the clubs
@@ -320,6 +324,7 @@ export function OwerriMarketScene({
     playerAvatar.position.set(-0.5, 0, 1.2); // Right in front of foodstuff stall
     playerAvatar.rotation.y = -Math.PI / 4; // Looking toward Mama Nkechi
     market.add(playerAvatar);
+    addPlayerGuests(market, people, selfId, { x: -0.5, z: 0.2, rot: -Math.PI / 4 });
 
     // Market wheelbarrow with goods
     box(1.1, 0.35, 0.65, 0x475569, 0.4, 0.35, 3.5);
@@ -374,7 +379,7 @@ export function OwerriMarketScene({
         root.removeChild(renderer.domElement);
       }
     };
-  }, [look, title]);
+  }, [look, title, people.map((person) => person.id).join("|"), selfId]);
 
   const dolly = (factor: number) => {
     rig.current.zoom = Math.max(0.35, Math.min(8.0, rig.current.zoom * factor));

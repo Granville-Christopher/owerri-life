@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import type { LookId } from "@/lib/game/types";
-import { createRealisticHuman } from "@/lib/game/humanModel";
+import { addPlayerGuests, createRealisticHuman, type CrowdPerson } from "@/lib/game/humanModel";
 import { attachSceneCameraControls } from "./sceneCameraControls";
 
 function boardTexture() {
@@ -28,7 +28,7 @@ function boardTexture() {
   return texture;
 }
 
-export function PoliceStationScene({ look, title }: { look: LookId; title: string }) {
+export function PoliceStationScene({ look, title, people = [], selfId }: { look: LookId; title: string; people?: CrowdPerson[]; selfId?: string }) {
   const host = useRef<HTMLDivElement>(null);
   const rig = useRef({ yaw: 0.1, zoom: 1 });
 
@@ -127,6 +127,7 @@ export function PoliceStationScene({ look, title }: { look: LookId; title: strin
     box(0x8a96a4, 0.7, 1.1, 0.5, 0.8, 0.6, 4.6);
     box(0x245c78, 0.18, 0.7, 0.18, 0.55, 1.4, 4.6);
     person(look, 0.2, 3.4, Math.PI);
+    addPlayerGuests(room, people, selfId, { x: 0.2, z: 2.4, rot: Math.PI });
 
     const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 90);
     const aim = new THREE.Vector3(9, 8, 14).normalize();
@@ -169,7 +170,7 @@ export function PoliceStationScene({ look, title }: { look: LookId; title: strin
       renderer.dispose();
       if (renderer.domElement.parentElement === root) root.removeChild(renderer.domElement);
     };
-  }, [look, title]);
+  }, [look, title, people.map((person) => person.id).join("|"), selfId]);
 
   function dolly(factor: number) {
     rig.current.zoom = Math.min(2.2, Math.max(0.7, rig.current.zoom * factor));

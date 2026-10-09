@@ -21,6 +21,8 @@ import {
   TOP_UPS,
   TREATMENT_FEE,
   tripById,
+  isTripPlace,
+  tripFromPlace,
   npcsAt,
   placeById,
   placeClosedNotice,
@@ -327,6 +329,9 @@ export function travelOptions(fromId: string, toId: string, hasCar: boolean, bal
 export function travel(player: Player, ledger: LedgerEntry[], placeId: string, mode: TravelMode): Step {
   const place = placeById(placeId);
   if (place.id === player.locationId) return fail(player, ledger, "You are already there.");
+  if (isTripPlace(player.locationId) || isTripPlace(placeId)) {
+    return fail(player, ledger, "That trip takes a flight, not a keke.");
+  }
   const option = travelOptions(player.locationId, place.id, player.hasCar, wallet(ledger, player.id)).find(
     (item) => item.mode === mode,
   );
@@ -389,6 +394,7 @@ export function enterPlace(player: Player, ledger: LedgerEntry[]): Step {
 
 export function stepOutside(player: Player, ledger: LedgerEntry[]): Step {
   if (!player.indoors) return fail(player, ledger, "You are already outside.");
+  if (isTripPlace(player.locationId)) return fail(player, ledger, "Fly home from the hotel when you are done.");
   const next = structuredClone(player);
   next.indoors = false;
   next.besideId = null;
@@ -507,7 +513,7 @@ export function sleepInRoom(player: Player, ledger: LedgerEntry[]): Step {
   const stay = player.room.stay;
   const hours = stay === "night" ? (player.hour < 8 ? 8 - player.hour : 24 - player.hour + 8) : 1;
   return spendTime(player, ledger, hours, 0, "", (next) => {
-    next.room = null;
+    if (!isTripPlace(player.locationId)) next.room = null;
     if (stay === "night") {
       next.needs.energy = 92;
       next.needs.hunger = clamp(next.needs.hunger - 10);
@@ -588,26 +594,46 @@ export function flyAway(player: Player, ledger: LedgerEntry[], tripId: string): 
   const trip = tripById(tripId);
   if (!trip) return fail(player, ledger, "That flight is not on the board.");
   if (player.locationId !== "sam-mbakwe" || !player.indoors) return fail(player, ledger, "Check in at Sam Mbakwe Airport first.");
-  const home = homeById(player.homeId);
+  const destId = `trip-${trip.id}`;
+  const dest = placeById(destId);
   const charged = debit(ledger, player, trip.cost, `Flight and stay · ${trip.city}`, stamp(player.day, player.hour));
   if (!charged) return fail(player, ledger, "Your wallet cannot cover the flight and the stay.");
-  const passed = advance(player, charged, trip.days * 24);
+  const passed = advance(player, charged, 5);
+  const next = passed.player;
+  next.locationId = dest.id;
+  next.indoors = true;
+  next.room = { stay: "night", placeId: dest.id };
+  next.sick = "none";
+  next.strain = 0;
+  next.needs.hunger = 78;
+  next.needs.energy = Math.max(next.needs.energy, 62);
+  next.needs.hygiene = 84;
+  next.needs.bladder = 80;
+  const kept = passed.notes.filter((note) => !note.toLowerCase().includes("sick"));
+  return succeed(next, passed.ledger, [
+    ...kept,
+    `You landed in ${trip.city}. ${dest.name} is already paid. Sit, sleep, and fly home when you are done.`,
+  ]);
+}
+
+export function flyHome(player: Player, ledger: LedgerEntry[]): Step {
+  const trip = tripFromPlace(player.locationId);
+  if (!trip || !player.indoors) return fail(player, ledger, "Fly home from your hotel on the trip.");
+  const home = homeById(player.homeId);
+  const passed = advance(player, ledger, trip.days * 24);
   const next = passed.player;
   next.locationId = home.areaId;
   next.indoors = true;
   next.room = null;
-  next.sick = "none";
-  next.strain = 0;
-  next.needs.hunger = 78;
+  next.besideId = null;
   next.needs.energy = trip.energy;
-  next.needs.hygiene = 84;
-  next.needs.bladder = 80;
   next.needs.fun = trip.fun;
   next.needs.social = trip.social;
+  next.needs.hygiene = 84;
   const kept = passed.notes.filter((note) => !note.toLowerCase().includes("sick"));
   return succeed(next, passed.ledger, [
     ...kept,
-    `${trip.days} days in ${trip.city}. The flight and the stay were one payment. You are back inside ${home.name}.`,
+    `${trip.days} days in ${trip.city} are done. You are back inside ${home.name}.`,
   ]);
 }
 

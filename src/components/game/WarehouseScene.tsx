@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import type { LookId } from "@/lib/game/types";
-import { createRealisticHuman } from "@/lib/game/humanModel";
+import { addPlayerGuests, createRealisticHuman, type CrowdPerson } from "@/lib/game/humanModel";
 import { naira } from "@/lib/game/format";
 import { attachSceneCameraControls } from "./sceneCameraControls";
 
@@ -124,10 +124,14 @@ export function WarehouseScene({
   look = "chidi",
   username = "Logistics Officer",
   onWorkShift,
+  people = [],
+  selfId,
 }: {
   look?: LookId;
   username?: string;
   onWorkShift?: () => void;
+  people?: CrowdPerson[];
+  selfId?: string;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const rig = useRef({ yaw: 0.38, zoom: 1.15 });
@@ -337,6 +341,7 @@ export function WarehouseScene({
     playerAvatar.position.set(-0.6, 0, 4.2);
     playerAvatar.rotation.y = 0.2; // Facing into forklift & aisle
     warehouse.add(playerAvatar);
+    addPlayerGuests(warehouse, people, selfId, { x: -0.6, z: 3.2, rot: 0.2 });
 
     // ─────────────────────────────────────────────────────────────
     // ELEVATED ISOMETRIC CAMERA & RENDER LOOP
@@ -387,7 +392,7 @@ export function WarehouseScene({
         root.removeChild(renderer.domElement);
       }
     };
-  }, [look]);
+  }, [look, people.map((person) => person.id).join("|"), selfId]);
 
   const dolly = (factor: number) => {
     rig.current.zoom = Math.max(0.4, Math.min(7.5, rig.current.zoom * factor));

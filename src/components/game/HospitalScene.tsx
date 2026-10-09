@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import type { LookId } from "@/lib/game/types";
-import { createRealisticHuman } from "@/lib/game/humanModel";
+import { addPlayerGuests, createRealisticHuman, type CrowdPerson } from "@/lib/game/humanModel";
 import { attachSceneCameraControls } from "./sceneCameraControls";
 
 function boardTexture(title: string) {
@@ -28,7 +28,7 @@ function boardTexture(title: string) {
   return texture;
 }
 
-export function HospitalScene({ look, title, placeId }: { look: LookId; title: string; placeId: string }) {
+export function HospitalScene({ look, title, placeId, people = [], selfId }: { look: LookId; title: string; placeId: string; people?: CrowdPerson[]; selfId?: string }) {
   const host = useRef<HTMLDivElement>(null);
   const rig = useRef({ yaw: 0.12, zoom: 1 });
 
@@ -164,6 +164,7 @@ export function HospitalScene({ look, title, placeId }: { look: LookId; title: s
     box(0xf7fbfc, 0.2, 0.7, 0.2, -8.2, 1.05, 4.6);
     // the player, waiting in the corridor
     person(look, 0, 3.2, Math.PI);
+    addPlayerGuests(room, people, selfId, { x: 0, z: 2.2, rot: Math.PI });
 
     const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 90);
     const aim = new THREE.Vector3(9, 8, 14).normalize();
@@ -206,7 +207,7 @@ export function HospitalScene({ look, title, placeId }: { look: LookId; title: s
       renderer.dispose();
       if (renderer.domElement.parentElement === root) root.removeChild(renderer.domElement);
     };
-  }, [look, placeId, title]);
+  }, [look, placeId, title, people.map((person) => person.id).join("|"), selfId]);
 
   function dolly(factor: number) {
     rig.current.zoom = Math.min(2.2, Math.max(0.7, rig.current.zoom * factor));
