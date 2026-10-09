@@ -892,37 +892,24 @@ function ClubHall({
 
     const wallColors = [0xff4d8d, 0x4dc3ff, theme.accent, 0x7dffb2, 0xff8a2a, 0xc4558a] as const;
     const wallLamps: THREE.PointLight[] = [];
-    const wallBeams: THREE.Mesh[] = [];
     const wallPlates: THREE.Mesh[] = [];
     const wallLight = (face: "left" | "right" | "back", along: number, color: number) => {
       const plate = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.32, 0.2), new THREE.MeshBasicMaterial({ color }));
-      const lamp = new THREE.PointLight(color, 14, 11);
-      const beam = new THREE.Mesh(
-        new THREE.ConeGeometry(0.62, 2.4, 12, 1, true),
-        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false }),
-      );
+      const lamp = new THREE.PointLight(color, 16, 12);
       if (face === "left") {
         plate.position.set(-8.86, 1.18, along);
         lamp.position.set(-8.35, 1.18, along);
-        beam.position.set(-7.4, 1.18, along);
-        beam.rotation.z = Math.PI / 2;
       } else if (face === "right") {
         plate.position.set(8.86, 1.18, along);
         lamp.position.set(8.35, 1.18, along);
-        beam.position.set(7.4, 1.18, along);
-        beam.rotation.z = -Math.PI / 2;
       } else {
         plate.position.set(along, 1.18, -6.06);
         lamp.position.set(along, 1.18, -5.55);
-        beam.position.set(along, 1.18, -4.6);
-        beam.rotation.x = -Math.PI / 2;
       }
       add(plate);
       add(lamp);
-      add(beam);
       wallPlates.push(plate);
       wallLamps.push(lamp);
-      wallBeams.push(beam);
     };
     [-4.2, -1.4, 1.4, 4.2].forEach((z, i) => wallLight("left", z, wallColors[i % wallColors.length]));
     [-4.2, -1.4, 1.4, 4.2].forEach((z, i) => wallLight("right", z, wallColors[(i + 2) % wallColors.length]));
@@ -1067,10 +1054,6 @@ function ClubHall({
       wallLamps.forEach((lamp, i) => {
         lamp.intensity = 10 + Math.abs(Math.sin(t * 0.005 + i)) * 10;
         lamp.color.setHSL((t * 0.00014 + i * 0.16) % 1, 0.8, 0.55);
-      });
-      wallBeams.forEach((beam, i) => {
-        (beam.material as THREE.MeshBasicMaterial).opacity = 0.12 + Math.abs(Math.sin(t * 0.004 + i)) * 0.22;
-        (beam.material as THREE.MeshBasicMaterial).color.setHSL((t * 0.00014 + i * 0.16) % 1, 0.85, 0.55);
       });
       wallPlates.forEach((plate, i) => {
         (plate.material as THREE.MeshBasicMaterial).color.setHSL((t * 0.00014 + i * 0.1) % 1, 0.85, 0.52);
