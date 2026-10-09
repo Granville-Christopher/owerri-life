@@ -120,7 +120,7 @@ function hairAccessory(hairMat: THREE.Material, female: boolean, lookId: LookId)
   return hair;
 }
 
-/** Classic blocky Roblox-style avatar (R6 proportions). */
+/** Block Roblox avatar: square head, torso, two arms, two legs each split into thigh and shin. */
 export function createRealisticHuman(options: HumanOptions = {}): THREE.Group {
   const {
     lookId = "chidi",
@@ -137,23 +137,31 @@ export function createRealisticHuman(options: HumanOptions = {}): THREE.Group {
 
   const skinMat = plastic(pal.skin);
   const shirtMat = plastic(customShirt != null ? customShirt : pal.shirt);
-  const pantsMat = plastic(customPants != null ? customPants : isFemale ? 0x1f2937 : 0x151c2e);
+  const pantsColor = new THREE.Color(customPants != null ? customPants : isFemale ? 0x1f2937 : 0x151c2e);
+  const pantsMat = plastic(pantsColor);
+  const shinMat = plastic(pantsColor.clone().multiplyScalar(0.72));
   const hairMat = plastic(pal.hair);
+  const shoeMat = plastic(0x111111);
 
-  const headSize = 0.44;
-  const torsoH = 0.64;
-  const torsoW = 0.54;
-  const torsoD = 0.28;
-  const limbW = 0.22;
-  const armLen = 0.58;
-  const thighLen = 0.36;
-  const shinLen = 0.34;
-  const footH = 0.14;
+  const headSize = 0.5;
+  const torsoW = 0.72;
+  const torsoH = 0.78;
+  const torsoD = 0.36;
+  const armW = 0.24;
+  const upperArm = 0.36;
+  const lowerArm = 0.32;
+  const handS = 0.2;
+  const thighH = 0.4;
+  const shinH = 0.36;
+  const footH = 0.12;
+  const legW = 0.3;
+  const legGap = 0.08;
 
-  const hipY = seated ? 0.78 : 0.96;
-  const torsoY = seated ? 1.28 : 1.46;
-  const headY = seated ? 1.72 : 1.9;
-  const shoulderW = torsoW / 2 + limbW / 2 + 0.02;
+  const hipY = thighH + shinH + footH;
+  const torsoY = hipY + torsoH / 2;
+  const headY = hipY + torsoH + headSize / 2 + 0.02;
+  const shoulderX = torsoW / 2 + armW / 2 + 0.015;
+  const legX = legW / 2 + legGap / 2;
 
   const head = new THREE.Group();
   const headBlock = mesh(new THREE.BoxGeometry(headSize, headSize, headSize), skinMat);
@@ -175,71 +183,59 @@ export function createRealisticHuman(options: HumanOptions = {}): THREE.Group {
   const torso = new THREE.Group();
   const body = mesh(new THREE.BoxGeometry(torsoW, torsoH, torsoD), shirtMat);
   torso.add(body);
-  torso.rotation.x = seated ? 0.12 : 0;
-  torso.position.set(0, torsoY, seated ? -0.04 : 0);
+  torso.position.set(0, torsoY, 0);
   person.add(torso);
 
   const hips = new THREE.Group();
-  hips.position.set(0, hipY, seated ? -0.05 : 0);
+  hips.position.set(0, hipY, 0);
   person.add(hips);
 
   const limbs: { legs: THREE.Group[]; arms: THREE.Group[] } = { legs: [], arms: [] };
 
   for (const side of [-1, 1]) {
     const arm = new THREE.Group();
-    const upper = mesh(new THREE.BoxGeometry(limbW, armLen, limbW), shirtMat);
-    upper.position.y = -armLen / 2;
-    arm.add(upper);
-    const hand = mesh(new THREE.BoxGeometry(limbW * 0.92, limbW * 0.92, limbW * 0.92), skinMat);
-    hand.position.y = -armLen - limbW * 0.4;
-    arm.add(hand);
+    const upper = mesh(new THREE.BoxGeometry(armW, upperArm, armW), shirtMat);
+    upper.position.y = -upperArm / 2;
+    const elbow = new THREE.Group();
+    elbow.position.y = -upperArm;
+    const lower = mesh(new THREE.BoxGeometry(armW * 0.92, lowerArm, armW * 0.92), shirtMat);
+    lower.position.y = -lowerArm / 2;
+    const hand = mesh(new THREE.BoxGeometry(handS, handS, handS), skinMat);
+    hand.position.y = -lowerArm - handS / 2;
+    elbow.add(lower, hand);
+    arm.add(upper, elbow);
     if (cheering) {
-      arm.rotation.z = side * -1.35;
-      arm.rotation.x = -0.35;
+      arm.rotation.z = side * -1.4;
     } else if (seated) {
-      arm.rotation.x = 0.85;
-      arm.rotation.z = side * 0.12;
-    } else {
-      arm.rotation.z = side * 0.08;
+      elbow.rotation.x = 1.15;
+      arm.rotation.z = side * 0.15;
     }
-    arm.position.set(side * shoulderW, torsoY + torsoH / 2 - 0.06, 0);
+    arm.position.set(side * shoulderX, hipY + torsoH - 0.02, 0);
     person.add(arm);
     limbs.arms.push(arm);
   }
 
-  const buildLeg = (seatedLeg: boolean) => {
-    const gap = 0.04;
-    for (const side of [-1, 1]) {
-      const leg = new THREE.Group();
-      const thigh = mesh(new THREE.BoxGeometry(0.2, thighLen, 0.2), pantsMat);
-      thigh.position.y = -thighLen / 2;
-
-      const kneeCap = mesh(new THREE.BoxGeometry(0.16, 0.1, 0.16), skinMat);
-      kneeCap.position.y = -thighLen - 0.02;
-
-      const knee = new THREE.Group();
-      knee.position.y = -thighLen - gap - 0.06;
-      const shin = mesh(new THREE.BoxGeometry(0.16, shinLen, 0.16), pantsMat);
-      shin.position.y = -shinLen / 2;
-      const foot = mesh(new THREE.BoxGeometry(0.18, footH, 0.32), plastic(0x111827));
-      foot.position.set(0, -shinLen - footH * 0.4, 0.06);
-      knee.add(shin, foot);
-
-      leg.add(thigh, kneeCap, knee);
-      if (seatedLeg) {
-        thigh.rotation.x = Math.PI / 2;
-        thigh.position.set(0, -0.04, thighLen * 0.45);
-        kneeCap.position.set(0, -0.06, thighLen * 0.9);
-        knee.position.set(0, -0.08, thighLen * 0.95);
-        knee.rotation.x = 1.15;
-      }
-      leg.position.set(side * 0.18, hipY, 0);
-      leg.userData.knee = knee;
-      person.add(leg);
-      limbs.legs.push(leg);
+  for (const side of [-1, 1]) {
+    const leg = new THREE.Group();
+    const thigh = mesh(new THREE.BoxGeometry(legW, thighH, legW), pantsMat);
+    thigh.position.y = -thighH / 2;
+    const knee = new THREE.Group();
+    knee.position.y = -thighH;
+    const shin = mesh(new THREE.BoxGeometry(legW * 0.86, shinH, legW * 0.86), shinMat);
+    shin.position.y = -shinH / 2;
+    const foot = mesh(new THREE.BoxGeometry(legW * 0.95, footH, legW * 1.35), shoeMat);
+    foot.position.set(0, -shinH - footH / 2 + 0.01, legW * 0.22);
+    knee.add(shin, foot);
+    leg.add(thigh, knee);
+    if (seated) {
+      leg.rotation.x = -Math.PI / 2;
+      knee.rotation.x = Math.PI / 2;
     }
-  };
-  buildLeg(seated);
+    leg.position.set(side * legX, hipY, 0);
+    leg.userData.knee = knee;
+    person.add(leg);
+    limbs.legs.push(leg);
+  }
 
   const shadow = new THREE.Mesh(
     new THREE.CircleGeometry(0.3, 16),
