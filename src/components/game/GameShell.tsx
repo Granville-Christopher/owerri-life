@@ -2112,16 +2112,10 @@ function PeoplePanel({
               <Avatar look={peer.look} name={peer.name} size={36} />
               <span className="min-w-0">
                 <span className="block truncate font-semibold">{peer.name}</span>
-                <span className="block text-[10px] text-[#d5e4d8]">
-                  {view.city.find((person) => person.id === peer.id)?.status
-                    ?? view.known.find((person) => person.id === peer.id)?.status
-                    ?? view.nearby.find((person) => person.id === peer.id)?.status
-                    ?? "Private chat"}
-                </span>
+                <span className="block text-[10px] leading-4 text-[#d5e4d8]">Private chat. Only you and {peer.name} can see this.</span>
               </span>
             </button>
           </div>
-          <p className="mt-2 text-[10px] leading-4 text-[#d5e4d8]">Private chat. Only you and {peer.name} can see this.</p>
           {peer.id !== POLICE_ID ? (
             <div className="mt-2 flex flex-wrap gap-1">
               <button type="button" disabled={pending} className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold" onClick={() => onMeet(peer.id)}>Meet</button>
