@@ -854,12 +854,11 @@ function ClubHall({
     add(piece(0x1a1420, 5.2, 0.04, 5.2, 0.3, 0.13, 0.55));
     const dance = piece(theme.dance, 4.6, 0.03, 4.6, 0.3, 0.16, 0.55);
     add(dance);
-    add(piece(theme.wall, 18.2, 3.55, 0.2, 0, 1.8, -6.2));
-    add(piece(theme.wall, 0.2, 3.55, 13, -9, 1.8, 0));
-    add(piece(theme.wall, 0.2, 3.55, 13, 9, 1.8, 0));
-
-    for (let i = 0; i < 8; i += 1) {
-      const strip = piece(theme.accent, 1.8, 0.04, 0.06, -6.4 + i * 1.85, 3.38, -5.95);
+    add(piece(theme.wall, 18.2, 1.65, 0.2, 0, 0.88, -6.2));
+    add(piece(theme.wall, 0.2, 1.65, 13, -9, 0.88, 0));
+    add(piece(theme.wall, 0.2, 1.65, 13, 9, 0.88, 0));
+    for (const x of [-6.4, -3.2, 0, 3.2, 6.4]) {
+      const strip = piece(theme.accent, 2.4, 0.08, 0.06, x, 1.62, -6.08);
       (strip.material as THREE.MeshLambertMaterial).emissive = new THREE.Color(theme.accent);
       (strip.material as THREE.MeshLambertMaterial).emissiveIntensity = 0.7;
       add(strip);
@@ -887,26 +886,13 @@ function ClubHall({
     add(piece(0x2a241c, 1.2, 0.1, 0.58, 1.1, 0.88, -4.4));
     add(piece(0x0a0a10, 0.7, 1.7, 0.55, -1.95, 1.0, -4.7));
     add(piece(0x0a0a10, 0.7, 1.7, 0.55, 2.4, 1.0, -4.7));
-    const led = piece(theme.accent, 3.6, 1.1, 0.06, 0.2, 2.35, -5.95);
+    const led = piece(theme.accent, 3.6, 0.7, 0.06, 0.2, 1.28, -6.08);
     (led.material as THREE.MeshLambertMaterial).emissive = new THREE.Color(theme.accent);
     (led.material as THREE.MeshLambertMaterial).emissiveIntensity = 0.85;
     add(led);
-    add(clubSign(name, theme.neon));
-
-    const beams: THREE.Mesh[] = [];
-    for (const x of [-1.6, 2.0]) {
-      const head = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, 0.28, 10), new THREE.MeshLambertMaterial({ color: 0x1a1a22 }));
-      head.position.set(x, 3.28, -3.4);
-      add(head);
-      const beam = new THREE.Mesh(
-        new THREE.ConeGeometry(0.55, 2.4, 12, 1, true),
-        new THREE.MeshBasicMaterial({ color: theme.accent, transparent: true, opacity: 0.16, side: THREE.DoubleSide, depthWrite: false }),
-      );
-      beam.position.set(x, 1.95, -2.4);
-      beam.rotation.x = 0.55;
-      add(beam);
-      beams.push(beam);
-    }
+    const sign = clubSign(name, theme.neon);
+    sign.position.set(0, 2.05, -6.05);
+    add(sign);
 
     const chair = (x: number, z: number, turn: number) => {
       const group = new THREE.Group();
@@ -1032,10 +1018,6 @@ function ClubHall({
       (led.material as THREE.MeshLambertMaterial).emissiveIntensity = 0.55 + Math.abs(Math.sin(t * 0.006)) * 0.7;
       tiles.forEach((tile, i) => {
         (tile.material as THREE.MeshLambertMaterial).emissiveIntensity = 0.12 + Math.abs(Math.sin(t * 0.005 + i)) * 0.55;
-      });
-      beams.forEach((beam, i) => {
-        beam.rotation.z = Math.sin(t * 0.0015 + i) * 0.35;
-        (beam.material as THREE.MeshBasicMaterial).opacity = 0.1 + Math.abs(Math.sin(t * 0.003 + i)) * 0.12;
       });
       const onFloor = dancingRef.current;
       for (const dancer of dancers) {
@@ -1759,7 +1741,6 @@ function BuildingFront({ placeId, look }: { placeId: string; look: LookId }) {
       add(piece(0x161412, 28, 0.12, 22, 0, 0.06, 0));
       add(piece(0x2c2926, 28, 0.08, 5, 0, 0.1, 8.2));
       add(piece(0x14110f, 16, 7.2, 8, 0, 3.6, -2));
-      add(piece(0xc4552a, 16.5, 0.28, 8.4, 0, 7.3, -2));
       add(piece(0xe0b15a, 2.4, 3.1, 0.12, 0, 1.6, 2.08));
       add(piece(0x0c0a0e, 1.7, 2.6, 0.1, 0, 1.35, 2.16));
       const neon = place.name.toLowerCase().includes("orange") ? "#ff8a2a" : place.name.toLowerCase().includes("channel") ? "#7dffb2" : "#f2c14e";

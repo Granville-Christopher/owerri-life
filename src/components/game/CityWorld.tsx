@@ -1662,7 +1662,6 @@ export function CityWorld({
       const group = new THREE.Group();
       group.add(block(18, 0.12, 14, 0x2a221c, 0, 0.1, 0));
       group.add(block(11, 6.4, 7, 0x1a1412, 0, 3.3, -1));
-      group.add(block(11.6, 0.4, 7.4, 0xc4552a, 0, 6.6, -1));
       group.add(block(7, 1.2, 0.12, 0xf2c14e, 0, 4.6, 2.56));
       group.add(block(1.8, 2.4, 0.14, 0xe0b15a, 0, 1.3, 2.52));
       const park = [0x17241e, 0xf2c14e, 0xc4552a, 0x245c78];
