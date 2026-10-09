@@ -1276,7 +1276,7 @@ function PhonePanel({
         <p className="text-sm font-semibold text-[#f6f1e6]">{titles[app]}</p>
         <button type="button" aria-label="Close" onClick={close} className="grid h-8 w-8 place-items-center rounded-full bg-white text-lg leading-none text-[#17241e]">×</button>
       </div>
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-[#f4efe4] p-3">
+      <div className={`min-h-0 flex-1 bg-[#f4efe4] ${app === "messages" ? "flex flex-col overflow-hidden" : "space-y-4 overflow-y-auto p-3"}`}>
       {app === "bus" ? (
         <section className="rounded-3xl bg-white p-4 text-sm leading-6">
           <h2 className="font-display text-2xl">Busimo</h2>
@@ -1284,7 +1284,7 @@ function PhonePanel({
         </section>
       ) : null}
       {app === "messages" ? (
-        <div className="h-[32rem]">
+        <div className="flex min-h-0 flex-1 flex-col">
               <PeoplePanel view={view} run={run} pending={pending} peerId={peer} onPeer={setPeer} onOpen={onOpen} onMeet={onMeet} onVisit={onArrived} />
         </div>
       ) : null}
@@ -2104,7 +2104,7 @@ function PeoplePanel({
 
   if (peer) {
     return (
-      <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[1.4rem] bg-[#efe4d2]">
+      <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#efe4d2]">
         <div className="bg-[#143d2c] px-3 py-3 text-[#f6f1e6]">
           <div className="flex items-center gap-2">
             <button type="button" className="text-sm font-semibold" onClick={() => onPeer(null)}>Back</button>
@@ -2168,7 +2168,7 @@ function PeoplePanel({
         {peer.id === POLICE_ID ? (
           <p className="bg-[#fffaf2] px-3 py-3 text-xs text-[#5d6b62]">The State CID does not take chat. Honour the invite inside the station.</p>
         ) : (
-          <div className="bg-[#fffaf2] p-2">
+          <div className="shrink-0 border-t border-[#e4d8c4] bg-[#fffaf2] p-2 pb-3">
             <p className="px-1 pb-2 text-[10px] text-[#5d6b62]">Swipe left to reply. Swipe right to delete a message you sent.</p>
             {reply ? <ReplyBar reply={reply} onClear={() => setReply(null)} /> : null}
             {mentionQuery(text) != null ? (
@@ -2196,7 +2196,7 @@ function PeoplePanel({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="h-full space-y-2 overflow-y-auto p-3">
       <h2 className="font-display text-2xl">Chats</h2>
       <p className="text-sm text-[#5d6b62]">Message anyone in the city. It stays free. A padi request needs their username.</p>
       <form
