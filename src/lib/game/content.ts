@@ -1,4 +1,4 @@
-import type { DreamId, FurnitureSpot, LookId, Placement, SkillKey, TraitId } from "./types";
+import type { DreamId, FurnitureSpot, Gender, LookId, Placement, SkillKey, TraitId } from "./types";
 
 export interface Look {
   id: LookId;
@@ -140,19 +140,30 @@ export function roomSize(spot: FurnitureSpot | "bathroom" | "landing", beds: num
   const studio = beds <= 1 && !upstairs;
   if (spot === "kitchen") return { w: 14, d: 10 };
   if (spot === "bathroom") return { w: 9, d: 7.5 };
-  if (spot === "landing") return { w: duplex ? 18 : 15, d: 9 };
+  if (spot === "landing") return { w: duplex ? 20 : 16, d: duplex ? 10 : 9 };
   if (spot === "room") return studio ? { w: 14, d: 10.5 } : { w: 13, d: 10 };
-  return { w: duplex ? 18 : beds > 1 ? 16 : 14, d: duplex ? 12 : 10.5 };
+  return { w: duplex ? 20 : beds > 1 ? 16 : 14, d: duplex ? 13.5 : 10.5 };
+}
+
+export function duplexStairBox(home: Home) {
+  if (!home.id.includes("duplex")) return null;
+  const size = roomSize("parlour", home.beds, home.upstairs, true);
+  return { minX: size.w / 2 - 3.6, maxX: size.w / 2 + 0.15, minZ: -2.4, maxZ: size.d / 2 - 0.2 };
 }
 
 export function clampPlacement(item: FurnitureItem, home: Home, p: Placement): Placement {
-  const size = roomSize(p.spot, home.beds, home.upstairs, home.id.includes("duplex"));
+  const duplex = home.id.includes("duplex");
+  const size = roomSize(p.spot, home.beds, home.upstairs, duplex);
   const turned = Math.abs(Math.sin(p.rot)) > 0.7;
   const hw = (turned ? item.d : item.w) / 2;
   const hd = (turned ? item.w : item.d) / 2;
-  const maxX = Math.max(0, size.w / 2 - hw - 0.25);
+  let maxX = Math.max(0, size.w / 2 - hw - 0.25);
   const minZ = -size.d / 2 + hd + 0.2;
   const maxZ = Math.max(minZ, size.d / 2 - hd - 0.1);
+  if (duplex && p.spot === "parlour") {
+    const stair = duplexStairBox(home);
+    if (stair) maxX = Math.min(maxX, stair.minX - hw - 0.35);
+  }
   return {
     ...p,
     x: Math.round(Math.min(maxX, Math.max(-maxX, p.x)) * 100) / 100,
@@ -173,10 +184,27 @@ export function placeIn(item: FurnitureItem, home: Home, spot: FurnitureSpot, ro
   });
 }
 
+const DUPLEX_SEATS: Record<string, { x: number; z: number; rot: number }> = {
+  sofa: { x: -3.4, z: -2.35, rot: 0 },
+  armchair: { x: -6.35, z: 0.15, rot: 0.72 },
+  table: { x: -3.2, z: 0.2, rot: 0 },
+  rug: { x: -3.2, z: 0.15, rot: 0 },
+  television: { x: -3.2, z: 4.35, rot: Math.PI },
+  speaker: { x: -5.45, z: 4.35, rot: Math.PI },
+  lamp: { x: -1.15, z: -2.55, rot: 0 },
+  plant: { x: -7.6, z: 3.7, rot: 0 },
+  shelf: { x: -7.7, z: -4.55, rot: 0 },
+  desk: { x: 1.15, z: -4.4, rot: 0 },
+};
+
 export function defaultPlacement(item: FurnitureItem, home: Home, n: number): Placement {
   const studio = home.beds <= 1 && !home.upstairs;
   const spot: FurnitureSpot = studio ? "room" : item.where;
   const roomNo = spot === "room" && !studio ? 1 + (n % Math.max(home.beds, 1)) : 1;
+  const seat = home.id.includes("duplex") && spot === "parlour" ? DUPLEX_SEATS[item.id] : null;
+  if (seat) {
+    return clampPlacement(item, home, { homeId: home.id, spot, roomNo, x: seat.x, z: seat.z, rot: seat.rot });
+  }
   return placeIn(item, home, spot, roomNo, spot === "room" && !studio ? 0 : n * 1.1);
 }
 
@@ -187,7 +215,10 @@ export function fillLayout(furniture: string[], layout: Record<string, Placement
     const item = furnitureById(piece.id);
     if (!item) continue;
     const kept = layout?.[piece.key];
-    next[piece.key] = kept && HOMES.some((entry) => entry.id === kept.homeId) ? kept : defaultPlacement(item, home, piece.n);
+    const placed = kept && HOMES.some((entry) => entry.id === kept.homeId) ? kept : defaultPlacement(item, home, piece.n);
+    const stair = placed.spot === "parlour" ? duplexStairBox(homeById(placed.homeId)) : null;
+    const onStair = stair && placed.x + item.w / 2 > stair.minX && placed.x - item.w / 2 < stair.maxX && placed.z + item.d / 2 > stair.minZ && placed.z - item.d / 2 < stair.maxZ;
+    next[piece.key] = onStair ? defaultPlacement(item, home, piece.n) : placed;
   }
   return next;
 }
@@ -263,7 +294,7 @@ export const PLACES: Place[] = [
     kind: "public",
     x: 58,
     y: 86,
-    hours: "12:00 – 02:00",
+    hours: "Always open",
     tier: "Beach bar",
     summary: "Ikenna Nzimiro Avenue. The beach house, not the club. Drinks, a grill, and a slower evening.",
     activities: ["Hang out", "Eat", "Drinks"],
@@ -275,7 +306,7 @@ export const PLACES: Place[] = [
     kind: "public",
     x: 34,
     y: 78,
-    hours: "10:00 – 22:00",
+    hours: "Always open",
     tier: "Relaxation",
     summary: "The new Owerri beach. Vendors, games, and open ground. It is not Cartel Beach House.",
     activities: ["Hang out", "Eat", "Drinks"],
@@ -286,7 +317,7 @@ export const PLACES: Place[] = [
     area: "Wetheral",
     kind: "nightlife",
     x: 36,
-    y: 42,
+    y: 60,
     hours: "22:00 – 05:00",
     tier: "Outdoor bar",
     summary: "Open-air bar. Music outside, cars along the fence.",
@@ -323,7 +354,7 @@ export const PLACES: Place[] = [
     kind: "market",
     x: 52,
     y: 48,
-    hours: "07:00 – 18:00",
+    hours: "07:00 – 19:00",
     tier: "Market",
     summary: "Traders, loaders, and a chemist stall for mild sickness.",
     activities: ["Trading shifts", "Chemist", "Hang out"],
@@ -357,8 +388,8 @@ export const PLACES: Place[] = [
     name: "General Hospital",
     area: "Wetheral Road",
     kind: "health",
-    x: 40,
-    y: 22,
+    x: 38,
+    y: 20,
     hours: "Always open",
     tier: "Health",
     summary: "The old General Hospital, on the Wetheral side of town. Public wards. Severe sickness can be treated here. ₦5,000.",
@@ -513,8 +544,8 @@ export const PLACES: Place[] = [
     name: "Ikenegbu",
     area: "Ikenegbu",
     kind: "home",
-    x: 80,
-    y: 46,
+    x: 86,
+    y: 40,
     hours: "Your room if you live here",
     tier: "Cheapest rent",
     summary: "Rooms and self-contain. Cheapest rent in the city.",
@@ -563,7 +594,7 @@ export const PLACES: Place[] = [
     kind: "market",
     x: 70,
     y: 36,
-    hours: "07:00 – 18:00",
+    hours: "07:00 – 19:00",
     tier: "Market",
     summary: "Relief, on Wetheral Road by MCC. The stadium lane comes in beside the stalls. Stock, gist, and street food.",
     activities: ["Hang out", "Eat"],
@@ -585,9 +616,9 @@ export const PLACES: Place[] = [
     name: "Ikenegbu Market",
     area: "Ikenegbu",
     kind: "market",
-    x: 86,
-    y: 50,
-    hours: "07:00 – 18:00",
+    x: 94,
+    y: 46,
+    hours: "07:00 – 19:00",
     tier: "Market",
     summary: "Neighbourhood market beside the rooms.",
     activities: ["Hang out"],
@@ -729,11 +760,23 @@ export const PLACES: Place[] = [
     name: "Dan Anyiam Stadium",
     area: "Wetheral",
     kind: "public",
-    x: 42,
-    y: 36,
-    hours: "09:00 – 18:00",
+    x: 34,
+    y: 12,
+    hours: "09:00 – 22:00",
     tier: "Sports",
-    summary: "Dan Anyiam Stadium, on Wetheral Road. The lane beside it runs to Relief Market by MCC.",
+    summary: "Dan Anyiam Stadium sits behind General Hospital, beside the Owerri West palms. Full pitch, stands, floodlights, and matchdays.",
+    activities: ["Hang out", "Watch Match", "Run Track"],
+  },
+  {
+    id: "owerri-west-palms",
+    name: "Owerri West Palms",
+    area: "Owerri West",
+    kind: "public",
+    x: 26,
+    y: 12,
+    hours: "06:00 – 18:00",
+    tier: "Farm",
+    summary: "Palm stands on the Owerri West side, next to Dan Anyiam Stadium and behind General Hospital.",
     activities: ["Hang out"],
   },
   {
@@ -765,8 +808,8 @@ export const PLACES: Place[] = [
     name: "Budget Lodge",
     area: "Works Layout",
     kind: "hotel",
-    x: 32,
-    y: 58,
+    x: 30,
+    y: 70,
     hours: "Always open",
     tier: "Low",
     summary: "Small guesthouse. ₦8,000 a night or ₦2,500 an hour. A place to sleep and recover.",
@@ -777,8 +820,8 @@ export const PLACES: Place[] = [
     name: "Business Hotel",
     area: "Tetlow Road",
     kind: "hotel",
-    x: 62,
-    y: 24,
+    x: 58,
+    y: 28,
     hours: "Always open",
     tier: "Medium",
     summary: "Mid-range hotel on Tetlow Road, the phone street between here and IMSU. ₦35,000 a night. Lobby, rooms, and a quiet bar.",
@@ -885,8 +928,8 @@ export const PLACES: Place[] = [
     name: "Concord Hotel",
     area: "Port Harcourt Road",
     kind: "hotel",
-    x: 70,
-    y: 62,
+    x: 74,
+    y: 68,
     hours: "Always open",
     tier: "High",
     summary: "Imo Concord Hotel, Port Harcourt Road, New Owerri. ₦150,000 a night. Park under the canopy, then the lobby or the club.",
@@ -897,8 +940,8 @@ export const PLACES: Place[] = [
     name: "Concord Avenue",
     area: "Port Harcourt Road",
     kind: "pickup",
-    x: 76,
-    y: 56,
+    x: 70,
+    y: 62,
     hours: "22:00 – 05:00",
     tier: "Pickup",
     summary: "Adults who opted in are listed here. Offers stay in-game. The scene fades to black. Nothing explicit.",
@@ -909,8 +952,8 @@ export const PLACES: Place[] = [
     name: "Works Layout",
     area: "Works Layout",
     kind: "pickup",
-    x: 28,
-    y: 50,
+    x: 22,
+    y: 58,
     hours: "22:00 – 05:00",
     tier: "Pickup",
     summary: "A pickup street. Tap her, pay the price on her head, and the scene fades to black. The naira is added to her.",
@@ -921,8 +964,8 @@ export const PLACES: Place[] = [
     name: "Hospital Junction",
     area: "Hospital Junction",
     kind: "pickup",
-    x: 34,
-    y: 32,
+    x: 28,
+    y: 26,
     hours: "22:00 – 05:00",
     tier: "Pickup",
     summary: "The third pickup zone. Tap her, pay her price, and the scene fades to black. The naira is added to her.",
@@ -933,8 +976,8 @@ export const PLACES: Place[] = [
     name: "Rockview Hotel",
     area: "Government Station",
     kind: "hotel",
-    x: 42,
-    y: 16,
+    x: 50,
+    y: 8,
     hours: "Always open",
     tier: "High",
     summary: "Plot CP2, Government Station Layout. Reach it from Wetheral Road or Okigwe Road. ₦90,000 a night. A bar in the lobby.",
@@ -945,8 +988,8 @@ export const PLACES: Place[] = [
     name: "All Seasons Hotel",
     area: "New Owerri",
     kind: "hotel",
-    x: 62,
-    y: 74,
+    x: 60,
+    y: 80,
     hours: "Always open",
     tier: "High",
     summary: "All Seasons Avenue, off Port Harcourt Road. Pool, gym, and a restaurant. ₦130,000 a night.",
@@ -957,8 +1000,8 @@ export const PLACES: Place[] = [
     name: "Titanium Hotel",
     area: "New Owerri",
     kind: "hotel",
-    x: 64,
-    y: 88,
+    x: 68,
+    y: 94,
     hours: "Always open",
     tier: "Relaxation",
     summary: "Max Aluminium Road, off Port Harcourt Road. Suites and a pool. ₦55,000 a night.",
@@ -969,8 +1012,8 @@ export const PLACES: Place[] = [
     name: "Oxygen Hotel",
     area: "New Owerri",
     kind: "hotel",
-    x: 84,
-    y: 78,
+    x: 88,
+    y: 82,
     hours: "Always open",
     tier: "Resort",
     summary: "Lady Annas Nwosu Lane. Gardens, a pool, a gym, and a grill. ₦110,000 a night.",
@@ -981,8 +1024,8 @@ export const PLACES: Place[] = [
     name: "11:45 Hotel",
     area: "New Owerri",
     kind: "hotel",
-    x: 46,
-    y: 80,
+    x: 48,
+    y: 86,
     hours: "Always open",
     tier: "Medium",
     summary: "Claret Academy Street, behind the Orange Room bus stop. ₦28,000 a night. The lounge next door does not sleep.",
@@ -993,8 +1036,8 @@ export const PLACES: Place[] = [
     name: "City Global Hotel",
     area: "Port Harcourt Road",
     kind: "hotel",
-    x: 58,
-    y: 58,
+    x: 54,
+    y: 62,
     hours: "Always open",
     tier: "Low",
     summary: "Off Housing Junction on Port Harcourt Road. A plain room. ₦12,000 a night.",
@@ -1005,8 +1048,8 @@ export const PLACES: Place[] = [
     name: "De Moon",
     area: "New Owerri",
     kind: "hotel",
-    x: 40,
-    y: 86,
+    x: 36,
+    y: 92,
     hours: "Always open",
     tier: "Relaxation",
     summary: "Plot C4, Area U. A quiet relaxation house. ₦40,000 a night.",
@@ -1017,8 +1060,8 @@ export const PLACES: Place[] = [
     name: "Protea Hotel",
     area: "New Owerri",
     kind: "hotel",
-    x: 18,
-    y: 68,
+    x: 12,
+    y: 72,
     hours: "Always open",
     tier: "High",
     summary: "Protea Hotel Owerri Select, Protea Road, Nekede Pocket Layout. ₦160,000 a night.",
@@ -1029,8 +1072,8 @@ export const PLACES: Place[] = [
     name: "Links Hotel",
     area: "New Owerri",
     kind: "hotel",
-    x: 56,
-    y: 34,
+    x: 54,
+    y: 38,
     hours: "Always open",
     tier: "Medium",
     summary: "Chief Evan Enwerem Avenue, opposite the Imo House of Assembly, near Dan Anyiam Stadium. ₦50,000 a night.",
@@ -1041,8 +1084,8 @@ export const PLACES: Place[] = [
     name: "Muna Suites",
     area: "New Owerri",
     kind: "hotel",
-    x: 68,
-    y: 48,
+    x: 72,
+    y: 50,
     hours: "Always open",
     tier: "High",
     summary: "Umuguma Way, off Port Harcourt Road, opposite the General Hospital side. ₦75,000 a night.",
@@ -1053,8 +1096,8 @@ export const PLACES: Place[] = [
     name: "Ibis Royale",
     area: "World Bank",
     kind: "hotel",
-    x: 14,
-    y: 46,
+    x: 10,
+    y: 48,
     hours: "Always open",
     tier: "Medium",
     summary: "Area A, World Bank Road. Pool and a restaurant. ₦38,000 a night.",
@@ -1065,8 +1108,8 @@ export const PLACES: Place[] = [
     name: "Immaculate Golden",
     area: "Wetheral Road",
     kind: "hotel",
-    x: 50,
-    y: 22,
+    x: 56,
+    y: 18,
     hours: "Always open",
     tier: "Low",
     summary: "107 Wetheral Road. A straightforward room on the old road. ₦22,000 a night.",
@@ -1077,8 +1120,8 @@ export const PLACES: Place[] = [
     name: "Full Moon Hotel",
     area: "New Owerri",
     kind: "hotel",
-    x: 88,
-    y: 66,
+    x: 98,
+    y: 76,
     hours: "Always open",
     tier: "Medium",
     summary: "Fullmoon Avenue, Housing Area C, by Akanchawa Road. ₦65,000 a night.",
@@ -1089,8 +1132,8 @@ export const PLACES: Place[] = [
     name: "The Autograph",
     area: "Works Layout",
     kind: "hotel",
-    x: 24,
-    y: 44,
+    x: 10,
+    y: 36,
     hours: "Always open",
     tier: "Medium",
     summary: "40–43 Works Layout Road. Apartments and rooms on the layout. ₦45,000 a night.",
@@ -1101,7 +1144,7 @@ export const PLACES: Place[] = [
     name: "Onyx Royal",
     area: "Works Layout",
     kind: "hotel",
-    x: 36,
+    x: 46,
     y: 46,
     hours: "Always open",
     tier: "High",
@@ -1113,8 +1156,8 @@ export const PLACES: Place[] = [
     name: "Cradle Hotel",
     area: "Works Layout",
     kind: "hotel",
-    x: 20,
-    y: 54,
+    x: 14,
+    y: 56,
     hours: "Always open",
     tier: "Low",
     summary: "C-30 Works Layout. A plain, busy hotel. ₦18,000 a night.",
@@ -1125,8 +1168,8 @@ export const PLACES: Place[] = [
     name: "De Bernard's Ville",
     area: "Works Layout",
     kind: "hotel",
-    x: 30,
-    y: 42,
+    x: 32,
+    y: 30,
     hours: "Always open",
     tier: "Medium",
     summary: "Works Layout. Rooms, a pool, and a kitchen. ₦42,000 a night.",
@@ -1137,8 +1180,8 @@ export const PLACES: Place[] = [
     name: "Summer Suites",
     area: "Works Layout",
     kind: "hotel",
-    x: 38,
-    y: 54,
+    x: 42,
+    y: 58,
     hours: "Always open",
     tier: "Low",
     summary: "Works Layout Road. An older hotel with a bar. ₦15,000 a night.",
@@ -1149,8 +1192,8 @@ export const PLACES: Place[] = [
     name: "Prestige Hotel",
     area: "Works Layout",
     kind: "hotel",
-    x: 22,
-    y: 62,
+    x: 18,
+    y: 66,
     hours: "Always open",
     tier: "Low",
     summary: "97 Works Layout Road. A small hotel at the south end of the layout. ₦20,000 a night.",
@@ -1161,8 +1204,8 @@ export const PLACES: Place[] = [
     name: "Kavana Hotel",
     area: "Works Layout",
     kind: "hotel",
-    x: 34,
-    y: 64,
+    x: 36,
+    y: 72,
     hours: "Always open",
     tier: "Medium",
     summary: "21 Nkwerre Street, Works Layout. Rooms and a food court. ₦32,000 a night.",
@@ -1173,8 +1216,8 @@ export const PLACES: Place[] = [
     name: "Kingplatz Hotel",
     area: "Works Layout",
     kind: "hotel",
-    x: 18,
-    y: 48,
+    x: 8,
+    y: 52,
     hours: "Always open",
     tier: "Medium",
     summary: "420b Works Layout Road. A newer hotel on the west side. ₦25,000 a night.",
@@ -1185,8 +1228,8 @@ export const PLACES: Place[] = [
     name: "Earls Court",
     area: "Works Layout",
     kind: "hotel",
-    x: 40,
-    y: 60,
+    x: 44,
+    y: 66,
     hours: "Always open",
     tier: "Medium",
     summary: "Off Iho Dimeze Street, Works Layout. Executive rooms. ₦28,000 a night.",
@@ -1197,8 +1240,8 @@ export const PLACES: Place[] = [
     name: "Diamond Cruz",
     area: "Douglas Road",
     kind: "hotel",
-    x: 44,
-    y: 48,
+    x: 46,
+    y: 52,
     hours: "Always open",
     tier: "Medium",
     summary: "Off Douglas Road, beside Works Layout. ₦24,000 a night.",
@@ -1245,8 +1288,8 @@ export const PLACES: Place[] = [
     name: "Golden Villa",
     area: "New Owerri",
     kind: "hotel",
-    x: 72,
-    y: 92,
+    x: 78,
+    y: 96,
     hours: "Always open",
     tier: "High",
     summary: "Plot SH/19, Commercial District G, New Owerri, opposite the Imo Trade and Investment Centre. A quiet hotel. ₦85,000 a night.",
@@ -1718,6 +1761,8 @@ export const NPCS: Npc[] = [
   { id: "npc-rita", name: "Rita", placeId: "relief-market", role: "Trader", mood: "Bright", bio: "Has a stall on the Wetheral side, by MCC, and a loud voice.", home: "Relief" },
   { id: "npc-mall-guard", name: "Guard Pious", placeId: "owerri-mall", role: "Security", mood: "Tight", bio: "Watches the Egbu Road entrance.", home: "Egbu Road" },
   { id: "npc-square", name: "Emeka Square", placeId: "heroes-square", role: "Regular", mood: "Alright", bio: "Sits on the low wall every evening.", home: "Ikenegbu" },
+  { id: "npc-stadium", name: "Coach Ifeanyi", placeId: "stadium", role: "Coach", mood: "Bright", bio: "Walks the track behind General Hospital and shouts at late players.", home: "Wetheral" },
+  { id: "npc-palms", name: "Papa Palms", placeId: "owerri-west-palms", role: "Farmer", mood: "Alright", bio: "Keeps the Owerri West palms beside Dan Anyiam Stadium.", home: "Owerri West" },
   { id: "npc-curator", name: "Ada Mbari", placeId: "mbari", role: "Curator", mood: "Alright", bio: "Talks about the works if you ask once.", home: "Aladinma" },
   { id: "npc-front-desk", name: "Blessing", placeId: "budget-lodge", role: "Front desk", mood: "Alright", bio: "Hands over the room key and goes back to her phone.", home: "Works Layout" },
   { id: "npc-concierge", name: "Mr Dan", placeId: "business-hotel", role: "Concierge", mood: "Bright", bio: "The lobby is his.", home: "New Owerri" },
@@ -1768,6 +1813,96 @@ export function placeById(id: string) {
   const found = PLACES.find((place) => place.id === id);
   if (!found) throw new Error(`Unknown place ${id}`);
   return found;
+}
+
+export function clockFace(hour: number) {
+  return `${String(((hour % 24) + 24) % 24).padStart(2, "0")}:00`;
+}
+
+export function parsePlaceHours(hours: string): { always: boolean; open: number; close: number } {
+  if (!hours || /always|your room|your flat|your place/i.test(hours)) {
+    return { always: true, open: 0, close: 24 };
+  }
+  const match = hours.match(/(\d{1,2})(?::(\d{2}))?\s*[–-]\s*(\d{1,2})(?::(\d{2}))?/);
+  if (!match) return { always: true, open: 0, close: 24 };
+  const open = Number(match[1]);
+  const close = Number(match[3]) === 24 ? 24 : Number(match[3]);
+  return { always: false, open, close };
+}
+
+export function placeIsOpen(place: Place, hour: number) {
+  const spec = parsePlaceHours(place.hours);
+  if (spec.always) return true;
+  const now = ((hour % 24) + 24) % 24;
+  if (spec.open === spec.close) return true;
+  if (spec.open < spec.close) return now >= spec.open && now < spec.close;
+  return now >= spec.open || now < spec.close;
+}
+
+export function placeClosedNotice(place: Place, hour: number) {
+  if (placeIsOpen(place, hour)) return null;
+  const spec = parsePlaceHours(place.hours);
+  return `${place.name} is not open now. Come back by ${clockFace(spec.open)}.`;
+}
+
+export function canSitAt(place: Place) {
+  return (
+    place.kind === "nightlife" ||
+    place.kind === "hotel" ||
+    place.kind === "home" ||
+    place.id === "cartel-beach" ||
+    place.id === "heartland-resort" ||
+    place.id === "oxygen-resort" ||
+    place.id === "nworie-park"
+  );
+}
+
+const FEMALE_NPC = new Set(
+  [
+    "Adaeze", "Chioma", "Amaka", "Ngozi", "Ada", "Ifeoma", "Bisi", "Kamsi", "Nkechi", "Uche", "Lola",
+    "Nneoma", "Lillian", "Chidera", "Ogechi", "Ginika", "Nkiru", "Adaora", "Chisom", "Ifunanya",
+    "Chinyere", "Obiageli", "Munachi", "Zainab", "Uchechi", "Chiamaka", "Ife", "Cynthia", "Amara",
+    "Hajiya", "Rita", "Blessing", "Vera", "Ijeoma", "Halima", "Tobi", "Chinaza", "Uju", "Peace",
+    "Nneka", "Kemi", "Chika", "Oma", "Sandra", "Okeke",
+  ].map((name) => name.toLowerCase()),
+);
+
+export function npcGender(npc: Npc): Gender {
+  if (npc.asking) return "female";
+  const name = npc.name.replace(/^(Mrs|Nurse|Dr|Sister|Chef|Mama|Father|Prof|Guard|Mr)\s+/i, "").split(" ")[0];
+  if (FEMALE_NPC.has(name.toLowerCase())) return "female";
+  return "male";
+}
+
+export function lookForGender(gender: Gender | null | undefined, seed = "") {
+  const pool = LOOKS.filter((look) => !gender || look.gender === gender);
+  const list = pool.length ? pool : LOOKS;
+  let hash = 0;
+  for (const char of seed) hash = (hash * 33 + char.charCodeAt(0)) >>> 0;
+  return list[hash % list.length].id;
+}
+
+export function matchLook(look: LookId, gender: Gender | null | undefined, seed = ""): LookId {
+  const pal = LOOKS.find((item) => item.id === look);
+  if (!gender || pal?.gender === gender) return look;
+  return lookForGender(gender, seed || look);
+}
+
+export function npcLook(npc: Npc): LookId {
+  return lookForGender(npcGender(npc), npc.id);
+}
+
+export function homeAreaId(homeId: string) {
+  return homeById(homeId).areaId;
+}
+
+export function areaFromHomeName(home: string) {
+  const named = PLACES.find(
+    (place) =>
+      place.kind === "home" &&
+      (place.name.toLowerCase() === home.toLowerCase() || place.area.toLowerCase() === home.toLowerCase() || place.id === home.toLowerCase().replace(/\s+/g, "-")),
+  );
+  return named?.id ?? "ikenegbu";
 }
 
 export function npcById(id: string) {

@@ -1,5 +1,5 @@
-import { LOOKS, courseById, dreamById, lectureLabel, npcById, npcsAt, placeById, plotById, traitById } from "./content";
-import { POLICE_ID, clockIndex, indexLabel, normalizeBet, poolsOf, wallet } from "./engine";
+import { courseById, dreamById, lectureLabel, matchLook, npcById, npcGender, npcLook, npcsAt, placeById, plotById, traitById } from "./content";
+import { POLICE_ID, atWork, clockIndex, indexLabel, normalizeBet, poolsOf, wallet } from "./engine";
 import { homeLabel, jobTitle, moodLabel, naira, playerBio } from "./format";
 import { currentPlayer } from "./auth";
 import { readDb } from "./store";
@@ -22,6 +22,10 @@ export interface PersonCard {
   friend: boolean;
   blocked: boolean;
   isNpc: boolean;
+  status: string | null;
+  pose: Player["pose"];
+  intimacyWith: string | null;
+  locationId: string | null;
 }
 
 export interface GameView {
@@ -71,6 +75,9 @@ export interface GameView {
     furniture: string[];
     layout: Player["layout"];
     besideId: string | null;
+    pose: Player["pose"];
+    intimacyWith: string | null;
+    atWork: boolean;
   };
   balance: number;
   pools: { earned: number; gifted: number; purchased: number };
@@ -81,8 +88,17 @@ export interface GameView {
   threads: Array<{
     peerId: string;
     peerName: string;
-    lines: Array<{ id: string; fromId: string; text: string; at: string; replyTo: { id: string; fromName: string; text: string } | null }>;
+    lines: Array<{
+      id: string;
+      fromId: string;
+      text: string;
+      at: string;
+      replyTo: { id: string; fromName: string; text: string } | null;
+      kind: "text" | "money" | "food" | "invite" | "post";
+      amount: number | null;
+    }>;
   }>;
+  bubbles: Array<{ fromId: string; name: string; text: string }>;
   city: PersonCard[];
   slate: Array<{
     id: string;
@@ -133,12 +149,16 @@ function cardForNpc(id: string, viewer: Player, balance = 0): PersonCard | null 
     home: npc.home,
     netWorth: npc.asking ? naira(balance) : null,
     skills: "Not listed",
-    look: LOOKS[npc.id.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0) % LOOKS.length].id,
-    gender: npc.asking ? "female" : null,
+    look: npcLook(npc),
+    gender: npcGender(npc),
     circle: "Known around the venue",
     friend: viewer.friends.includes(npc.id),
     blocked: viewer.blocked.includes(npc.id),
     isNpc: true,
+    status: null,
+    pose: "stand",
+    intimacyWith: null,
+    locationId: npc.placeId,
   };
 }
 
@@ -155,12 +175,16 @@ function cardForPlayer(other: Player, viewer: Player, balance: number): PersonCa
     home: homeLabel(other.homeId),
     netWorth: visible ? naira(balance - other.loanRemaining - other.arrears) : null,
     skills: other.traits.map((trait) => traitById(trait).name).join(", "),
-    look: other.look,
+    look: matchLook(other.look, other.gender, other.id),
     gender: other.gender,
     circle: `${other.friends.length} on the padi ladder`,
     friend: viewer.friends.includes(other.id),
     blocked: viewer.blocked.includes(other.id),
     isNpc: false,
+    status: atWork(other) ? "At work" : null,
+    pose: other.pose ?? "stand",
+    intimacyWith: other.intimacyWith ?? null,
+    locationId: other.locationId,
   };
 }
 
@@ -180,6 +204,12 @@ export async function buildView(playerId: string): Promise<GameView | null> {
     if (other.id === me.id || other.locationId !== me.locationId || me.blocked.includes(other.id)) continue;
     const otherBalance = wallet(db.ledger, other.id);
     nearby.push(cardForPlayer(other, me, otherBalance));
+  }
+  if (me.besideId && !nearby.some((person) => person.id === me.besideId)) {
+    const npcCard = cardForNpc(me.besideId, me, wallet(db.ledger, me.besideId));
+    const other = db.players.find((player) => player.id === me.besideId);
+    if (npcCard) nearby.unshift(npcCard);
+    else if (other && !me.blocked.includes(other.id)) nearby.unshift(cardForPlayer(other, me, wallet(db.ledger, other.id)));
   }
   const knownIds = new Set([...me.met, ...me.friends, ...me.blocked]);
   const known: PersonCard[] = [];
@@ -206,14 +236,36 @@ export async function buildView(playerId: string): Promise<GameView | null> {
       thread = { peerId, peerName, lines: [] };
       boxes.set(peerId, thread);
     }
-    thread.lines.push({ id: message.id, fromId: message.fromId, text: message.text, at: message.at, replyTo: message.replyTo ?? null });
+    thread.lines.push({
+      id: message.id,
+      fromId: message.fromId,
+      text: message.text,
+      at: message.at,
+      replyTo: message.replyTo ?? null,
+      kind: message.kind ?? "text",
+      amount: message.amount ?? null,
+    });
+  }
+  const bubbles: GameView["bubbles"] = [];
+  for (const thread of boxes.values()) {
+    const last = [...thread.lines].reverse().find((line) => line.kind === "text" || line.kind === "post");
+    if (!last) continue;
+    const source = db.messages.find((message) => message.id === last.id);
+    if (source?.placeId && source.placeId !== me.locationId) continue;
+    if (!nearby.some((person) => person.id === thread.peerId) && last.fromId !== me.id) continue;
+    if (!source?.placeId && last.fromId !== me.id) continue;
+    bubbles.push({
+      fromId: last.fromId,
+      name: last.fromId === me.id ? me.username : thread.peerName,
+      text: last.text,
+    });
   }
   return {
     me: {
       id: me.id,
       username: me.username,
       email: me.email,
-      look: me.look,
+      look: matchLook(me.look, me.gender, me.id),
       gender: me.gender,
       traits: me.traits,
       dream: me.dream,
@@ -263,6 +315,9 @@ export async function buildView(playerId: string): Promise<GameView | null> {
         return { id: plot.id, name: plot.name, area: plot.area, rent: plot.rent };
       }),
       besideId: me.besideId,
+      pose: me.pose ?? "stand",
+      intimacyWith: me.intimacyWith ?? null,
+      atWork: atWork(me),
     },
     balance,
     pools: poolsOf(mine, me.id),
@@ -297,6 +352,7 @@ export async function buildView(playerId: string): Promise<GameView | null> {
     nearby,
     known,
     threads: [...boxes.values()],
+    bubbles,
     slate: (db.fixtures ?? []).map((game) => ({
       ...game,
       homeScore: game.homeScore ?? null,

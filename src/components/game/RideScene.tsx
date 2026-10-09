@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import * as THREE from "three";
 import { CAR_CATALOG, carById } from "@/lib/game/content";
-import { buildCabMesh, buildDetailedCarMesh } from "./carModels";
-import { loadAllRealCars, makeEnvironment, makeRealCar, realKindFor } from "./realCars";
+import { makeEnvironment } from "./realCars";
+import { makePhotoCar, makePhotoVehicle } from "./photoVehicles";
 
 type RideVehicle = "car" | "bus" | "cab" | "okada";
 
@@ -557,33 +557,15 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
     const rig = new THREE.Group();
     scene.add(rig);
     if (vehicle === "bus") {
-      rig.add(block(2.35, 0.35, 7.2, 0x1f6b45));
-      const body = block(2.2, 1.7, 6.6, 0xf4efe4, 0, 1.15, 0);
-      rig.add(body);
-      rig.add(block(2.25, 0.7, 5.4, 0x8ec4ea, 0, 1.45, 0.1));
-      rig.add(block(2.05, 0.7, 0.08, 0xd7eef8, 0, 1.4, 3.32));
-      rig.add(block(2.1, 0.16, 0.2, 0xfff6d8, 0, 0.7, 3.4));
-      const brand = labelTexture("BUSIMO", "#1f6b45", "#e0b15a");
-      const side = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.52), new THREE.MeshBasicMaterial({ map: brand }));
-      side.position.set(1.12, 1.28, 0);
-      side.rotation.y = Math.PI / 2;
-      const other = side.clone();
-      other.position.x = -1.12;
-      other.rotation.y = -Math.PI / 2;
-      rig.add(side, other);
-      [-2.2, 2.1].forEach((z) => {
-        wheel(-1.15, 0.34, z).forEach((part) => rig.add(part));
-        wheel(1.15, 0.34, z).forEach((part) => rig.add(part));
-      });
+      rig.add(makePhotoVehicle("bus"));
     } else if (vehicle === "cab") {
-      rig.add(buildCabMesh());
+      rig.add(makePhotoVehicle("cab"));
     } else if (vehicle === "okada") {
-      rig.add(buildOkadaMesh());
+      rig.add(makePhotoVehicle("okada"));
     } else {
-      rig.add(buildDetailedCarMesh(deal, undefined, true));
+      rig.add(makePhotoCar(deal.id));
     }
-    const placeholder = rig.children[rig.children.length - 1];
-    // the real car model for the one you are in; `seatEye` is the camera position in the car's own space
+    // seat camera stays in the vehicle's own space
     const real: { eye: THREE.Vector3 | null; steer: THREE.Object3D | null } = {
       eye: vehicle === "okada" ? new THREE.Vector3(0, 1.32, 0.42) : null,
       steer: null,
@@ -594,20 +576,19 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
 
     // ── Other traffic ────────────────────────────────────────────────
     const trafficDeals = CAR_CATALOG.filter((c) => c.id !== "bugatti");
-    const paints = [0xc4552a, 0x245c78, 0xf2c14e, 0xf7fbfc, 0x8c2438, 0x1f6b45, 0x2b2f36, 0xb7bcc4, 0x5b3a7a, 0x1d4ed8];
     type Flow = { mesh: THREE.Object3D; s0: number; speed: number; lane: number; dir: 1 | -1 };
     const flow: Flow[] = [];
     const sameStarts = [startAt + 22, startAt + 45, startAt + 60, startAt + 85, startAt + 105, startAt + 130, startAt + 150, startAt - 28, startAt + 170, startAt + 190];
     const oppStarts = [startAt + 35, startAt + 50, startAt + 70, startAt + 95, startAt + 120, startAt + 145, startAt + 170, startAt + 12, startAt + 195, startAt + 215, startAt + 235, startAt + 80];
     const pick = () => trafficDeals[Math.floor(rand() * trafficDeals.length)];
     sameStarts.forEach((s0, i) => {
-      const model = buildDetailedCarMesh(pick(), paints[Math.floor(rand() * paints.length)], true);
+      const model = makePhotoCar(pick().id);
       scene.add(model);
       flow.push({ mesh: model, s0, speed: 0.55 + rand() * 0.95, lane: OUTER_LANE, dir: 1 });
       void i;
     });
     oppStarts.forEach((s0, i) => {
-      const model = buildDetailedCarMesh(pick(), paints[Math.floor(rand() * paints.length)], true);
+      const model = makePhotoCar(pick().id);
       scene.add(model);
       flow.push({ mesh: model, s0, speed: 0.8 + rand() * 0.6, lane: i % 2 === 0 ? OWN_LANE : OUTER_LANE, dir: -1 });
     });
@@ -627,33 +608,6 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
       scene.add(person);
       walkers.push({ mesh: person, s0: 12 + i * 21, speed: (i % 2 === 0 ? 1 : -1) * (0.012 + rand() * 0.01), lane: (i % 2 === 0 ? 1 : -1) * (ROAD / 2 + 0.7 + rand() * 0.6) });
     }
-
-    // swap in the real car models once they have loaded
-    void loadAllRealCars().then(() => {
-      if (!alive) return;
-      if (vehicle !== "bus" && vehicle !== "okada") {
-        const kind = vehicle === "cab" ? "sedan" : realKindFor(deal);
-        if (kind) {
-          const made = makeRealCar(kind, { color: vehicle === "cab" ? 0xf2c14e : deal.defaultColor });
-          if (made) {
-            rig.remove(placeholder);
-            rig.add(made.group);
-            real.eye = vehicle === "cab" ? made.rear : made.driver;
-            real.steer = made.steer;
-          }
-        }
-      }
-      // some of the traffic becomes real cars too
-      flow.forEach((item, index) => {
-        const deal2 = trafficDeals[(index * 5 + 3) % trafficDeals.length];
-        const kind = realKindFor(deal2);
-        const made = makeRealCar(kind, { color: paints[(index * 3) % paints.length], plain: true });
-        if (!made) return;
-        scene.remove(item.mesh);
-        item.mesh = made.group;
-        scene.add(made.group);
-      });
-    });
 
     // ── Cockpit shown on the camera ──────────────────────────────────
     const cockpit = vehicle === "car" ? carCockpit() : vehicle === "cab" ? cabCockpit() : vehicle === "okada" ? okadaCockpit() : busCockpit();

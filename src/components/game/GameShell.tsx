@@ -53,7 +53,16 @@ import {
   sleepAtHotel,
   sendFriendRequest,
   sendMessage,
+  sendMoney,
   setWealthPrivacy,
+  sitDown,
+  standUp,
+  doFawwwk,
+  inviteOver,
+  visitHouseOf,
+  buyThemFood,
+  postToChat,
+  talkBeside,
   showerAtHome,
   sleepAtHome,
   socialise,
@@ -65,7 +74,8 @@ import {
   useRestroom,
   go,
 } from "@/lib/game/actions";
-import { BET_STAKES, CAREERS, DREAMS, HOMES, LANDS, NPCS, PLACES, TOP_UPS, TRAITS, TREATMENT_FEE, TRIPS, careerById, carById, coursesAt, homeById, lectureLabel, placeActs, placeById, type Course } from "@/lib/game/content";
+import { BET_STAKES, CAREERS, DREAMS, HOMES, LANDS, NPCS, PLACES, TOP_UPS, TRAITS, TREATMENT_FEE, TRIPS, careerById, carById, coursesAt, homeById, lectureLabel, placeActs, placeById, placeClosedNotice, type Course } from "@/lib/game/content";
+import { photoForVehicle } from "@/components/game/photoVehicles";
 import { POLICE_ID, multiplyOdds, travelOptions } from "@/lib/game/engine";
 import { clockLabel, dreamProgress, jobTitle, levelPay, moodLabel, naira, skillLabel, skillNeeded, weekday } from "@/lib/game/format";
 import type { GameView, PersonCard } from "@/lib/game/queries";
@@ -153,10 +163,8 @@ export function GameShell({ view }: { view: GameView }) {
   }
 
   useEffect(() => {
-    const place = placeById(view.me.locationId);
-    const club = view.me.indoors && (place.kind === "nightlife" || place.id === "concord-hotel");
-    if (!club) return;
-    const timer = window.setInterval(() => router.refresh(), 5000);
+    if (!view.me.indoors) return;
+    const timer = window.setInterval(() => router.refresh(), 4000);
     return () => window.clearInterval(timer);
   }, [router, view.me.indoors, view.me.locationId]);
 
@@ -235,6 +243,7 @@ export function GameShell({ view }: { view: GameView }) {
               beds={homeById(me.homeId).beds}
               upstairs={homeById(me.homeId).upstairs}
               duplex={homeById(me.homeId).id.includes("duplex")}
+              cars={me.cars ?? []}
               pending={pending}
               entry={roomEntry}
               shopNonce={shopNonce}
@@ -247,6 +256,17 @@ export function GameShell({ view }: { view: GameView }) {
               onBuy={(itemId) => run(() => buyFurniture(itemId))}
               onMove={(key, placement) => run(() => moveFurniture(key, placement))} onSell={(key) => run(() => sellFurniturePiece(key))}
               onToilet={() => run(useRestroom)}
+              guests={[
+                { id: me.id, name: me.username, look: me.look, gender: me.gender, pose: me.pose },
+                ...view.nearby.map((person) => ({ id: person.id, name: person.name, look: person.look, gender: person.gender, pose: person.pose })),
+              ]}
+              selfId={me.id}
+              bubbles={view.bubbles}
+              onPickGuest={setPersonId}
+              onSit={() => run(sitDown)}
+              onStand={() => run(standUp)}
+              onFawwwk={(peerId) => run(() => doFawwwk(peerId))}
+              pose={me.pose}
               onOutside={() => {
                 setTab("home");
                 flash(`You stepped outside ${homeById(me.homeId).name}.`, false);
@@ -317,6 +337,10 @@ export function GameShell({ view }: { view: GameView }) {
                       setTab("map");
                     }
                   });
+                }}
+                onVisit={() => {
+                  setChatWith(null);
+                  setTab("map");
                 }}
               />
             </div>
@@ -528,7 +552,7 @@ function AccountPage({
           <div className="flex justify-between gap-3"><dt className="text-[#5d6b62]">Home</dt><dd className="text-right font-semibold">{home.name}</dd></div>
           <div className="flex justify-between gap-3"><dt className="text-[#5d6b62]">Dream</dt><dd className="text-right font-semibold">{dream?.name}</dd></div>
           <div className="flex justify-between gap-3"><dt className="text-[#5d6b62]">Work</dt><dd className="text-right font-semibold">{jobTitle(me)}</dd></div>
-          <div className="flex justify-between items-center gap-3"><dt className="text-[#5d6b62]">Car</dt><dd className="text-right font-semibold flex items-center justify-end gap-1.5">{me.hasCar ? <><img src="/cars/car.jpg" alt="Car" className="h-5 w-5 rounded-full object-cover border border-[#e0b15a]" /><span>{carById(me.activeCar)?.name ?? "Executive Sedan"}</span></> : <span>No</span>}</dd></div>
+          <div className="flex justify-between items-center gap-3"><dt className="text-[#5d6b62]">Car</dt><dd className="text-right font-semibold flex items-center justify-end gap-1.5">{me.hasCar ? <><img src={photoForVehicle(me.activeCar)} alt="Car" className="h-5 w-5 rounded-full object-cover border border-[#e0b15a]" /><span>{carById(me.activeCar)?.name ?? "Executive Sedan"}</span></> : <span>No</span>}</dd></div>
           <div className="flex justify-between gap-3"><dt className="text-[#5d6b62]">Start</dt><dd className="text-right font-semibold">{me.lottery === "heir" ? "Heir" : "Struggle"}</dd></div>
         </dl>
         <p className="mt-3 text-sm text-[#5d6b62]">{me.traits.map((id) => TRAITS.find((trait) => trait.id === id)?.name).join(" · ")}</p>
@@ -596,7 +620,7 @@ function PlaceTrip({
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#a9782a]">{place.area}</p>
             <h2 className="mt-1 font-display text-3xl leading-none">{place.name}</h2>
-            <p className="mt-1 text-sm text-[#5d6b62]">{place.hours}</p>
+            <p className="mt-1 text-sm text-[#5d6b62]">{placeClosedNotice(place, view.me.hour) ?? place.hours}</p>
           </div>
           <button type="button" aria-label="Close" onClick={onClose} className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-lg leading-none shadow-sm">×</button>
         </div>
@@ -611,7 +635,7 @@ function PlaceTrip({
         {here ? (
           <button
             type="button"
-            disabled={pending}
+            disabled={pending || Boolean(placeClosedNotice(place, view.me.hour))}
             onClick={() => {
               run(enterDoor).then((result) => {
                 if (result.ok) {
@@ -622,7 +646,7 @@ function PlaceTrip({
             }}
             className="mt-4 w-full rounded-full bg-[#1f6b45] py-3 text-sm font-semibold text-[#f6f1e6] shadow-sm disabled:opacity-40"
           >
-            Go inside
+            {placeClosedNotice(place, view.me.hour) ?? "Go inside"}
           </button>
         ) : (
           <div className="mt-4 grid gap-2">
@@ -871,11 +895,18 @@ function MapPanel({
           pending={pending}
           username={view.me.username}
           people={[
-            { id: view.me.id, name: view.me.username, look: view.me.look },
-            ...view.nearby.map((person) => ({ id: person.id, name: person.name, look: person.look })),
+            { id: view.me.id, name: view.me.username, look: view.me.look, gender: view.me.gender, pose: view.me.pose },
+            ...view.nearby.map((person) => ({ id: person.id, name: person.name, look: person.look, gender: person.gender, pose: person.pose })),
           ]}
           besideId={view.me.besideId}
           selfId={view.me.id}
+          bubbles={view.bubbles}
+          pose={view.me.pose}
+          intimacyWith={view.me.intimacyWith}
+          onSit={() => run(sitDown)}
+          onStand={() => run(standUp)}
+          onFawwwk={(peerId) => run(() => doFawwwk(peerId))}
+          onTalk={(peerId, text) => run(() => talkBeside(peerId, text))}
           onPickPerson={onOpen}
           onDorime={(amount) => run(() => doDorime(amount))}
           onDrink={() => run(takeDrink)}
@@ -944,6 +975,7 @@ function MapPanel({
           placeId={view.me.locationId}
           look={view.me.look}
           pending={pending}
+          hour={view.me.hour}
           onEnter={() => {
             const entering = placeById(view.me.locationId);
             const already = Boolean(view.me.school);
@@ -1149,7 +1181,7 @@ function PhonePanel({
       ) : null}
       {app === "messages" ? (
         <div className="h-[32rem]">
-          <PeoplePanel view={view} run={run} pending={pending} peerId={peer} onPeer={setPeer} onOpen={onOpen} onMeet={onMeet} />
+              <PeoplePanel view={view} run={run} pending={pending} peerId={peer} onPeer={setPeer} onOpen={onOpen} onMeet={onMeet} onVisit={onArrived} />
         </div>
       ) : null}
       {app === "bets" ? <BetsPanel view={view} run={run} pending={pending} /> : null}
@@ -1186,7 +1218,8 @@ function PhonePanel({
             return (
               <button key={place.id} type="button" onClick={() => setPicked(place.id)} className="rounded-2xl bg-white px-3 py-3 text-left text-sm">
                 <span className="block font-semibold">{place.name}</span>
-                <span className="text-[#5d6b62]">{place.area}</span>
+                <span className="text-[#5d6b62]">{place.area} · {place.hours}</span>
+                {placeClosedNotice(place, me.hour) ? <span className="mt-1 block text-xs font-semibold text-[#b5523a]">{placeClosedNotice(place, me.hour)}</span> : null}
                 {plate ? <span className="mt-1 block font-semibold text-[#1f6b45]">{plate.name} · {naira(plate.cost)}</span> : null}
               </button>
             );
@@ -1283,7 +1316,7 @@ function PhonePanel({
         <div className="grid gap-4">
           <section>
             <h2 className="font-display text-2xl">Houses</h2>
-            <p className="mt-1 text-sm text-[#5d6b62]">Pick the house you sleep in. Go there when you are somewhere else. Saturday rent is only for that house.</p>
+            <p className="mt-1 text-sm text-[#5d6b62]">Pick the house you sleep in. Every house has a fridge in the kitchen. Go there when you are somewhere else. Saturday rent is only for that house.</p>
             <div className="mt-2 grid gap-2">
               {me.homes.map((id) => {
                 const home = HOMES.find((item) => item.id === id);
@@ -1345,7 +1378,8 @@ function PhonePanel({
                   const driving = me.activeCar === name;
                   return (
                     <div key={`${name}-${index}`} className="flex items-center justify-between gap-2 rounded-2xl bg-white px-3 py-3 text-sm">
-                      <div className="min-w-0">
+                      <img src={photoForVehicle(deal?.id ?? name)} alt="" className="h-12 w-[4.5rem] shrink-0 rounded-lg object-cover" />
+                      <div className="min-w-0 flex-1">
                         <p className="font-semibold">{deal?.name ?? name}</p>
                         <p className="text-[#5d6b62]">{deal ? `${deal.category} · ${deal.speed}` : "In your garage."}</p>
                       </div>
@@ -1907,6 +1941,7 @@ function PeoplePanel({
   onPeer,
   onOpen,
   onMeet,
+  onVisit,
 }: {
   view: GameView;
   run: Run;
@@ -1915,6 +1950,7 @@ function PeoplePanel({
   onPeer: (id: string | null) => void;
   onOpen: (id: string) => void;
   onMeet: (id: string) => void;
+  onVisit?: () => void;
 }) {
   const [text, setText] = useState("");
   const [handle, setHandle] = useState("");
@@ -1941,12 +1977,33 @@ function PeoplePanel({
   if (peer) {
     return (
       <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[1.4rem] bg-[#efe4d2]">
-        <div className="flex items-center gap-2 bg-[#143d2c] px-3 py-3 text-[#f6f1e6]">
-          <button type="button" className="text-sm font-semibold" onClick={() => onPeer(null)}>Back</button>
-          <button type="button" className="flex min-w-0 flex-1 items-center gap-2 text-left" onClick={() => onOpen(peer.id)}>
-            <Avatar look={peer.look} name={peer.name} size={36} />
-            <span className="truncate font-semibold">{peer.name}</span>
-          </button>
+        <div className="bg-[#143d2c] px-3 py-3 text-[#f6f1e6]">
+          <div className="flex items-center gap-2">
+            <button type="button" className="text-sm font-semibold" onClick={() => onPeer(null)}>Back</button>
+            <button type="button" className="flex min-w-0 flex-1 items-center gap-2 text-left" onClick={() => onOpen(peer.id)}>
+              <Avatar look={peer.look} name={peer.name} size={36} />
+              <span className="min-w-0">
+                <span className="block truncate font-semibold">{peer.name}</span>
+                <span className="block text-[10px] text-[#d5e4d8]">
+                  {view.city.find((person) => person.id === peer.id)?.status
+                    ?? view.known.find((person) => person.id === peer.id)?.status
+                    ?? view.nearby.find((person) => person.id === peer.id)?.status
+                    ?? "Private chat"}
+                </span>
+              </span>
+            </button>
+          </div>
+          <p className="mt-2 text-[10px] leading-4 text-[#d5e4d8]">Private chat. Only you and {peer.name} can see this.</p>
+          {peer.id !== POLICE_ID ? (
+            <div className="mt-2 flex flex-wrap gap-1">
+              <button type="button" disabled={pending} className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold" onClick={() => run(() => inviteOver(peer.id))}>Invite over</button>
+              <button type="button" disabled={pending} className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold" onClick={() => run(() => visitHouseOf(peer.id)).then((result) => { if (result.ok) onVisit?.(); })}>Visit house</button>
+              <button type="button" disabled={pending} className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold" onClick={() => { const amount = Number(window.prompt("How much naira?", "5000")); if (amount) run(() => sendMoney(peer.id, amount)); }}>Send money</button>
+              <button type="button" disabled={pending} className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold" onClick={() => run(() => buyThemFood(peer.id))}>Buy food</button>
+              <button type="button" disabled={pending} className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold" onClick={() => { const note = window.prompt("Post in this private chat"); if (note) run(() => postToChat(peer.id, note)); }}>Post</button>
+              <button type="button" disabled={pending} className="rounded-full bg-[#7a2e1e] px-2 py-1 text-[10px] font-semibold" onClick={() => run(() => blockPerson(peer.id))}>Block</button>
+            </div>
+          ) : null}
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
           <div className="flex min-h-full flex-col justify-end gap-2">
@@ -1960,9 +2017,15 @@ function PeoplePanel({
                   onReply={() => setReply({ id: line.id, fromName, text: line.text })}
                   onDelete={() => run(() => deleteDirectLine(line.id))}
                 >
-                  <div className={`rounded-2xl px-3 py-2 ${mine ? "rounded-br-sm bg-[#d8f3dc] text-[#143d2c]" : "rounded-bl-sm bg-white"}`}>
+                  <div className={`rounded-2xl px-3 py-2 ${line.kind === "money" || line.kind === "food" || line.kind === "invite" ? "bg-[#fff4d6] text-[#5a3d12]" : mine ? "rounded-br-sm bg-[#d8f3dc] text-[#143d2c]" : "rounded-bl-sm bg-white"}`}>
                     {line.replyTo ? <Quote from={line.replyTo.fromName} text={line.replyTo.text} /> : null}
-                    <p className="text-sm"><MentionText text={line.text} names={[peer.name, view.me.username]} /></p>
+                    {line.kind === "money" || line.kind === "food" ? (
+                      <p className="text-sm font-semibold">{line.text}</p>
+                    ) : line.kind === "post" ? (
+                      <p className="text-sm"><span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#a9782a]">Post</span> <MentionText text={line.text} names={[peer.name, view.me.username]} /></p>
+                    ) : (
+                      <p className="text-sm"><MentionText text={line.text} names={[peer.name, view.me.username]} /></p>
+                    )}
                     <p className={`mt-1 text-[10px] text-[#5d6b62] ${mine ? "text-right" : ""}`}>{line.at}</p>
                   </div>
                 </SwipeMessage>
@@ -2097,6 +2160,7 @@ function PersonSheet({
           <div>
             <h2 className="font-display text-2xl leading-none">{person.name}</h2>
             <p className="mt-1 text-sm text-[#5d6b62]">{person.gender === "female" ? "Female" : person.gender === "male" ? "Male" : person.role} · {person.mood} · {person.relationship}</p>
+            {person.status ? <p className="mt-1 text-xs font-semibold text-[#a9782a]">{person.status}</p> : null}
           </div>
         </div>
         <button type="button" aria-label="Close" className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-lg leading-none shadow-sm" onClick={onClose}>×</button>
@@ -2110,6 +2174,7 @@ function PersonSheet({
         <p>{person.circle}</p>
         <p>Net worth: {person.netWorth ?? "Hidden"}</p>
         <div className="flex flex-wrap gap-2">
+          {person.status === "At work" ? <p className="w-full text-xs font-semibold text-[#a9782a]">At work. Chat them, or wait until they clock out.</p> : null}
           <Action disabled={pending} onClick={() => onMessage(person.id)}>Message</Action>
           {person.id === POLICE_ID ? null : (
             <Action disabled={pending} onClick={() => onMeet(person.id)}>Meet</Action>

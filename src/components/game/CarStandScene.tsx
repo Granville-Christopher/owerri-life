@@ -7,8 +7,8 @@ import { createRealisticHuman } from "@/lib/game/humanModel";
 import { naira } from "@/lib/game/format";
 import { attachSceneCameraControls } from "./sceneCameraControls";
 import { CAR_CATALOG, type CarDeal } from "@/lib/game/content";
-import { buildDetailedCarMesh } from "./carModels";
-import { loadRealCar, makeEnvironment, makeRealCar, realKindFor } from "./realCars";
+import { makeEnvironment } from "./realCars";
+import { makePhotoCar, photoForVehicle } from "./photoVehicles";
 
 export type { CarDeal };
 export { CAR_CATALOG };
@@ -94,20 +94,6 @@ export function CarStandScene({
     scene.add(showroom);
     const envTarget = makeEnvironment(renderer, scene, 0.85);
     let alive = true;
-    // real car models replace the quick placeholder cars as soon as they finish loading
-    const swapReal = (placeholder: THREE.Group, car: CarDeal, parent: THREE.Object3D) => {
-      const kind = realKindFor(car);
-      if (!kind) return;
-      void loadRealCar(kind).then(() => {
-        if (!alive) return;
-        const real = makeRealCar(kind, { color: car.defaultColor });
-        if (!real) return;
-        real.group.position.copy(placeholder.position);
-        real.group.rotation.copy(placeholder.rotation);
-        parent.remove(placeholder);
-        parent.add(real.group);
-      });
-    };
 
     // ─────────────────────────────────────────────────────────────
     // LIGHTING: Showroom Spotlights & Reflections
@@ -204,9 +190,8 @@ export function CarStandScene({
     showroom.add(turntable);
     turntableRef.current = turntable;
 
-    const featuredCarMesh = buildDetailedCarMesh(selectedCar);
+    const featuredCarMesh = makePhotoCar(selectedCar);
     turntable.add(featuredCarMesh);
-    swapReal(featuredCarMesh, selectedCar, turntable);
 
     // ─────────────────────────────────────────────────────────────
     // 2. SHOWROOM DISPLAY LOT CARS (Surrounding Rows)
@@ -221,11 +206,10 @@ export function CarStandScene({
     lotSpots.forEach(([lx, lz, ry], index) => {
       const pick = lotCars[(index * 2 + (selectedCar.id.length % 2)) % lotCars.length];
       if (!pick) return;
-      const lot = buildDetailedCarMesh(pick);
+      const lot = makePhotoCar(pick);
       lot.position.set(lx, 0, lz);
       lot.rotation.y = ry;
       showroom.add(lot);
-      swapReal(lot, pick, showroom);
     });
 
     // ─────────────────────────────────────────────────────────────
@@ -392,8 +376,8 @@ export function CarStandScene({
               }`}
             >
               <div className="truncate pr-1">
-                <div className="flex items-center gap-1">
-                  <span>{car.emoji}</span>
+                <div className="flex items-center gap-1.5">
+                  <img src={photoForVehicle(car.id)} alt="" className="h-7 w-10 rounded object-cover" />
                   <span className="truncate">{car.name.split(" ").slice(0, 3).join(" ")}</span>
                 </div>
                 <span className={`text-[10px] block ${active ? "text-[#0f172a]" : "text-[#e0b15a]"}`}>
@@ -408,7 +392,8 @@ export function CarStandScene({
 
       {/* Selected Car Info & Purchase Panel (Bottom Floating Card) */}
       <div className="absolute inset-x-3 bottom-44 z-30 mx-auto max-w-lg rounded-3xl bg-[#09111c]/95 border-2 border-[#e0b15a]/40 p-3.5 shadow-2xl backdrop-blur-2xl text-white">
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-3">
+          <img src={photoForVehicle(selectedCar.id)} alt="" className="h-16 w-24 shrink-0 rounded-xl object-cover border border-white/10" />
           <div>
             <div className="flex items-center gap-1.5">
               <span className="rounded-md bg-[#e0b15a]/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#e0b15a]">

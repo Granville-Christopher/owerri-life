@@ -40,6 +40,8 @@ export type Sick = "none" | "mild" | "severe";
 export type TravelMode = "trek" | "bus" | "keke" | "okada" | "cab" | "car";
 export type WorkStyle = "steady" | "jaguda" | "gist" | "oga" | "easy" | "leave";
 export type NetWorthVisibility = "public" | "friends" | "hidden";
+export type Pose = "stand" | "sit" | "bed";
+export type DirectKind = "text" | "money" | "food" | "invite" | "post";
 
 export interface Job {
   careerId: string;
@@ -110,6 +112,8 @@ export interface Player {
   furniture: string[];
   layout: Record<string, Placement>;
   besideId: string | null;
+  pose: Pose;
+  intimacyWith: string | null;
   dmToday: number;
   lastChatKey: string;
   log: string[];
@@ -148,6 +152,9 @@ export interface DirectMessage {
   text: string;
   at: string;
   replyTo?: ChatQuote | null;
+  kind?: DirectKind;
+  amount?: number;
+  placeId?: string | null;
 }
 
 export interface Report {

@@ -23,8 +23,10 @@ import {
   tripById,
   npcsAt,
   placeById,
+  placeClosedNotice,
   plotById,
   sprayFloor,
+  matchLook,
 } from "./content";
 import { averageNeeds, clamp, levelPay, naira, skillNeeded, stamp, weekday } from "./format";
 import {
@@ -39,6 +41,7 @@ import {
   type MoneySource,
   type Placement,
   type Player,
+  type Pose,
   type Reveal,
   type SkillKey,
   type TravelMode,
@@ -376,6 +379,8 @@ export function meetPerson(
 export function enterPlace(player: Player, ledger: LedgerEntry[]): Step {
   const place = placeById(player.locationId);
   if (player.indoors) return succeed(player, ledger, [`You are inside ${place.name}.`]);
+  const closed = placeClosedNotice(place, player.hour);
+  if (closed) return fail(player, ledger, closed);
   const next = structuredClone(player);
   next.indoors = true;
   next.besideId = null;
@@ -633,10 +638,15 @@ export function sendOffer(player: Player, ledger: LedgerEntry[], npcId: string):
   passed.player.needs.fun = clamp(passed.player.needs.fun + 16);
   passed.player.needs.energy = clamp(passed.player.needs.energy - 30);
   if (!passed.player.met.includes(npc.id)) passed.player.met.push(npc.id);
+  const home = homeById(player.homeId);
   passed.player.besideId = npc.id;
+  passed.player.locationId = home.areaId;
+  passed.player.indoors = true;
+  passed.player.pose = "stand";
+  passed.player.intimacyWith = null;
   return succeed(passed.player, passed.ledger, [
     ...passed.notes,
-    `Two hours later. The scene stayed dark. ${naira(price)} is now with ${npc.name}. Message her, or open her profile.`,
+    `You brought ${npc.name} home to ${home.name}. Sit, stand, or Fawwwk.`,
   ]);
 }
 
@@ -1279,6 +1289,110 @@ export function serveDetention(player: Player, ledger: LedgerEntry[]): Step {
   ]);
 }
 
+export function atWork(player: Player) {
+  if (!player.job) return false;
+  return player.locationId === careerById(player.job.careerId).placeId && player.indoors;
+}
+
+export function setPose(player: Player, pose: Pose, partner?: Player | null): { player: Player; partner: Player | null } {
+  const next = structuredClone(player);
+  next.pose = pose;
+  if (pose !== "bed") next.intimacyWith = null;
+  let other = partner ? structuredClone(partner) : null;
+  if (other) {
+    other.pose = pose;
+    if (pose === "bed") {
+      next.intimacyWith = other.id;
+      other.intimacyWith = next.id;
+    } else {
+      other.intimacyWith = other.intimacyWith === next.id ? null : other.intimacyWith;
+    }
+  }
+  if (pose === "bed" && !other) next.intimacyWith = next.besideId;
+  return { player: next, partner: other };
+}
+
+export function startHomeScene(player: Player, partner: Player | null, peerId: string): { ok: true; player: Player; partner: Player | null; notice: string } | { ok: false; error: string } {
+  if (!player.indoors) return { ok: false, error: "Go inside first." };
+  const place = placeById(player.locationId);
+  const atHome = place.kind === "home" || Boolean(HOTEL_RATE[player.locationId]);
+  if (!atHome) return { ok: false, error: "Fawwwk is for a house or a room." };
+  if (player.besideId !== peerId && partner?.locationId !== player.locationId) {
+    return { ok: false, error: "They have to be here with you." };
+  }
+  const moved = setPose(player, "bed", partner);
+  return { ok: true, player: moved.player, partner: moved.partner, notice: "You both went to bed." };
+}
+
+export function goToHouse(
+  player: Player,
+  ledger: LedgerEntry[],
+  where: { placeId: string; name: string; peerId: string },
+): Step {
+  let current = player;
+  let book = ledger;
+  if (player.locationId !== where.placeId) {
+    const options = travelOptions(player.locationId, where.placeId, player.hasCar, wallet(ledger, player.id)).filter(
+      (option) => option.available && option.affordable,
+    );
+    const ride = options.find((option) => option.mode === "cab") ?? options.find((option) => option.mode === "keke") ?? options[0];
+    if (!ride) return fail(player, ledger, "Your balance cannot cover the ride to that house.");
+    const moved = travel(current, book, where.placeId, ride.mode);
+    if (!moved.ok) return moved;
+    current = moved.player;
+    book = moved.ledger;
+  }
+  const closed = placeClosedNotice(placeById(where.placeId), current.hour);
+  if (closed && placeById(where.placeId).kind !== "home") return fail(current, book, closed);
+  const next = structuredClone(current);
+  next.locationId = where.placeId;
+  next.indoors = true;
+  next.besideId = where.peerId;
+  next.pose = "stand";
+  next.intimacyWith = null;
+  if (!next.met.includes(where.peerId)) next.met.push(where.peerId);
+  return succeed(next, book, [`You are at ${where.name}. Sit, stand, or talk.`]);
+}
+
+export const FOOD_GIFT = { cost: 5000, hunger: 50, name: "a plate of food" };
+
+export function payPeer(
+  player: Player,
+  ledger: LedgerEntry[],
+  other: Player,
+  amount: number,
+  reason: string,
+): { ok: true; player: Player; other: Player; ledger: LedgerEntry[]; notice: string } | { ok: false; error: string } {
+  const cost = Math.round(amount);
+  if (!Number.isFinite(cost) || cost < 500 || cost > 20_000_000) {
+    return { ok: false, error: "Send between ₦500 and ₦20,000,000." };
+  }
+  const at = stamp(player.day, player.hour);
+  const paid = debit(ledger, player, cost, reason, at);
+  if (!paid) return { ok: false, error: "Your wallet cannot cover that." };
+  const book = credit(paid, other, cost, "gifted", reason, at);
+  return { ok: true, player, other, ledger: book, notice: `You sent ${other.username} ${naira(cost)}.` };
+}
+
+export function giftPlate(
+  player: Player,
+  ledger: LedgerEntry[],
+  other: Player,
+): { ok: true; player: Player; other: Player; ledger: LedgerEntry[]; notice: string } | { ok: false; error: string } {
+  const at = stamp(player.day, player.hour);
+  const paid = debit(ledger, player, FOOD_GIFT.cost, `Food for ${other.username}`, at);
+  if (!paid) return { ok: false, error: `A plate is ${naira(FOOD_GIFT.cost)}. Your wallet cannot cover it.` };
+  const nextOther = structuredClone(other);
+  nextOther.needs.hunger = clamp(nextOther.needs.hunger + FOOD_GIFT.hunger);
+  return {
+    ok: true,
+    player,
+    other: nextOther,
+    ledger: paid,
+    notice: `You bought ${other.username} ${FOOD_GIFT.name}.`,
+  };
+}
+
 export function createNewPlayer(input: CreateInput, id: string, rng: () => number = Math.random) {
   const lottery = rng() < 0.5 ? "heir" : "struggle";
   const skills = blankSkills();
@@ -1287,7 +1401,7 @@ export function createNewPlayer(input: CreateInput, id: string, rng: () => numbe
     username: input.username,
     email: input.email,
     passwordHash: "",
-    look: input.look,
+    look: matchLook(input.look, input.gender, input.username),
     gender: input.gender,
     traits: input.traits,
     dream: input.dream,
@@ -1321,9 +1435,11 @@ export function createNewPlayer(input: CreateInput, id: string, rng: () => numbe
     school: null,
     room: null,
     lands: [],
-    furniture: lottery === "heir" ? ["bed", "sofa", "television"] : [],
-    layout: lottery === "heir" ? fillLayout(["bed", "sofa", "television"], {}, "new-owerri-flat") : {},
+    furniture: lottery === "heir" ? ["bed", "sofa", "television", "fridge"] : ["fridge"],
+    layout: fillLayout(lottery === "heir" ? ["bed", "sofa", "television", "fridge"] : ["fridge"], {}, lottery === "heir" ? "new-owerri-flat" : "ikenegbu-room"),
     besideId: null,
+    pose: "stand",
+    intimacyWith: null,
     dmToday: 0,
     lastChatKey: "",
     log: [],

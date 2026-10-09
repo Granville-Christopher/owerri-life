@@ -1,7 +1,7 @@
 import { readFileSync } from "fs";
 import path from "path";
 import { MongoClient } from "mongodb";
-import { fillLayout } from "./content";
+import { fillLayout, matchLook } from "./content";
 import { buildSlate } from "./engine";
 import type { ChatMessage, DB } from "./types";
 
@@ -68,8 +68,12 @@ function hydrate(parsed: Partial<DB> | null): DB {
     if (!player.homes.includes(player.homeId)) player.homes.push(player.homeId);
     if (!player.cars) player.cars = player.hasCar ? ["Executive Sedan"] : [];
     if (player.besideId === undefined) player.besideId = null;
+    if (player.pose !== "sit" && player.pose !== "bed") player.pose = "stand";
+    if (player.intimacyWith === undefined) player.intimacyWith = null;
     if (player.gender !== "male" && player.gender !== "female") player.gender = null;
-    if (!player.furniture) player.furniture = player.lottery === "heir" ? ["bed", "sofa", "television"] : [];
+    if (player.gender) player.look = matchLook(player.look, player.gender, player.id);
+    if (!player.furniture) player.furniture = player.lottery === "heir" ? ["bed", "sofa", "television", "fridge"] : ["fridge"];
+    if (!player.furniture.includes("fridge")) player.furniture = [...player.furniture, "fridge"];
     player.layout = fillLayout(player.furniture, player.layout, player.homeId);
   }
   return {

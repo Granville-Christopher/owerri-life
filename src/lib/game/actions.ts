@@ -1,6 +1,6 @@
 "use server";
 
-import { LOOKS, npcsAt, npcById, placeById } from "./content";
+import { LOOKS, npcsAt, npcById, placeById, homeById, homeAreaId, areaFromHomeName } from "./content";
 import {
   applyCourse,
   applyForJob,
@@ -56,8 +56,14 @@ import {
   validateTraits,
   waitHour,
   workShift,
+  setPose,
+  startHomeScene,
+  goToHouse,
+  payPeer,
+  giftPlate,
+  FOOD_GIFT,
 } from "./engine";
-import { stamp } from "./format";
+import { naira, stamp } from "./format";
 import { authBlocked, authCleared, authFailed, burnPasswordCheck, clearSession, hashPassword, needsUpgrade, sessionPlayerId, setSession, verifyPassword } from "./auth";
 import { passwordProblem } from "./password";
 import { mutate, readDb } from "./store";
@@ -574,6 +580,235 @@ export async function deleteDirectLine(messageId: string) {
       if (message.fromId !== player.id) return { ok: false, error: "You can only delete a message you sent." };
       db.messages = db.messages.filter((item) => item.id !== messageId);
       return { ok: true, player, notice: "Deleted." };
+    }),
+  );
+}
+
+function pushDirect(
+  db: import("./types").DB,
+  player: import("./types").Player,
+  peerId: string,
+  text: string,
+  extra?: { kind?: import("./types").DirectKind; amount?: number; placeId?: string | null },
+) {
+  db.messages.push({
+    id: crypto.randomUUID(),
+    box: boxFor(player.id, peerId),
+    fromId: player.id,
+    text,
+    at: stamp(player.day, player.hour),
+    kind: extra?.kind ?? "text",
+    amount: extra?.amount,
+    placeId: extra?.placeId ?? null,
+  });
+}
+
+export async function sitDown() {
+  return withPlayer((id) =>
+    play(id, (player, db) => {
+      const partner = player.besideId ? db.players.find((item) => item.id === player.besideId) ?? null : null;
+      const moved = setPose(player, "sit", partner);
+      if (partner && moved.partner) {
+        const index = db.players.findIndex((item) => item.id === partner.id);
+        if (index >= 0) db.players[index] = moved.partner;
+      }
+      return { ok: true, player: moved.player, notice: "You sat down." };
+    }),
+  );
+}
+
+export async function standUp() {
+  return withPlayer((id) =>
+    play(id, (player, db) => {
+      const partner = player.intimacyWith || player.besideId
+        ? db.players.find((item) => item.id === (player.intimacyWith ?? player.besideId)) ?? null
+        : null;
+      const moved = setPose(player, "stand", partner);
+      if (partner && moved.partner) {
+        const index = db.players.findIndex((item) => item.id === partner.id);
+        if (index >= 0) db.players[index] = moved.partner;
+      }
+      return { ok: true, player: moved.player, notice: "You stood up." };
+    }),
+  );
+}
+
+export async function doFawwwk(peerId: string) {
+  return withPlayer((id) =>
+    play(id, (player, db) => {
+      if (player.blocked.includes(peerId)) return { ok: false, error: "You blocked this person." };
+      const other = db.players.find((item) => item.id === peerId) ?? null;
+      if (other?.blocked.includes(player.id)) return { ok: false, error: "They are not taking that from you." };
+      const npc = other ? null : npcById(peerId);
+      if (!other && !npc) return { ok: false, error: "That person is not in the city." };
+      const step = startHomeScene(player, other, peerId);
+      if (!step.ok) return { ok: false, error: step.error };
+      if (other && step.partner) {
+        const index = db.players.findIndex((item) => item.id === other.id);
+        if (index >= 0) db.players[index] = step.partner;
+      }
+      const next = structuredClone(step.player);
+      next.besideId = peerId;
+      next.needs.social = Math.min(100, next.needs.social + 18);
+      next.needs.fun = Math.min(100, next.needs.fun + 14);
+      next.needs.energy = Math.max(0, next.needs.energy - 20);
+      if (other && step.partner) {
+        const index = db.players.findIndex((item) => item.id === other.id);
+        if (index >= 0) {
+          db.players[index].needs.social = Math.min(100, db.players[index].needs.social + 18);
+          db.players[index].needs.fun = Math.min(100, db.players[index].needs.fun + 14);
+          db.players[index].needs.energy = Math.max(0, db.players[index].needs.energy - 20);
+        }
+      }
+      return { ok: true, player: next, notice: other ? `You and ${other.username} went to bed.` : `You and ${npc!.name} went to bed.` };
+    }),
+  );
+}
+
+export async function inviteOver(peerId: string) {
+  return withPlayer((id) =>
+    play(id, (player, db) => {
+      if (peerId === POLICE_ID) return { ok: false, error: "The State CID does not come over." };
+      if (player.blocked.includes(peerId)) return { ok: false, error: "You blocked this person." };
+      const npc = npcById(peerId);
+      const other = db.players.find((item) => item.id === peerId);
+      if (!npc && !other) return { ok: false, error: "That person is not in the city." };
+      if (other?.blocked.includes(player.id)) return { ok: false, error: "They are not taking messages from you." };
+      const home = homeById(player.homeId);
+      const text = `${player.username} invited you over to ${home.name}. Only you two can see this.`;
+      pushDirect(db, player, peerId, text, { kind: "invite" });
+      if (npc) {
+        const step = goToHouse(player, db.ledger, { placeId: home.areaId, name: home.name, peerId });
+        if (!step.ok) return { ok: false, error: step.error };
+        db.ledger = step.ledger;
+        db.messages.push({
+          id: crypto.randomUUID(),
+          box: boxFor(player.id, peerId),
+          fromId: npc.id,
+          text: `I am coming. See you at ${home.name}.`,
+          at: stamp(step.player.day, step.player.hour),
+        });
+        return { ok: true, player: step.player, notice: `${npc.name} is coming over.` };
+      }
+      return { ok: true, player, notice: `Invite sent to ${other!.username}.` };
+    }),
+  );
+}
+
+export async function visitHouseOf(peerId: string) {
+  return withPlayer((id) =>
+    play(id, (player, db) => {
+      if (peerId === POLICE_ID) return { ok: false, error: "The State CID is not a house." };
+      if (player.blocked.includes(peerId)) return { ok: false, error: "You blocked this person." };
+      const npc = npcById(peerId);
+      const other = db.players.find((item) => item.id === peerId);
+      if (!npc && !other) return { ok: false, error: "That person is not in the city." };
+      if (other?.blocked.includes(player.id)) return { ok: false, error: "They are not taking visitors from you." };
+      const where = other
+        ? { placeId: homeAreaId(other.homeId), name: `${other.username}'s house`, peerId }
+        : { placeId: areaFromHomeName(npc!.home), name: `${npc!.name}'s place`, peerId };
+      const step = goToHouse(player, db.ledger, where);
+      if (!step.ok) return { ok: false, error: step.error };
+      db.ledger = step.ledger;
+      pushDirect(db, step.player, peerId, `I am at your house.`, { kind: "text", placeId: where.placeId });
+      if (other) {
+        other.besideId = player.id;
+        if (!other.met.includes(player.id)) other.met.push(player.id);
+      }
+      return { ok: true, player: step.player, notice: step.notice };
+    }),
+  );
+}
+
+export async function sendMoney(peerId: string, amount: number) {
+  return withPlayer((id) =>
+    play(id, (player, db) => {
+      if (peerId === POLICE_ID) return { ok: false, error: "The State CID does not take a transfer here." };
+      if (player.blocked.includes(peerId)) return { ok: false, error: "You blocked this person." };
+      const other = db.players.find((item) => item.id === peerId);
+      if (!other) return { ok: false, error: "You can only send money to another resident." };
+      if (other.blocked.includes(player.id)) return { ok: false, error: "They are not taking money from you." };
+      const step = payPeer(player, db.ledger, other, amount, `Transfer to ${other.username}`);
+      if (!step.ok) return { ok: false, error: step.error };
+      db.ledger = step.ledger;
+      const index = db.players.findIndex((item) => item.id === other.id);
+      if (index >= 0) db.players[index] = step.other;
+      pushDirect(db, player, peerId, `${player.username} sent you ${naira(Math.round(amount))}.`, {
+        kind: "money",
+        amount: Math.round(amount),
+      });
+      return { ok: true, player: step.player, notice: step.notice };
+    }),
+  );
+}
+
+export async function buyThemFood(peerId: string) {
+  return withPlayer((id) =>
+    play(id, (player, db) => {
+      if (player.blocked.includes(peerId)) return { ok: false, error: "You blocked this person." };
+      const other = db.players.find((item) => item.id === peerId);
+      if (!other) return { ok: false, error: "You can only buy food for another resident." };
+      if (other.blocked.includes(player.id)) return { ok: false, error: "They are not taking food from you." };
+      const step = giftPlate(player, db.ledger, other);
+      if (!step.ok) return { ok: false, error: step.error };
+      db.ledger = step.ledger;
+      const index = db.players.findIndex((item) => item.id === other.id);
+      if (index >= 0) db.players[index] = step.other;
+      pushDirect(db, player, peerId, `${player.username} bought you ${FOOD_GIFT.name} · ${naira(FOOD_GIFT.cost)}.`, {
+        kind: "food",
+        amount: FOOD_GIFT.cost,
+      });
+      return { ok: true, player: step.player, notice: step.notice };
+    }),
+  );
+}
+
+export async function postToChat(peerId: string, text: string) {
+  return withPlayer((id) =>
+    play(id, (player, db) => {
+      const cleaned = text.trim().slice(0, 200);
+      if (!cleaned) return { ok: false, error: "Write something to post." };
+      if (player.blocked.includes(peerId)) return { ok: false, error: "You blocked this person." };
+      const npc = npcById(peerId);
+      const other = db.players.find((item) => item.id === peerId);
+      if (!npc && !other) return { ok: false, error: "That person is not in the city." };
+      if (other?.blocked.includes(player.id)) return { ok: false, error: "They are not taking posts from you." };
+      pushDirect(db, player, peerId, cleaned, { kind: "post" });
+      return { ok: true, player, notice: "Posted in this private chat." };
+    }),
+  );
+}
+
+export async function talkBeside(peerId: string, text: string) {
+  return withPlayer((id) =>
+    play(id, (player, db) => {
+      const cleaned = text.trim().slice(0, 200);
+      if (!cleaned) return { ok: false, error: "Write a message first." };
+      if (player.blocked.includes(peerId)) return { ok: false, error: "You blocked this person." };
+      const npc = npcById(peerId);
+      const other = db.players.find((item) => item.id === peerId);
+      if (!npc && !other) return { ok: false, error: "That person is not in the city." };
+      if (other?.blocked.includes(player.id)) return { ok: false, error: "They are not taking messages from you." };
+      const here = other
+        ? other.locationId === player.locationId
+        : npc!.placeId === player.locationId || player.besideId === peerId;
+      if (!here && player.besideId !== peerId) return { ok: false, error: "Walk up to them first." };
+      const next = structuredClone(player);
+      next.besideId = peerId;
+      next.dmToday += 1;
+      if (!next.met.includes(peerId)) next.met.push(peerId);
+      pushDirect(db, next, peerId, cleaned, { kind: "text", placeId: next.locationId });
+      if (npc) {
+        db.messages.push({
+          id: crypto.randomUUID(),
+          box: boxFor(next.id, peerId),
+          fromId: npc.id,
+          text: npcReply(cleaned, db.messages.filter((message) => message.box === boxFor(next.id, peerId)).length),
+          at: stamp(next.day, next.hour),
+          placeId: next.locationId,
+        });
+      }
+      return { ok: true, player: next, notice: "Said." };
     }),
   );
 }

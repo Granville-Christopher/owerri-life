@@ -190,6 +190,36 @@ body {
 .ol-pose-sit .ol-leg { height: 7px; transform: rotate(72deg); transform-origin: top center; }
 .ol-pose-sit .ol-leg.left { transform: rotate(68deg); }
 .ol-pose-sit .ol-leg.right { transform: rotate(100deg); }
+@keyframes ol-duvet {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-9px); }
+}
+.ol-duvet { animation: ol-duvet 0.72s ease-in-out infinite; transform-origin: center bottom; }
+.ol-say {
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  margin-bottom: 6px;
+  max-width: 9.5rem;
+  transform: translateX(-50%);
+  border-radius: 1rem;
+  background: #fffaf2;
+  padding: 0.35rem 0.55rem;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: #17241e;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+}
+.ol-say::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  margin-left: -5px;
+  border: 5px solid transparent;
+  border-top-color: #fffaf2;
+}
 .ol-table {
   width: 78px;
   height: 40px;
