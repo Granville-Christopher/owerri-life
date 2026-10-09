@@ -7,7 +7,7 @@ import { makeRenderer } from "@/lib/game/renderQuality";
 import { createRealisticHuman, weakGpu } from "@/lib/game/humanModel";
 import type { LookId } from "@/lib/game/types";
 import { loadRealAirliner } from "@/components/game/realPlane";
-import { attachSceneCameraControls } from "@/components/game/sceneCameraControls";
+import { attachSceneCameraControls, clampViewZoom, VIEW_ZOOM } from "@/components/game/sceneCameraControls";
 
 const FLIGHT_MS = 22000;
 
@@ -614,11 +614,11 @@ export function FlightScene({
     };
     fit();
     const detachControls = attachSceneCameraControls(root, lookRig, {
-      minZoom: 0.7,
-      maxZoom: 2.6,
+      minZoom: VIEW_ZOOM.min,
+      maxZoom: VIEW_ZOOM.max,
       minPitch: -0.5,
       maxPitch: 0.55,
-      zoomSpeed: 0.1,
+      zoomSpeed: VIEW_ZOOM.speed,
     });
 
     let frame = 0;
@@ -761,7 +761,7 @@ export function FlightScene({
             type="button"
             aria-label="Zoom in"
             onClick={() => {
-              lookRig.current.zoom = Math.min(2.6, lookRig.current.zoom * 1.18);
+              lookRig.current.zoom = clampViewZoom(lookRig.current.zoom, 1.22);
             }}
             className="grid h-8 w-8 place-items-center rounded-full bg-white text-base font-bold text-[#17241e] shadow-lg"
           >
@@ -771,7 +771,7 @@ export function FlightScene({
             type="button"
             aria-label="Zoom out"
             onClick={() => {
-              lookRig.current.zoom = Math.max(0.7, lookRig.current.zoom / 1.18);
+              lookRig.current.zoom = clampViewZoom(lookRig.current.zoom, 1 / 1.22);
             }}
             className="grid h-8 w-8 place-items-center rounded-full bg-white text-base font-bold text-[#17241e] shadow-lg"
           >

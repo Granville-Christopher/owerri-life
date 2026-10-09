@@ -558,8 +558,8 @@ export function HeroesStadiumScene({
 
     // Attach touch pinch-and-zoom / shrink, mouse wheel zoom, and drag rotation
     const detachControls = attachSceneCameraControls(root, rig, {
-      minZoom: 0.35,
-      maxZoom: 8.0,
+      minZoom: 0.2,
+      maxZoom: 10,
       minPitch: 0.12,
       maxPitch: 1.4,
       zoomSpeed: 0.12,

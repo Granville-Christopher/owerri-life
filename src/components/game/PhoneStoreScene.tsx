@@ -586,8 +586,8 @@ export function PhoneStoreScene({
 
     // Attach touch pinch-and-zoom / shrink, mouse wheel zoom, and drag rotation
     const detachControls = attachSceneCameraControls(root, rig, {
-      minZoom: 0.5,
-      maxZoom: 6.5,
+      minZoom: 0.2,
+      maxZoom: 10,
       zoomSpeed: 0.1,
     });
 

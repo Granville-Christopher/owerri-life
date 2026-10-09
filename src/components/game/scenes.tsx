@@ -17,10 +17,10 @@ import { AssumptaCathedralScene } from "./AssumptaCathedralScene";
 import { CarStandScene } from "./CarStandScene";
 import { AirportTerminalScene } from "./AirportTerminalScene";
 import { WarehouseScene } from "./WarehouseScene";
-import { attachSceneCameraControls } from "./sceneCameraControls";
+import { attachSceneCameraControls, clampViewZoom, phonePullback, VIEW_ZOOM } from "./sceneCameraControls";
 import { RestaurantScene } from "./RestaurantScene";
 import { PickupStreetScene } from "./PickupStreetScene";
-import { addPlayerGuests, createRealisticHuman } from "@/lib/game/humanModel";
+import { addPlayerGuests, createRealisticHuman, weakGpu } from "@/lib/game/humanModel";
 import { HospitalScene } from "./HospitalScene";
 import { PoliceStationScene } from "./PoliceStationScene";
 import { buildDetailedCarMesh } from "./carModels";
@@ -696,141 +696,385 @@ function arrangeClub(
   return placed;
 }
 
+function clubTheme(name: string) {
+  const n = name.toLowerCase();
+  if (n.includes("zuma")) {
+    return { wall: 0x2c1810, floor: 0x3d2618, dance: 0x4a3020, accent: 0xc9a15b, neon: "#e7c56a", wash: 0xffb066, bg: "#120c08", seat: 0x6a3220, grill: true, garden: false, stage: false };
+  }
+  if (n.includes("orange")) {
+    return { wall: 0x2a1208, floor: 0x1a0c08, dance: 0x3a1808, accent: 0xff6a12, neon: "#ff8a2a", wash: 0xff7a2a, bg: "#0c0704", seat: 0xc4552a, grill: false, garden: false, stage: false };
+  }
+  if (n.includes("channel")) {
+    return { wall: 0x102418, floor: 0x1a2a20, dance: 0x244a34, accent: 0x7dffb2, neon: "#7dffb2", wash: 0x3ecf8a, bg: "#07140e", seat: 0x2a4634, grill: false, garden: true, stage: false };
+  }
+  if (n.includes("ibari")) {
+    return { wall: 0x2a1c10, floor: 0x3a2818, dance: 0x4a3420, accent: 0xe7c56a, neon: "#f2c14e", wash: 0xe8a84a, bg: "#140e08", seat: 0x6a4630, grill: false, garden: false, stage: true };
+  }
+  if (n.includes("wetheral") || n.includes("strip")) {
+    return { wall: 0x1a1420, floor: 0x22182a, dance: 0x3a2048, accent: 0xff5aa0, neon: "#ff7ab8", wash: 0xc4558a, bg: "#0a0810", seat: 0x8c2438, grill: false, garden: false, stage: false };
+  }
+  return { wall: 0x141018, floor: 0x1c1624, dance: 0x2a2038, accent: 0xf2c14e, neon: "#f2c14e", wash: 0xc4558a, bg: "#07060c", seat: 0x8c2438, grill: false, garden: false, stage: false };
+}
+
 function clubSign(title: string, color: string) {
   const canvas = document.createElement("canvas");
-  canvas.width = 640;
+  canvas.width = 768;
   canvas.height = 280;
   const pen = canvas.getContext("2d");
   if (!pen) return new THREE.Mesh();
-  pen.fillStyle = "#120c18";
-  pen.fillRect(0, 0, 640, 280);
+  pen.fillStyle = "#0a0810";
+  pen.fillRect(0, 0, 768, 280);
   pen.fillStyle = color;
-  pen.font = "700 68px sans-serif";
+  pen.fillRect(0, 0, 768, 14);
+  pen.fillRect(0, 266, 768, 14);
+  pen.shadowColor = color;
+  pen.shadowBlur = 24;
+  pen.font = "800 72px sans-serif";
   pen.textAlign = "center";
-  pen.fillText(title.slice(0, 16).toUpperCase(), 320, 125);
+  pen.fillText(title.slice(0, 18).toUpperCase(), 384, 130);
+  pen.shadowBlur = 0;
   pen.fillStyle = "#f4efe6";
-  pen.font = "600 32px sans-serif";
-  pen.fillText("OPEN TILL 5", 320, 190);
+  pen.font = "600 28px sans-serif";
+  pen.fillText("OPEN TILL 5AM", 384, 196);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
   const board = new THREE.Mesh(
-    new THREE.PlaneGeometry(4.4, 1.9),
-    new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(canvas) }),
+    new THREE.PlaneGeometry(5.4, 1.95),
+    new THREE.MeshBasicMaterial({ map: texture }),
   );
-  board.position.set(3.1, 2.15, -5.05);
+  board.position.set(0, 2.55, -5.55);
   return board;
 }
 
-function ClubHall({ name }: { name: string }) {
+function nairaNoteTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 160;
+  canvas.height = 80;
+  const pen = canvas.getContext("2d");
+  if (!pen) return new THREE.CanvasTexture(canvas);
+  pen.fillStyle = "#145c38";
+  pen.fillRect(0, 0, 160, 80);
+  pen.fillStyle = "#d7efe0";
+  pen.fillRect(6, 6, 148, 68);
+  pen.fillStyle = "#1f6b45";
+  pen.fillRect(10, 10, 140, 60);
+  pen.fillStyle = "#f6f1e6";
+  pen.font = "800 28px sans-serif";
+  pen.textAlign = "center";
+  pen.fillText("₦1000", 80, 48);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+function danceBody(body: THREE.Object3D, t: number, baseY: number, facing: number) {
+  const limbs = body.userData.limbs as { arms: THREE.Group[]; legs: THREE.Group[] } | undefined;
+  const beat = t * 0.011;
+  body.position.y = baseY + Math.abs(Math.sin(beat * 2)) * 0.1;
+  body.rotation.y = facing + Math.sin(beat) * 0.4;
+  body.rotation.z = Math.sin(beat * 2) * 0.09;
+  if (!limbs) return;
+  limbs.arms.forEach((arm, i) => {
+    const side = i === 0 ? -1 : 1;
+    arm.rotation.z = side * (0.2 + Math.sin(beat + i) * 0.65);
+    arm.rotation.x = -0.85 + Math.sin(beat * 2 + i) * 0.75;
+  });
+  limbs.legs.forEach((leg, i) => {
+    leg.rotation.x = Math.sin(beat * 2 + i * Math.PI) * 0.5;
+  });
+}
+
+function restBody(body: THREE.Object3D, baseY: number, facing: number) {
+  body.position.y = baseY;
+  body.rotation.y = facing;
+  body.rotation.z = 0;
+  const limbs = body.userData.limbs as { arms: THREE.Group[]; legs: THREE.Group[] } | undefined;
+  if (!limbs) return;
+  limbs.arms.forEach((arm, i) => {
+    arm.rotation.z = (i === 0 ? -1 : 1) * 0.09;
+    arm.rotation.x = 0;
+  });
+  limbs.legs.forEach((leg) => {
+    leg.rotation.x = 0;
+  });
+}
+
+function ClubHall({
+  name,
+  look,
+  people = [],
+  selfId,
+  dancing = false,
+  sprayBurst = 0,
+}: {
+  name: string;
+  look: LookId;
+  people?: ScenePerson[];
+  selfId?: string;
+  dancing?: boolean;
+  sprayBurst?: number;
+}) {
   const host = useRef<HTMLDivElement>(null);
-  const rig = useRef({ yaw: 0.4, zoom: 1 });
-  const lower = name.toLowerCase();
-  const neon = lower.includes("orange") ? "#ff8a2a" : lower.includes("channel") ? "#7dffb2" : "#f2c14e";
+  const rig = useRef({ yaw: 0.38, zoom: 1 });
+  const dancingRef = useRef(dancing);
+  const sprayRef = useRef(sprayBurst);
+  dancingRef.current = dancing;
+  sprayRef.current = sprayBurst;
+  const crowdKey = people.map((person) => `${person.id}:${person.look}:${person.pose}`).join("|");
+  const theme = clubTheme(name);
 
   useEffect(() => {
     const root = host.current;
     if (!root) return;
+    const lite = weakGpu();
     const renderer = makeRenderer();
     renderer.setSize(root.clientWidth, root.clientHeight);
     root.appendChild(renderer.domElement);
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color("#07060c");
-    scene.add(new THREE.HemisphereLight(0x3a2a4a, 0x0c0a10, 0.7));
-    const spot = new THREE.DirectionalLight(0xfff1d0, 0.85);
-    spot.position.set(2, 12, 6);
+    scene.background = new THREE.Color(theme.bg);
+    scene.fog = new THREE.Fog(theme.bg, 12, 38);
+    scene.add(new THREE.HemisphereLight(0x4a3a58, 0x0c0a10, 0.55));
+    const spot = new THREE.DirectionalLight(0xfff1d0, 0.7);
+    spot.position.set(3, 14, 6);
     scene.add(spot);
-    const wash = new THREE.PointLight(lower.includes("orange") ? 0xff7a2a : 0xc4558a, 8, 16);
-    wash.position.set(0, 3.2, 0);
+    const wash = new THREE.PointLight(theme.wash, 14, 18);
+    wash.position.set(0.4, 3.1, 0.4);
     scene.add(wash);
+    const washB = new THREE.PointLight(theme.accent, 8, 14);
+    washB.position.set(-3, 2.8, -2);
+    scene.add(washB);
 
     const hall = new THREE.Group();
     scene.add(hall);
     const add = (mesh: THREE.Object3D) => hall.add(mesh);
-    add(piece(0x241c2e, 16, 0.12, 11, 0, 0.06, 0));
-    add(piece(0x16121c, 16.2, 3.2, 0.18, 0, 1.6, -5.4));
-    add(piece(0x16121c, 0.18, 3.2, 11, -8, 1.6, 0));
-    add(piece(0x16121c, 0.18, 3.2, 11, 8, 1.6, 0));
-    add(piece(0x2a2034, 4.2, 0.04, 4.2, 0.4, 0.14, 0.2));
-    add(piece(0x3a2848, 3.6, 0.02, 3.6, 0.4, 0.16, 0.2));
 
-    add(piece(0x1a1422, 1.3, 1.05, 7.2, -6.5, 0.55, 0.2));
-    add(piece(0xf4efe6, 1.15, 0.08, 7, -6.35, 1.1, 0.2));
-    add(piece(0x2a1c18, 0.16, 1.6, 6.4, -7.7, 1.7, -0.4));
-    for (let i = 0; i < 9; i += 1) {
+    add(piece(theme.floor, 18, 0.12, 13, 0, 0.06, 0));
+    add(piece(0x1a1420, 5.2, 0.04, 5.2, 0.3, 0.13, 0.55));
+    const dance = piece(theme.dance, 4.6, 0.03, 4.6, 0.3, 0.16, 0.55);
+    add(dance);
+    add(piece(theme.wall, 18.2, 3.55, 0.2, 0, 1.8, -6.2));
+    add(piece(theme.wall, 0.2, 3.55, 13, -9, 1.8, 0));
+    add(piece(theme.wall, 0.2, 3.55, 13, 9, 1.8, 0));
+    add(piece(0x0c0a10, 18, 0.12, 13, 0, 3.55, 0));
+
+    for (let i = 0; i < 8; i += 1) {
+      const strip = piece(theme.accent, 1.8, 0.04, 0.06, -6.4 + i * 1.85, 3.38, -5.95);
+      (strip.material as THREE.MeshLambertMaterial).emissive = new THREE.Color(theme.accent);
+      (strip.material as THREE.MeshLambertMaterial).emissiveIntensity = 0.7;
+      add(strip);
+    }
+
+    add(piece(0x121018, 2.2, 1.15, 8.2, -7.4, 0.62, -0.2));
+    add(piece(0xf4efe6, 2.05, 0.08, 8, -7.25, 1.22, -0.2));
+    add(piece(0x1a1210, 0.12, 1.7, 7.4, -8.55, 1.85, -0.3));
+    const bottleN = lite ? 6 : 11;
+    for (let i = 0; i < bottleN; i += 1) {
       const bottle = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.06, 0.07, 0.32, 8),
-        new THREE.MeshLambertMaterial({ color: [0xf2c14e, 0x1f6b45, 0xc4552a, 0xf6f1e6, 0x7a3e6d][i % 5] }),
+        new THREE.CylinderGeometry(0.055, 0.07, 0.34, 8),
+        new THREE.MeshLambertMaterial({ color: [0xf2c14e, 0x1f6b45, 0xc4552a, 0xf6f1e6, 0x7a3e6d, 0x8fd0ea][i % 6] }),
       );
-      bottle.position.set(-7.55, 2.15, -2.6 + i * 0.7);
+      bottle.position.set(-8.4, 2.28, -3.2 + i * 0.62);
       add(bottle);
     }
-    for (let i = 0; i < 4; i += 1) {
-      add(piece(0x2c241c, 0.38, 0.7, 0.38, -5.7, 0.4, -2.2 + i * 1.6));
-      add(piece(0xc4552a, 0.42, 0.08, 0.42, -5.7, 0.78, -2.2 + i * 1.6));
+    for (let i = 0; i < 5; i += 1) {
+      add(piece(0x2c241c, 0.4, 0.72, 0.4, -6.15, 0.42, -2.6 + i * 1.35));
+      add(piece(theme.accent, 0.44, 0.08, 0.44, -6.15, 0.82, -2.6 + i * 1.35));
     }
 
-    add(piece(0x120e16, 3.2, 0.45, 1.3, 0.2, 0.35, -4.15));
-    add(piece(0x2a241c, 1.1, 0.12, 0.55, -0.35, 0.62, -4.05));
-    add(piece(0x2a241c, 1.1, 0.12, 0.55, 0.85, 0.62, -4.05));
-    add(piece(0x101014, 0.55, 1.5, 0.45, -1.7, 0.85, -4.3));
-    add(piece(0x101014, 0.55, 1.5, 0.45, 2.15, 0.85, -4.3));
-    add(clubSign(name, neon));
+    add(piece(0x101014, 4.4, 0.55, 1.55, 0.2, 0.55, -4.55));
+    add(piece(0x2a241c, 1.2, 0.1, 0.58, -0.6, 0.88, -4.4));
+    add(piece(0x2a241c, 1.2, 0.1, 0.58, 1.1, 0.88, -4.4));
+    add(piece(0x0a0a10, 0.7, 1.7, 0.55, -1.95, 1.0, -4.7));
+    add(piece(0x0a0a10, 0.7, 1.7, 0.55, 2.4, 1.0, -4.7));
+    const led = piece(theme.accent, 3.6, 1.1, 0.06, 0.2, 2.35, -5.95);
+    (led.material as THREE.MeshLambertMaterial).emissive = new THREE.Color(theme.accent);
+    (led.material as THREE.MeshLambertMaterial).emissiveIntensity = 0.85;
+    add(led);
+    add(clubSign(name, theme.neon));
+
+    const beams: THREE.Mesh[] = [];
+    for (const x of [-1.6, 2.0]) {
+      const head = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, 0.28, 10), new THREE.MeshLambertMaterial({ color: 0x1a1a22 }));
+      head.position.set(x, 3.28, -3.4);
+      add(head);
+      const beam = new THREE.Mesh(
+        new THREE.ConeGeometry(0.55, 2.4, 12, 1, true),
+        new THREE.MeshBasicMaterial({ color: theme.accent, transparent: true, opacity: 0.16, side: THREE.DoubleSide, depthWrite: false }),
+      );
+      beam.position.set(x, 1.95, -2.4);
+      beam.rotation.x = 0.55;
+      add(beam);
+      beams.push(beam);
+    }
 
     const chair = (x: number, z: number, turn: number) => {
       const group = new THREE.Group();
-      group.add(piece(0x8c2438, 0.42, 0.1, 0.42, 0, 0.48, 0));
-      group.add(piece(0x8c2438, 0.42, 0.45, 0.08, 0, 0.72, -0.18));
+      group.add(piece(theme.seat, 0.48, 0.12, 0.48, 0, 0.5, 0));
+      group.add(piece(theme.seat, 0.48, 0.52, 0.1, 0, 0.78, -0.2));
       group.position.set(x, 0, z);
       group.rotation.y = turn;
       add(group);
     };
     const table = (x: number, z: number) => {
-      add(piece(0xe8e2d8, 1.35, 0.08, 1.35, x, 0.72, z));
-      add(piece(0x3a3040, 0.12, 0.6, 0.12, x, 0.38, z));
-      const candle = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffe08a }));
-      candle.position.set(x, 0.84, z);
+      add(piece(0xe8e2d8, 1.4, 0.08, 1.4, x, 0.74, z));
+      add(piece(0x3a3040, 0.12, 0.62, 0.12, x, 0.4, z));
+      const candle = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffe08a }));
+      candle.position.set(x, 0.88, z);
       add(candle);
-      add(blob(x, z, 1.7, 1.35, 0.55));
+      add(blob(x, z, 1.7, 1.35, 0.5));
     };
-    table(-2.3, -1.3);
-    chair(-3.15, -1.3, Math.PI / 2);
-    chair(-1.45, -1.3, -Math.PI / 2);
-    chair(-2.3, -2.15, 0);
-    table(3.4, -0.6);
-    chair(3.4, -1.5, 0);
-    chair(4.25, -0.6, -Math.PI / 2);
-    chair(2.55, -0.6, Math.PI / 2);
-    table(3.2, 2.4);
-    chair(3.2, 1.55, Math.PI);
-    chair(4.05, 2.4, -Math.PI / 2);
+    table(-2.6, -1.55);
+    chair(-3.5, -1.55, Math.PI / 2);
+    chair(-1.7, -1.55, -Math.PI / 2);
+    chair(-2.6, -2.45, 0);
+    table(4.0, -0.85);
+    chair(4.0, -1.8, 0);
+    chair(4.9, -0.85, -Math.PI / 2);
+    chair(3.1, -0.85, Math.PI / 2);
+    table(4.15, 2.55);
+    chair(4.15, 1.65, Math.PI);
+    chair(5.05, 2.55, -Math.PI / 2);
+    add(piece(0x2a2030, 2.8, 0.55, 1.15, 6.4, 0.4, 3.4));
+    add(piece(theme.seat, 2.6, 0.18, 0.55, 6.4, 0.78, 3.05));
+    add(piece(theme.seat, 2.6, 0.55, 0.12, 6.4, 1.05, 3.85));
 
-    const plant = (x: number, z: number) => {
-      add(piece(0x3a2a22, 0.28, 0.32, 0.28, x, 0.22, z));
-      const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.7, 6), new THREE.MeshLambertMaterial({ color: 0x1f6b45 }));
-      leaf.position.set(x, 0.7, z);
-      add(leaf);
-    };
-    plant(-7.2, -4.4);
-    plant(7.2, 3.6);
-    add(piece(0xe8e2d8, 0.08, 1.5, 0.08, 5.6, 0.85, -3.4));
-    add(piece(0xf4efe6, 0.35, 0.28, 0.35, 5.6, 1.7, -3.4));
-    add(blob(-6.4, 0.2, 1.6, 6.2, 0.45));
-    add(blob(0.2, -4.15, 3.4, 1.5, 0.4));
+    if (theme.grill) {
+      add(piece(0x2a241c, 2.6, 0.95, 1.15, 6.5, 0.55, -3.2));
+      add(piece(0x111111, 2.4, 0.08, 0.95, 6.5, 1.08, -3.2));
+      for (const x of [5.8, 6.5, 7.2]) {
+        add(piece(0xc4552a, 0.38, 0.08, 0.22, x, 1.18, -3.05));
+      }
+      const glow = new THREE.PointLight(0xff6a12, 4, 6);
+      glow.position.set(6.5, 1.4, -3.2);
+      add(glow);
+    }
+    if (theme.garden) {
+      for (const [x, z] of [[-8.2, 4.6], [8.2, 4.4], [-8.2, -5.2], [8.2, -5.0]] as const) {
+        add(piece(0x3a2a22, 0.32, 0.36, 0.32, x, 0.24, z));
+        const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.7, 8, 6), new THREE.MeshLambertMaterial({ color: 0x1f6b45 }));
+        leaf.position.set(x, 1.05, z);
+        add(leaf);
+      }
+    }
+    if (theme.stage) {
+      add(piece(0x3a2818, 5.2, 0.35, 1.8, 0.2, 0.28, -4.7));
+      add(piece(0x1a120c, 0.2, 1.4, 0.2, -2.2, 1.1, -5.2));
+      add(piece(0x1a120c, 0.2, 1.4, 0.2, 2.6, 1.1, -5.2));
+    }
 
-    const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 80);
-    const aim = new THREE.Vector3(8, 11, 12).normalize();
+    const tiles: THREE.Mesh[] = [];
+    for (let r = 0; r < 3; r += 1) {
+      for (let c = 0; c < 3; c += 1) {
+        const tile = piece(0x2a2038, 1.35, 0.02, 1.35, -1.05 + c * 1.4, 0.175, -0.85 + r * 1.4);
+        (tile.material as THREE.MeshLambertMaterial).emissive = new THREE.Color(theme.accent);
+        (tile.material as THREE.MeshLambertMaterial).emissiveIntensity = 0.15;
+        add(tile);
+        tiles.push(tile);
+      }
+    }
+
+    type Dancer = { mesh: THREE.Object3D; y: number; facing: number; always: boolean };
+    const dancers: Dancer[] = [];
+    const me = citizen(look);
+    me.position.set(0.35, 0, 1.35);
+    me.rotation.y = Math.PI;
+    add(me);
+    dancers.push({ mesh: me, y: 0, facing: Math.PI, always: false });
+
+    people
+      .filter((person) => person.id !== selfId)
+      .slice(0, lite ? 4 : 6)
+      .forEach((person, index) => {
+        const body = createRealisticHuman({ lookId: person.look ?? look, seated: person.pose === "sit", scale: 0.9 });
+        const col = index % 3;
+        const row = Math.floor(index / 3);
+        const x = -1.1 + col * 1.15;
+        const z = 2.15 - row * 1.05;
+        body.position.set(x, 0, z);
+        body.rotation.y = Math.PI;
+        add(body);
+        if (person.pose !== "sit") dancers.push({ mesh: body, y: 0, facing: Math.PI, always: true });
+      });
+
+    const dj = createRealisticHuman({ lookId: LOOKS[2]?.id ?? look, scale: 0.88, customShirt: 0x111118 });
+    dj.position.set(0.2, 0.55, -4.35);
+    dj.rotation.y = 0;
+    add(dj);
+    dancers.push({ mesh: dj, y: 0.55, facing: 0, always: true });
+
+    const bills: THREE.Mesh[] = [];
+    const noteMap = nairaNoteTexture();
+    const noteGeo = new THREE.PlaneGeometry(0.28, 0.14);
+    const noteMat = new THREE.MeshBasicMaterial({ map: noteMap, side: THREE.DoubleSide, transparent: true });
+    let seenSpray = sprayRef.current;
+
+    const pull = phonePullback();
+    const camera = new THREE.PerspectiveCamera(pull > 1 ? 40 : 32, 1, 0.1, 90);
+    const aim = new THREE.Vector3(8, 11, 13).normalize();
+    const baseDist = 24 * pull;
     const fit = () => {
       renderer.setSize(root.clientWidth || 1, root.clientHeight || 1);
       camera.aspect = (root.clientWidth || 1) / (root.clientHeight || 1);
       camera.updateProjectionMatrix();
     };
     fit();
-    const detachControls = attachSceneCameraControls(root, rig, { minZoom: 0.7, maxZoom: 2.3, zoomSpeed: 0.08 });
+    const detachControls = attachSceneCameraControls(root, rig, { minZoom: VIEW_ZOOM.min, maxZoom: VIEW_ZOOM.max, zoomSpeed: VIEW_ZOOM.speed });
     let frame = 0;
     let alive = true;
+    const t0 = performance.now();
     const loop = () => {
       if (!alive) return;
+      const t = performance.now() - t0;
       hall.rotation.y = rig.current.yaw;
-      camera.position.copy(aim).multiplyScalar(20 / rig.current.zoom);
-      camera.lookAt(0, 0.6, 0);
+      wash.intensity = 11 + Math.sin(t * 0.004) * 4;
+      wash.color.setHSL((t * 0.00008) % 1, 0.55, 0.55);
+      (led.material as THREE.MeshLambertMaterial).emissiveIntensity = 0.55 + Math.abs(Math.sin(t * 0.006)) * 0.7;
+      tiles.forEach((tile, i) => {
+        (tile.material as THREE.MeshLambertMaterial).emissiveIntensity = 0.12 + Math.abs(Math.sin(t * 0.005 + i)) * 0.55;
+      });
+      beams.forEach((beam, i) => {
+        beam.rotation.z = Math.sin(t * 0.0015 + i) * 0.35;
+        (beam.material as THREE.MeshBasicMaterial).opacity = 0.1 + Math.abs(Math.sin(t * 0.003 + i)) * 0.12;
+      });
+      const onFloor = dancingRef.current;
+      for (const dancer of dancers) {
+        if (onFloor || dancer.always) danceBody(dancer.mesh, t + dancer.facing * 40, dancer.y, dancer.facing);
+        else restBody(dancer.mesh, dancer.y, dancer.facing);
+      }
+      if (onFloor) {
+        me.position.x += (0.3 - me.position.x) * 0.04;
+        me.position.z += (0.5 - me.position.z) * 0.04;
+      } else {
+        me.position.x += (0.35 - me.position.x) * 0.04;
+        me.position.z += (1.35 - me.position.z) * 0.04;
+      }
+      if (sprayRef.current > seenSpray) {
+        const extra = Math.min(40, sprayRef.current - seenSpray);
+        seenSpray = sprayRef.current;
+        for (let i = 0; i < extra; i += 1) {
+          const bill = new THREE.Mesh(noteGeo, noteMat);
+          bill.position.set(me.position.x + (Math.random() - 0.5) * 1.6, 2.1 + Math.random() * 0.7, me.position.z + (Math.random() - 0.5) * 1.4);
+          bill.rotation.set(Math.random(), Math.random(), Math.random());
+          bill.userData.vy = 0.008 + Math.random() * 0.012;
+          bill.userData.spin = (Math.random() - 0.5) * 0.18;
+          hall.add(bill);
+          bills.push(bill);
+        }
+      }
+      for (let i = bills.length - 1; i >= 0; i -= 1) {
+        const bill = bills[i];
+        bill.userData.vy += 0.00035;
+        bill.position.y -= bill.userData.vy;
+        bill.position.x += Math.sin(t * 0.004 + i) * 0.006;
+        bill.rotation.x += bill.userData.spin;
+        bill.rotation.z += bill.userData.spin * 0.6;
+        if (bill.position.y < 0.18) {
+          hall.remove(bill);
+          bills.splice(i, 1);
+        }
+      }
+      camera.position.copy(aim).multiplyScalar(baseDist / rig.current.zoom);
+      camera.lookAt(0.2, 1.05, 0.2);
       renderer.render(scene, camera);
       frame = window.requestAnimationFrame(loop);
     };
@@ -842,27 +1086,27 @@ function ClubHall({ name }: { name: string }) {
       window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", onResize);
       detachControls();
+      noteMap.dispose();
+      noteGeo.dispose();
+      noteMat.dispose();
       renderer.dispose();
-      root.removeChild(renderer.domElement);
+      if (renderer.domElement.parentElement === root) root.removeChild(renderer.domElement);
     };
-  }, [name, neon, lower]);
+  }, [name, look, crowdKey, selfId]);
 
   function turn(dir: number) {
     rig.current.yaw += dir * 0.55;
   }
   function dolly(factor: number) {
-    rig.current.zoom = Math.min(2.3, Math.max(0.7, rig.current.zoom * factor));
+    rig.current.zoom = clampViewZoom(rig.current.zoom, factor);
   }
 
   return (
-    <div className="absolute inset-0">
-      <div
-        ref={host}
-        className="absolute inset-0 touch-none"
-      />
+    <div className="absolute inset-0" style={{ background: theme.bg }}>
+      <div ref={host} className="absolute inset-0 touch-none" />
       <div className="absolute right-2.5 top-1/2 z-30 flex -translate-y-1/2 flex-col gap-1">
-        <button type="button" aria-label="Zoom in" onClick={() => dolly(1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">+</button>
-        <button type="button" aria-label="Zoom out" onClick={() => dolly(1 / 1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">−</button>
+        <button type="button" aria-label="Zoom in" onClick={() => dolly(1.22)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">+</button>
+        <button type="button" aria-label="Zoom out" onClick={() => dolly(1 / 1.22)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">−</button>
         <button type="button" aria-label="Rotate left" onClick={() => turn(1)} className="mt-2 grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">↺</button>
         <button type="button" aria-label="Rotate right" onClick={() => turn(-1)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">↻</button>
       </div>
@@ -879,6 +1123,7 @@ function ClubFloor({
   besideId,
   selfId,
   dancing,
+  sprayBurst = 0,
   bubbles = [],
   onPick,
   look,
@@ -891,6 +1136,7 @@ function ClubFloor({
   besideId: string | null;
   selfId: string;
   dancing: boolean;
+  sprayBurst?: number;
   bubbles?: Array<{ fromId: string; text: string }>;
   onPick: (id: string) => void;
   look: LookId;
@@ -899,20 +1145,10 @@ function ClubFloor({
   const listed = people.slice(0, 50);
   const spots = arrangeClub(people, selfId, besideId);
   const buyer = spots.get(people.find((person) => person.name === (shout || username))?.id ?? "") ?? spotFor(shout || username);
-
-  const clubBuild = useRef((add: (mesh: THREE.Object3D) => void) => {
-    add(piece(0x1a1524, 18, 0.12, 16, 0, 0.06, 0));
-    add(piece(0x3d1a48, 18, 3.4, 0.2, 0, 1.7, -7.8));
-    add(piece(0x24182e, 0.2, 3.4, 16, -9, 1.7, 0));
-    add(piece(0x24182e, 0.2, 3.4, 16, 9, 1.7, 0));
-    add(piece(0xe0b15a, 2.6, 0.7, 1.4, 0, 0.85, -6.2));
-    add(piece(0x17241e, 1.4, 1.1, 0.8, 0, 1.3, -6.4));
-    add(piece(0x7a3e6d, 3.2, 0.08, 3.2, 0, 0.14, 1.2));
-    void name;
-  }).current;
+  void bubbles;
   return (
     <div className="relative h-full min-h-[70vh] overflow-hidden bg-[#07060c]">
-      <OrbitRoom look={look} build={clubBuild} people={people} selfId={selfId} />
+      <ClubHall name={name} look={look} people={people} selfId={selfId} dancing={dancing} sprayBurst={sprayBurst} />
       <div className="absolute inset-x-3 top-3 z-20">
         <button
           type="button"
@@ -1687,7 +1923,7 @@ function BuildingFront({ placeId, look }: { placeId: string; look: LookId }) {
       camera.updateProjectionMatrix();
     };
     fit();
-    const detachControls = attachSceneCameraControls(root, rig, { minZoom: 0.65, maxZoom: 2.1, zoomSpeed: 0.08 });
+    const detachControls = attachSceneCameraControls(root, rig, { minZoom: VIEW_ZOOM.min, maxZoom: VIEW_ZOOM.max, zoomSpeed: VIEW_ZOOM.speed });
     let frame = 0;
     let alive = true;
     const loop = () => {
@@ -1715,7 +1951,7 @@ function BuildingFront({ placeId, look }: { placeId: string; look: LookId }) {
     rig.current.yaw += dir * 0.55;
   }
   function dolly(factor: number) {
-    rig.current.zoom = Math.min(2.1, Math.max(0.65, rig.current.zoom * factor));
+    rig.current.zoom = clampViewZoom(rig.current.zoom, factor);
   }
 
   return (
@@ -1965,7 +2201,7 @@ function HotelSuite({
       camera.updateProjectionMatrix();
     };
     fit();
-    const detachControls = attachSceneCameraControls(root, rig, { minZoom: 0.7, maxZoom: 2.2, zoomSpeed: 0.08 });
+    const detachControls = attachSceneCameraControls(root, rig, { minZoom: VIEW_ZOOM.min, maxZoom: VIEW_ZOOM.max, zoomSpeed: VIEW_ZOOM.speed });
     let frame = 0;
     let alive = true;
     let lastTick = performance.now();
@@ -2036,7 +2272,7 @@ function HotelSuite({
     rig.current.yaw += dir * 0.55;
   }
   function dolly(factor: number) {
-    rig.current.zoom = Math.min(2.2, Math.max(0.7, rig.current.zoom * factor));
+    rig.current.zoom = clampViewZoom(rig.current.zoom, factor);
   }
 
   return (
@@ -2196,13 +2432,13 @@ function BeachHouse({ look, people = [], selfId }: { look: LookId; people?: Scen
       camera.updateProjectionMatrix();
     };
     fit();
-    const detachControls = attachSceneCameraControls(root, rig, { minZoom: 0.7, maxZoom: 2.2, zoomSpeed: 0.08 });
+    const detachControls = attachSceneCameraControls(root, rig, { minZoom: VIEW_ZOOM.min, maxZoom: VIEW_ZOOM.max, zoomSpeed: VIEW_ZOOM.speed });
     let frame = 0;
     let alive = true;
     const loop = () => {
       if (!alive) return;
       house.rotation.y = rig.current.yaw;
-      camera.position.copy(aim).multiplyScalar(16 / rig.current.zoom);
+      camera.position.copy(aim).multiplyScalar((16 * phonePullback()) / rig.current.zoom);
       camera.lookAt(0, 0.7, 0);
       renderer.render(scene, camera);
       frame = window.requestAnimationFrame(loop);
@@ -2224,7 +2460,7 @@ function BeachHouse({ look, people = [], selfId }: { look: LookId; people?: Scen
     rig.current.yaw += dir * 0.55;
   }
   function dolly(factor: number) {
-    rig.current.zoom = Math.min(2.2, Math.max(0.7, rig.current.zoom * factor));
+    rig.current.zoom = clampViewZoom(rig.current.zoom, factor);
   }
 
   return (
@@ -2277,7 +2513,8 @@ function OrbitRoom({
     me.rotation.y = Math.PI;
     yard.add(me);
     addPlayerGuests(yard, people, selfId, { x: 0, z: 2.2, rot: Math.PI });
-    const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 80);
+    const pull = phonePullback();
+    const camera = new THREE.PerspectiveCamera(pull > 1 ? 42 : 34, 1, 0.1, 80);
     const aim = new THREE.Vector3(10, 7, 14).normalize();
     const fit = () => {
       renderer.setSize(root.clientWidth || 1, root.clientHeight || 1);
@@ -2285,13 +2522,13 @@ function OrbitRoom({
       camera.updateProjectionMatrix();
     };
     fit();
-    const detachControls = attachSceneCameraControls(root, rig, { minZoom: 0.7, maxZoom: 2.1, zoomSpeed: 0.08 });
+    const detachControls = attachSceneCameraControls(root, rig, { minZoom: VIEW_ZOOM.min, maxZoom: VIEW_ZOOM.max, zoomSpeed: VIEW_ZOOM.speed });
     let frame = 0;
     let alive = true;
     const loop = () => {
       if (!alive) return;
       yard.rotation.y = rig.current.yaw;
-      camera.position.copy(aim).multiplyScalar(18 / rig.current.zoom);
+      camera.position.copy(aim).multiplyScalar((18 * pull) / rig.current.zoom);
       camera.lookAt(0, 1.2, 0);
       renderer.render(scene, camera);
       frame = window.requestAnimationFrame(loop);
@@ -2312,7 +2549,7 @@ function OrbitRoom({
     rig.current.yaw += dir * 0.55;
   }
   function dolly(factor: number) {
-    rig.current.zoom = Math.min(2.1, Math.max(0.7, rig.current.zoom * factor));
+    rig.current.zoom = clampViewZoom(rig.current.zoom, factor);
   }
   return (
     <div className="absolute inset-0 bg-[#efe4d4]">
@@ -2482,6 +2719,7 @@ export function VenueInterior({
 }) {
   const acts = placeActs(place);
   const [notes, setNotes] = useState<Array<{ id: number; count: number }>>([]);
+  const [sprayNonce, setSprayNonce] = useState(0);
   const [sprayText, setSprayText] = useState("");
   const [dark, setDark] = useState(false);
   const [shout, setShout] = useState(username);
@@ -2562,7 +2800,7 @@ export function VenueInterior({
             }}
           />
         ) : club ? (
-          <ClubFloor look={look} name={place.name} username={username} people={people} shout={shout} service={service} besideId={besideId} selfId={selfId} dancing={dancing} bubbles={bubbles} onPick={pickPerson} />
+          <ClubFloor look={look} name={place.name} username={username} people={people} shout={shout} service={service} besideId={besideId} selfId={selfId} dancing={dancing} sprayBurst={sprayNonce} bubbles={bubbles} onPick={pickPerson} />
         ) : acts.pickup ? (
           <PickupStreetScene
             look={look}
@@ -2614,7 +2852,7 @@ export function VenueInterior({
             <RoomScene look={look} kind={place.kind} people={people} besideId={besideId} selfId={selfId} onPick={pickPerson} walkers={walkers} />
           </>
         )}
-        {notes.map((burst) => (
+        {club ? null : notes.map((burst) => (
           <span key={burst.id} className="pointer-events-none absolute inset-x-4 bottom-6 top-4">
             {Array.from({ length: burst.count }, (_, index) => (
               <span
@@ -2735,6 +2973,7 @@ export function VenueInterior({
               const id = Date.now();
               const count = Math.min(72, Math.max(8, Math.round(Math.sqrt(amount / 1000) * 4)));
               setNotes((current) => [...current, { id, count }]);
+              setSprayNonce((current) => current + count);
               window.setTimeout(() => setNotes((current) => current.filter((item) => item.id !== id)), 3200 + count * 40);
             }}
           >
@@ -3886,7 +4125,7 @@ function RoomView({
       else roomDistance = Math.min(58, Math.max(baseDistance, span / (0.536 * Math.min(camera.aspect, 1.7))));
     };
     fit();
-    const detachControls = attachSceneCameraControls(root, rig, { minZoom: 0.7, maxZoom: 2.3, zoomSpeed: 0.08 });
+    const detachControls = attachSceneCameraControls(root, rig, { minZoom: VIEW_ZOOM.min, maxZoom: VIEW_ZOOM.max, zoomSpeed: VIEW_ZOOM.speed });
 
     const ray = new THREE.Raycaster();
     const ndc = new THREE.Vector2();
@@ -4012,7 +4251,7 @@ function RoomView({
         }
       }
       spin.rotation.y = rig.current.yaw;
-      camera.position.copy(aim).multiplyScalar(roomDistance / rig.current.zoom);
+      camera.position.copy(aim).multiplyScalar((roomDistance * (phonePullback() > 1 ? 1.28 : 1)) / rig.current.zoom);
       camera.lookAt(0, lookY, 0);
       const group = live.current.edit && live.current.selected ? furn.get(live.current.selected) : null;
       if (group) {
@@ -4049,7 +4288,7 @@ function RoomView({
     rig.current.yaw += dir * 0.55;
   }
   function dolly(factor: number) {
-    rig.current.zoom = Math.min(2.3, Math.max(0.7, rig.current.zoom * factor));
+    rig.current.zoom = clampViewZoom(rig.current.zoom, factor);
   }
   function nudge(right: number, away: number) {
     if (!selected) return;

@@ -6,7 +6,7 @@ import { makeRenderer } from "@/lib/game/renderQuality";
 import type { LookId } from "@/lib/game/types";
 import { addPlayerGuests, createRealisticHuman, type CrowdPerson } from "@/lib/game/humanModel";
 import { naira } from "@/lib/game/format";
-import { attachSceneCameraControls } from "./sceneCameraControls";
+import { attachSceneCameraControls, clampViewZoom, VIEW_ZOOM } from "./sceneCameraControls";
 
 const FEMALE: LookId[] = ["ada", "ngozi", "zara"];
 const SHIRTS = [0xc4552a, 0x7a3e6d, 0x1f6b45, 0xf2c14e, 0x8c2438, 0x245c78];
@@ -161,7 +161,7 @@ export function PickupStreetScene({
       camera.updateProjectionMatrix();
     };
     fit();
-    const detachControls = attachSceneCameraControls(root, rig, { minZoom: 0.7, maxZoom: 2.2, zoomSpeed: 0.08 });
+    const detachControls = attachSceneCameraControls(root, rig, { minZoom: VIEW_ZOOM.min, maxZoom: VIEW_ZOOM.max, zoomSpeed: VIEW_ZOOM.speed });
     let frame = 0;
     let alive = true;
     const loop = () => {
@@ -195,7 +195,7 @@ export function PickupStreetScene({
   }, [look, title, people.map((person) => person.id).join(","), guests.map((person) => person.id).join("|"), selfId]);
 
   function dolly(factor: number) {
-    rig.current.zoom = Math.min(2.2, Math.max(0.7, rig.current.zoom * factor));
+    rig.current.zoom = clampViewZoom(rig.current.zoom, factor);
   }
 
   return (

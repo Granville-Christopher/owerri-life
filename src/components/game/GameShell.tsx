@@ -1309,13 +1309,36 @@ function PhonePanel({
         <p className="mt-2 text-xs text-[#d5e4d8]">Earned {naira(view.pools.earned)} · Gifted {naira(view.pools.gifted)} · Purchased {naira(view.pools.purchased)}</p>
       </section>
       <section>
-        <div className="flex items-center justify-between">
-          <h2 className="font-display text-2xl">Jobs</h2>
+        <h2 className="font-display text-2xl">Jobs</h2>
+        <div className="mt-2 rounded-[1.6rem] bg-white p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#a9782a]">Current job</p>
+          <p className="mt-1 font-display text-2xl leading-tight">{jobTitle(me)}</p>
+          {me.job ? (
+            <>
+              <p className="mt-2 text-sm leading-6 text-[#5d6b62]">
+                {placeById(careerById(me.job.careerId).placeId).name} · {naira(levelPay(me.job.level, careerById(me.job.careerId).l1, careerById(me.job.careerId).l5))} a shift
+              </p>
+              <p className="text-sm text-[#5d6b62]">Performance {Math.round(me.job.performance)}%</p>
+            </>
+          ) : me.pendingJob ? (
+            <p className="mt-2 text-sm leading-6 text-[#5d6b62]">
+              Starts day {me.pendingJob.startsOnDay} at {placeById(careerById(me.pendingJob.careerId).placeId).name}.
+            </p>
+          ) : (
+            <p className="mt-2 text-sm leading-6 text-[#5d6b62]">No job yet. Apply below.</p>
+          )}
           {me.job || me.pendingJob ? (
-            <button className="text-sm font-semibold text-[#b5523a]" disabled={pending} onClick={() => run(leaveJob)}>Quit</button>
+            <button
+              type="button"
+              className="mt-3 w-full rounded-full bg-[#7a2e1e] py-3 text-sm font-semibold text-white disabled:opacity-40"
+              disabled={pending}
+              onClick={() => run(leaveJob)}
+            >
+              Quit this job
+            </button>
           ) : null}
         </div>
-        <div className="mt-2 grid gap-4">
+        <div className="mt-4 grid gap-4">
           {([
             ["Police", ["police"]],
             ["Tech", ["software", "it-support", "phone-tech"]],

@@ -357,8 +357,8 @@ export function OwerriMarketScene({
     animate();
 
     const detachControls = attachSceneCameraControls(root, rig, {
-      minZoom: 0.35,
-      maxZoom: 8.0,
+      minZoom: 0.2,
+      maxZoom: 10,
       zoomSpeed: 0.1,
     });
 

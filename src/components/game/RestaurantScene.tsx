@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { makeRenderer } from "@/lib/game/renderQuality";
 import type { LookId } from "@/lib/game/types";
 import { addPlayerGuests, createRealisticHuman, type CrowdPerson } from "@/lib/game/humanModel";
-import { attachSceneCameraControls } from "./sceneCameraControls";
+import { attachSceneCameraControls, clampViewZoom, phonePullback, VIEW_ZOOM } from "./sceneCameraControls";
 
 function themeFor(placeId: string) {
   if (placeId === "dominos") return { wall: 0x123a86, trim: 0xc8102e, counter: 0x1c1c1c, top: 0xf4efe4, food: 0xe6b15a, accent: 0xc8102e, shirt: 0xc8102e, line: "PIZZA" };
@@ -148,7 +148,8 @@ export function RestaurantScene({
     dine(3.5, 0.35, "ngozi", "emeka");
     dine(0.1, 2.55, "ibe", "chidi");
 
-    const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 80);
+    const pull = phonePullback();
+    const camera = new THREE.PerspectiveCamera(pull > 1 ? 42 : 34, 1, 0.1, 80);
     const aim = new THREE.Vector3(9, 8, 14).normalize();
     const fit = () => {
       const width = root.clientWidth || 1;
@@ -158,13 +159,13 @@ export function RestaurantScene({
       camera.updateProjectionMatrix();
     };
     fit();
-    const detachControls = attachSceneCameraControls(root, rig, { minZoom: 0.7, maxZoom: 2.2, zoomSpeed: 0.08 });
+    const detachControls = attachSceneCameraControls(root, rig, { minZoom: VIEW_ZOOM.min, maxZoom: VIEW_ZOOM.max, zoomSpeed: VIEW_ZOOM.speed });
     let frame = 0;
     let alive = true;
     const loop = () => {
       if (!alive) return;
       room.rotation.y = rig.current.yaw;
-      camera.position.copy(aim).multiplyScalar(20 / rig.current.zoom);
+      camera.position.copy(aim).multiplyScalar((20 * pull) / rig.current.zoom);
       camera.lookAt(0, 1.15, -0.4);
       renderer.render(scene, camera);
       frame = window.requestAnimationFrame(loop);
@@ -195,7 +196,7 @@ export function RestaurantScene({
     rig.current.yaw += dir * 0.55;
   }
   function dolly(factor: number) {
-    rig.current.zoom = Math.min(2.2, Math.max(0.7, rig.current.zoom * factor));
+    rig.current.zoom = clampViewZoom(rig.current.zoom, factor);
   }
 
   return (

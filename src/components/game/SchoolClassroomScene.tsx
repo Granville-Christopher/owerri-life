@@ -479,8 +479,8 @@ export function SchoolClassroomScene({
 
     // Attach touch pinch-and-zoom / shrink, mouse wheel zoom, and drag rotation
     const detachControls = attachSceneCameraControls(root, rig, {
-      minZoom: 0.35,
-      maxZoom: 6.0,
+      minZoom: 0.2,
+      maxZoom: 10,
       zoomSpeed: 0.12,
     });
 

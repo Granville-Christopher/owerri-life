@@ -10,6 +10,19 @@ export interface CameraRigState {
   zoom: number;
 }
 
+export const VIEW_ZOOM = { min: 0.2, max: 9, speed: 0.18 } as const;
+
+export function clampViewZoom(zoom: number, factor = 1) {
+  return Math.min(VIEW_ZOOM.max, Math.max(VIEW_ZOOM.min, zoom * factor));
+}
+
+export function phonePullback() {
+  if (typeof window === "undefined") return 1;
+  const coarse = window.matchMedia("(pointer: coarse)").matches;
+  const narrow = window.innerWidth < 900;
+  return coarse || narrow ? 1.6 : 1;
+}
+
 export interface CameraControlOptions {
   minZoom?: number;
   maxZoom?: number;
@@ -26,12 +39,12 @@ export function attachSceneCameraControls(
   options: CameraControlOptions = {},
 ): () => void {
   const {
-    minZoom = 0.35,
-    maxZoom = 4.5,
+    minZoom = VIEW_ZOOM.min,
+    maxZoom = VIEW_ZOOM.max,
     minPitch = 0.1,
     maxPitch = 1.35,
     rotateSpeed = 0.007,
-    zoomSpeed = 0.1,
+    zoomSpeed = VIEW_ZOOM.speed,
     onUpdate,
   } = options;
 
@@ -82,7 +95,8 @@ export function attachSceneCameraControls(
       const [a, b] = [...pointers.values()];
       const dist = Math.hypot(a.x - b.x, a.y - b.y);
       if (pinchDist > 8 && dist > 8) {
-        rig.current.zoom = Math.max(minZoom, Math.min(maxZoom, rig.current.zoom * (dist / pinchDist)));
+        const amplified = Math.pow(dist / pinchDist, 1.55);
+        rig.current.zoom = Math.max(minZoom, Math.min(maxZoom, rig.current.zoom * amplified));
         pinchDist = dist;
         onUpdate?.();
       }
