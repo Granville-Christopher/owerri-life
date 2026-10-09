@@ -73,35 +73,29 @@ function paintCloud(): THREE.CanvasTexture {
   return tex;
 }
 
-function paintLivery(): THREE.CanvasTexture {
+function paintTitle(): THREE.CanvasTexture {
   const canvas = document.createElement("canvas");
   canvas.width = 1024;
   canvas.height = 256;
   const ctx = canvas.getContext("2d");
   if (ctx) {
-    ctx.fillStyle = "#f7fbfc";
-    ctx.fillRect(0, 0, 1024, 256);
-    ctx.fillStyle = "#1f6b45";
-    ctx.fillRect(0, 0, 1024, 38);
-    ctx.fillStyle = "#e0b15a";
-    ctx.fillRect(0, 38, 1024, 10);
-    ctx.fillStyle = "#1f6b45";
-    ctx.fillRect(0, 218, 1024, 38);
-    ctx.fillStyle = "#e0b15a";
-    ctx.fillRect(0, 208, 1024, 10);
-    ctx.fillStyle = "#17241e";
-    ctx.font = "bold 72px sans-serif";
+    ctx.clearRect(0, 0, 1024, 256);
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText("OWERRI LIFE", 512, 128);
-    ctx.font = "bold 22px sans-serif";
+    ctx.font = "900 110px Impact, Arial Black, sans-serif";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "#e0b15a";
+    ctx.lineWidth = 16;
+    ctx.strokeText("OWERRI LIFE", 512, 118);
+    ctx.fillStyle = "#143d2c";
+    ctx.fillText("OWERRI LIFE", 512, 118);
+    ctx.font = "800 28px Arial Black, sans-serif";
     ctx.fillStyle = "#1f6b45";
-    ctx.fillText("QOW  ·  SAM MBAKWE", 512, 178);
+    ctx.fillText("QOW  ·  SAM MBAKWE", 512, 198);
   }
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
-  tex.center.set(0.5, 0.5);
-  tex.rotation = Math.PI / 2;
+  tex.needsUpdate = true;
   return tex;
 }
 
@@ -111,36 +105,92 @@ function block(w: number, h: number, d: number, color: number, x = 0, y = 0, z =
   return mesh;
 }
 
-function buildAirliner(livery: THREE.Texture) {
+function buildAirliner(title: THREE.Texture) {
   const plane = new THREE.Group();
-  const skin = new THREE.MeshLambertMaterial({ map: livery, color: 0xffffff });
-  const white = new THREE.MeshLambertMaterial({ color: 0xf4efe4 });
+  const white = new THREE.MeshLambertMaterial({ color: 0xf6f8fb });
   const green = new THREE.MeshLambertMaterial({ color: 0x1f6b45 });
-  const dark = new THREE.MeshLambertMaterial({ color: 0x243038 });
-  const fuse = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.15, 16.4, 18, 1, true), skin);
-  fuse.rotation.x = Math.PI / 2;
-  fuse.position.y = 1.15;
-  const nose = new THREE.Mesh(new THREE.ConeGeometry(1.15, 3.2, 14), white);
-  nose.rotation.x = Math.PI / 2;
-  nose.position.set(0, 1.15, 9.6);
-  const tailcone = new THREE.Mesh(new THREE.ConeGeometry(1.15, 2.4, 12), white);
-  tailcone.rotation.x = -Math.PI / 2;
-  tailcone.position.set(0, 1.15, -9.2);
-  const wing = new THREE.Mesh(new THREE.BoxGeometry(14.5, 0.14, 3.4), white);
-  wing.position.set(0, 0.85, -0.4);
-  const fin = new THREE.Mesh(new THREE.BoxGeometry(0.16, 3.1, 2.2), green);
-  fin.position.set(0, 3.1, -8.2);
-  const stab = new THREE.Mesh(new THREE.BoxGeometry(5.4, 0.12, 1.3), white);
-  stab.position.set(0, 2.2, -8.4);
-  plane.add(fuse, nose, tailcone, wing, fin, stab);
-  for (const side of [-3.6, 3.6]) {
-    const engine = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.48, 2.2, 12), dark);
-    engine.rotation.x = Math.PI / 2;
-    engine.position.set(side, 0.42, 0.2);
-    plane.add(engine);
+  const gold = new THREE.MeshLambertMaterial({ color: 0xe0b15a });
+  const dark = new THREE.MeshLambertMaterial({ color: 0x1a242c });
+  const glass = new THREE.MeshLambertMaterial({ color: 0x1b3348, emissive: 0x4a7aa0, emissiveIntensity: 0.22 });
+
+  const profile = [
+    new THREE.Vector2(0.02, 8.55),
+    new THREE.Vector2(0.28, 8.28),
+    new THREE.Vector2(0.62, 7.78),
+    new THREE.Vector2(0.95, 7.05),
+    new THREE.Vector2(1.12, 6.15),
+    new THREE.Vector2(1.18, 4.6),
+    new THREE.Vector2(1.2, 1.4),
+    new THREE.Vector2(1.2, -3.6),
+    new THREE.Vector2(1.12, -5.8),
+    new THREE.Vector2(0.92, -7.05),
+    new THREE.Vector2(0.58, -7.85),
+    new THREE.Vector2(0.22, -8.35),
+    new THREE.Vector2(0.02, -8.55),
+  ];
+  const fuse = new THREE.Mesh(new THREE.LatheGeometry(profile, 48), white);
+  fuse.rotation.x = -Math.PI / 2;
+  fuse.position.y = 1.22;
+  plane.add(fuse);
+
+  for (const side of [-1, 1]) {
+    plane.add(block(0.05, 0.28, 10.8, 0x1f6b45, side * 1.21, 1.02, 0.25, green));
+    plane.add(block(0.05, 0.09, 10.8, 0xe0b15a, side * 1.21, 1.22, 0.25, gold));
   }
+
+  const titleMat = new THREE.MeshBasicMaterial({ map: title, transparent: true, side: THREE.DoubleSide, depthWrite: false });
+  for (const side of [-1, 1]) {
+    const decal = new THREE.Mesh(new THREE.PlaneGeometry(7.6, 1.15), titleMat);
+    decal.position.set(side * 1.23, 1.48, 0.35);
+    decal.rotation.y = side > 0 ? Math.PI / 2 : -Math.PI / 2;
+    plane.add(decal);
+  }
+
+  for (let i = 0; i < 9; i += 1) {
+    const pane = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.22, 0.32), glass);
+    pane.position.set(1.18, 1.52, 4.8 - i * 1.05);
+    plane.add(pane);
+    const paneL = pane.clone();
+    paneL.position.x = -1.18;
+    plane.add(paneL);
+  }
+
+  const windscreen = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.42, 0.12), glass);
+  windscreen.position.set(0, 1.62, 7.15);
+  windscreen.rotation.x = -0.35;
+  plane.add(windscreen);
+
+  const wing = new THREE.Mesh(new THREE.BoxGeometry(16.8, 0.16, 3.6), white);
+  wing.position.set(0, 0.92, -0.15);
+  wing.rotation.y = 0.08;
+  plane.add(wing);
+  for (const side of [-7.6, 7.6]) {
+    const winglet = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.85, 0.9), white);
+    winglet.position.set(side, 1.28, -1.35);
+    plane.add(winglet);
+  }
+  const stab = new THREE.Mesh(new THREE.BoxGeometry(6.2, 0.12, 1.7), white);
+  stab.position.set(0, 1.85, -7.55);
+  plane.add(stab);
+  const fin = new THREE.Mesh(new THREE.BoxGeometry(0.18, 3.35, 2.4), green);
+  fin.position.set(0, 3.05, -7.55);
+  plane.add(fin);
+  const finGold = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.22, 2.4), gold);
+  finGold.position.set(0, 4.55, -7.55);
+  plane.add(finGold);
+
+  for (const side of [-3.85, 3.85]) {
+    const nacelle = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.46, 2.55, 16), dark);
+    nacelle.rotation.x = Math.PI / 2;
+    nacelle.position.set(side, 0.38, 0.55);
+    plane.add(nacelle);
+    const intake = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.05, 8, 18), gold);
+    intake.position.set(side, 0.38, 1.78);
+    plane.add(intake);
+  }
+
   const glow = new THREE.PointLight(0xfff1c8, 1.4, 18);
-  glow.position.set(0, 0.4, 8.8);
+  glow.position.set(0, 0.5, 7.6);
   plane.add(glow);
   return plane;
 }
@@ -229,8 +279,8 @@ export function FlightScene({
     );
     scene.add(stars);
 
-    const livery = paintLivery();
-    const airliner = buildAirliner(livery);
+    const title = paintTitle();
+    const airliner = buildAirliner(title);
     scene.add(airliner);
 
     const cabin = new THREE.Group();
@@ -271,13 +321,13 @@ export function FlightScene({
           customShirt: shirts[(row + Math.round(x + 2)) % shirts.length],
         });
         person.position.set(x, 0, 4.55 - row * 1.32);
-        person.rotation.y = Math.PI;
+        person.rotation.y = 0;
         cabin.add(person);
       }
     }
     const you = createRealisticHuman({ lookId: look, seated: true, scale: 0.8 });
     you.position.set(-1.12, 0, 4.55 - 2 * 1.32);
-    you.rotation.y = Math.PI;
+    you.rotation.y = 0;
     cabin.add(you);
 
     const attendant = createRealisticHuman({
@@ -323,23 +373,27 @@ export function FlightScene({
         cloud.position.z = ((-20 - i * 14 + t * 90) % 180) - 90;
         cloud.position.x += Math.sin(now / 1800 + i) * 0.01;
       });
-      attendant.position.z = 4.8 - ((now / 2800) % 10);
-      attendant.rotation.y = ((now / 2800) % 10) < 5 ? Math.PI : 0;
+      const lap = 6.4;
+      const cycle = ((now / 1000) % (lap * 2)) / lap;
+      const goingAft = cycle < 1;
+      const u = goingAft ? cycle : cycle - 1;
+      attendant.position.z = goingAft ? 5.1 - u * 10.4 : -5.3 + u * 10.4;
+      attendant.rotation.y = goingAft ? Math.PI : 0;
       attendant.position.y = Math.abs(Math.sin(now / 180)) * 0.03;
 
       if (view.current === "inside") {
         airliner.updateMatrixWorld(true);
-        const eye = new THREE.Vector3(-0.72, 1.42, 1.85);
+        const eye = new THREE.Vector3(-0.55, 1.38, 1.62);
         cabin.localToWorld(eye);
         camera.position.copy(eye);
-        const gaze = new THREE.Vector3(0.35, 1.22, -0.4);
+        const gaze = new THREE.Vector3(0.2, 1.18, 4.6);
         cabin.localToWorld(gaze);
         camera.lookAt(gaze);
         camera.fov = 68;
         camera.updateProjectionMatrix();
         camReady = false;
       } else {
-        const goal = airliner.position.clone().add(new THREE.Vector3(11, 5.2, -16));
+        const goal = airliner.position.clone().add(new THREE.Vector3(17, 5.1, -5.5));
         if (!camReady) {
           camPos.copy(goal);
           camReady = true;
@@ -347,7 +401,7 @@ export function FlightScene({
           camPos.lerp(goal, 0.08);
         }
         camera.position.copy(camPos);
-        camera.lookAt(airliner.position.clone().add(new THREE.Vector3(0, 1.2, 2)));
+        camera.lookAt(airliner.position.clone().add(new THREE.Vector3(0, 1.15, 0.4)));
         camera.fov = 50;
         camera.updateProjectionMatrix();
       }
@@ -365,7 +419,7 @@ export function FlightScene({
       window.removeEventListener("resize", onResize);
       cityMap.dispose();
       cloudTex.dispose();
-      livery.dispose();
+      title.dispose();
       renderer.dispose();
       if (root.contains(renderer.domElement)) root.removeChild(renderer.domElement);
     };

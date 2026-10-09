@@ -266,6 +266,7 @@ function PersonPin({
   dance,
   pose = "stand",
   bubble,
+  hideBody = false,
   onClick,
 }: {
   name: string;
@@ -276,6 +277,7 @@ function PersonPin({
   dance?: boolean;
   pose?: Pose;
   bubble?: string | null;
+  hideBody?: boolean;
   onClick: () => void;
 }) {
   const motion = dance ? "ol-pose-dance" : pose === "sit" ? "ol-pose-sit" : pose === "bed" ? "ol-duvet" : "ol-pose-stand";
@@ -289,9 +291,11 @@ function PersonPin({
     >
       {bubble ? <span className="ol-say">{bubble}</span> : null}
       {price ? <span className="ol-price">{price}</span> : null}
-      <span className={`${motion} inline-block`}>
-        <Human look={look} className="h-7 w-3.5" />
-      </span>
+      {hideBody ? null : (
+        <span className={`${motion} inline-block`}>
+          <Human look={look} className="h-7 w-3.5" />
+        </span>
+      )}
       <NameTag name={name} />
     </button>
   );
@@ -301,6 +305,29 @@ function spotFor(name: string) {
   let hash = 0;
   for (const char of name) hash = (hash * 33 + char.charCodeAt(0)) >>> 0;
   return { left: `${8 + (hash % 74)}%`, top: `${24 + ((hash >> 5) % 52)}%` };
+}
+
+function personTag(text: string) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 64;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    ctx.fillStyle = "rgba(23,36,30,0.88)";
+    ctx.fillRect(8, 8, 240, 48);
+    ctx.fillStyle = "#e0b15a";
+    ctx.fillRect(8, 8, 240, 4);
+    ctx.fillStyle = "#f6f1e6";
+    ctx.font = "bold 28px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text.slice(0, 16), 128, 36);
+  }
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), depthTest: false, transparent: true }));
+  sprite.position.set(0, 2.08, 0);
+  sprite.scale.set(1.55, 0.38, 1);
+  sprite.renderOrder = 12;
+  return sprite;
 }
 
 function lookFrom(id: string, look: LookId | null, gender?: Gender | null) {
@@ -356,6 +383,7 @@ function PeopleLayer({
   bubbles,
   pickedId,
   onPick,
+  hideBodies = false,
 }: {
   people: ScenePerson[];
   selfId: string;
@@ -363,6 +391,7 @@ function PeopleLayer({
   bubbles: Array<{ fromId: string; text: string }>;
   pickedId: string | null;
   onPick: (id: string) => void;
+  hideBodies?: boolean;
 }) {
   return (
     <div className="pointer-events-none absolute inset-0 z-20">
@@ -382,6 +411,7 @@ function PeopleLayer({
             look={lookFrom(person.id, person.look, person.gender)}
             style={style}
             pose={person.pose ?? "stand"}
+            hideBody={hideBodies}
             bubble={bubbles.find((line) => line.fromId === person.id)?.text ?? null}
             dim={Boolean(pickedId) && pickedId !== person.id && person.id !== selfId}
             onClick={() => onPick(person.id)}
@@ -1577,11 +1607,24 @@ export function ArrivalScene({
   );
 }
 
-function HotelSuite({ look, pose, onLieDone }: { look: LookId; pose: "stand" | "sit" | "lie"; onLieDone?: () => void }) {
+function HotelSuite({
+  look,
+  pose,
+  people = [],
+  selfId,
+  onLieDone,
+}: {
+  look: LookId;
+  pose: "stand" | "sit" | "lie";
+  people?: ScenePerson[];
+  selfId?: string;
+  onLieDone?: () => void;
+}) {
   const host = useRef<HTMLDivElement>(null);
   const rig = useRef({ yaw: 0.35, zoom: 1.05 });
   const done = useRef(onLieDone);
   done.current = onLieDone;
+  const peopleKey = people.map((person) => `${person.id}:${person.look}:${person.pose}:${person.name}`).join("|");
 
   useEffect(() => {
     if (pose !== "lie") return;
@@ -1695,19 +1738,38 @@ function HotelSuite({ look, pose, onLieDone }: { look: LookId; pose: "stand" | "
     plant.position.set(-4.05, 0.8, -3.05);
     add(plant);
 
-    const guest = citizen(look);
+    const seated = pose === "sit";
+    const you = createRealisticHuman({ lookId: look, seated, scale: 0.92 });
     if (pose === "lie") {
-      guest.rotation.x = -Math.PI / 2;
-      guest.position.set(-1.6, 0.8, -1.05);
-    } else if (pose === "sit") {
-      guest.rotation.y = Math.PI / 2;
-      guest.position.set(1.0, -0.42, 0.95);
+      you.rotation.x = -Math.PI / 2;
+      you.position.set(-1.6, 0.8, -1.05);
+    } else if (seated) {
+      you.rotation.y = Math.PI / 2;
+      you.position.set(1.05, 0, 0.95);
     } else {
-      guest.rotation.y = Math.PI;
-      guest.position.set(-1.8, 0, 0.9);
+      you.rotation.y = Math.PI;
+      you.position.set(-1.8, 0, 0.9);
     }
-    add(guest);
-    add(blob(guest.position.x, guest.position.z, 0.7, 0.45, 0.4));
+    add(you);
+    add(blob(you.position.x, you.position.z, 0.7, 0.45, 0.4));
+    const others = people.filter((person) => person.id !== selfId).slice(0, 4);
+    others.forEach((person, index) => {
+      const body = createRealisticHuman({
+        lookId: lookFrom(person.id, person.look, person.gender),
+        seated: seated || person.pose === "sit",
+        scale: 0.9,
+      });
+      if (seated || person.pose === "sit") {
+        body.rotation.y = Math.PI / 2;
+        body.position.set(1.05, 0, 0.15 - index * 0.7);
+      } else {
+        body.rotation.y = Math.PI;
+        body.position.set(-0.7 - index * 0.85, 0, 1.35);
+      }
+      const tag = personTag(person.name);
+      body.add(tag);
+      add(body);
+    });
 
     const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 80);
     const aim = new THREE.Vector3(8, 10, 12).normalize();
@@ -1739,7 +1801,7 @@ function HotelSuite({ look, pose, onLieDone }: { look: LookId; pose: "stand" | "
       renderer.dispose();
       root.removeChild(renderer.domElement);
     };
-  }, [look, pose]);
+  }, [look, pose, peopleKey, selfId]);
 
   function turn(dir: number) {
     rig.current.yaw += dir * 0.55;
@@ -2241,7 +2303,9 @@ export function VenueInterior({
         {suite ? (
           <HotelSuite
             look={look}
-            pose={lying ? "lie" : sitting ? "sit" : "stand"}
+            pose={lying ? "lie" : sitting || pose === "sit" ? "sit" : "stand"}
+            people={people}
+            selfId={selfId}
             onLieDone={() => {
               if (slept.current) return;
               slept.current = true;
@@ -2267,7 +2331,7 @@ export function VenueInterior({
             }}
           />
         ) : place.kind === "home" && house ? (
-          <HouseRoom name={house.name} homeId={house.homeId} furniture={house.furniture} layout={house.layout} beds={house.beds} upstairs={house.upstairs} duplex={house.duplex} cars={cars} look={look} pending={pending} onBuy={onBuyFurniture ?? (() => undefined)} onMove={onMoveFurniture ?? (() => undefined)} onSell={onSellFurniture} onSleep={onHomeSleep} onShower={onHomeShower} onToilet={onHomeToilet} guests={people} selfId={selfId} bubbles={bubbles} onPickGuest={pickPerson} onSit={onSit} onStand={onStand} onFawwwk={onFawwwk} pose={pose} onOutside={onOutside} />
+          <HouseRoom name={house.name} homeId={house.homeId} furniture={house.furniture} layout={house.layout} beds={house.beds} upstairs={house.upstairs} duplex={house.duplex} cars={cars} look={look} pending={pending} onBuy={onBuyFurniture ?? (() => undefined)} onMove={onMoveFurniture ?? (() => undefined)} onSell={onSellFurniture} onSleep={onHomeSleep} onShower={onHomeShower} onToilet={onHomeToilet} guests={people} selfId={selfId} bubbles={bubbles} onPickGuest={pickPerson} onSit={() => { setSitting(true); onSit?.(); }} onStand={() => { setSitting(false); onStand?.(); }} onFawwwk={onFawwwk} pose={sitting || pose === "sit" ? "sit" : pose} onOutside={onOutside} />
         ) : beach ? (
           <BeachHouse look={look} />
         ) : place.id === "assumpta-cathedral" ? (
@@ -2315,7 +2379,7 @@ export function VenueInterior({
             ))}
           </span>
         ))}
-        {!club && !acts.pickup && !house ? (
+        {!club && !acts.pickup && !house && !suite ? (
           <PeopleLayer people={people} selfId={selfId} besideId={besideId} bubbles={bubbles} pickedId={picked} onPick={pickPerson} />
         ) : null}
         {intimacyWith && partner ? (
@@ -2691,6 +2755,9 @@ function RoomView({
   at,
   walkTo,
   onWalked,
+  pose = "stand",
+  guests = [],
+  selfId,
 }: {
   at: Loc;
   walkTo: Loc | null;
@@ -2711,12 +2778,16 @@ function RoomView({
   onDone: () => void;
   onSell: (key: string) => void;
   onEdit: () => void;
+  pose?: Pose;
+  guests?: ScenePerson[];
+  selfId?: string;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const rig = useRef({ yaw: 0.55, zoom: 1.15 });
   const [confirmSell, setConfirmSell] = useState(false);
   const placedKey = JSON.stringify(placed);
   const carsKey = cars.join(",");
+  const guestsKey = guests.map((person) => `${person.id}:${person.look}:${person.pose}:${person.name}`).join("|");
   const [selected, setSelected] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [seenKey, setSeenKey] = useState(placedKey);
@@ -3117,7 +3188,24 @@ function RoomView({
     let span = 0;
     let walkPts: Array<[number, number]> | null = null;
     let walkFail = false;
-    const me = createRealisticHuman({ lookId: look, scale: 0.92 });
+    const seated = pose === "sit";
+    const me = createRealisticHuman({ lookId: look, scale: 0.92, seated });
+    const company = guests.filter((person) => person.id !== selfId).slice(0, 5);
+    const placeGuest = (parent: THREE.Object3D, ox: number, oz: number, faceY: number, lift: number) => {
+      company.forEach((person, index) => {
+        const body = createRealisticHuman({
+          lookId: lookFrom(person.id, person.look, person.gender),
+          seated: seated || person.pose === "sit",
+          scale: 0.9,
+        });
+        const dx = -1.15 - (index % 3) * 0.95;
+        const dz = (index < 3 ? 0.05 : -0.85) - (index % 2) * 0.12;
+        body.position.set(ox + dx, lift, oz + dz);
+        body.rotation.y = faceY;
+        body.add(personTag(person.name));
+        parent.add(body);
+      });
+    };
 
     if (house) {
       const studio = beds <= 1 && !upstairs;
@@ -3384,9 +3472,10 @@ function RoomView({
       };
       const home = nodes.get(locKey(at)) ?? everyRoom[0];
       const first = stand(home);
-      me.position.set(first[0], 0.14, first[1]);
+      me.position.set(first[0], seated ? 0 : 0.14, first[1]);
       me.scale.setScalar(0.78);
       board.add(me);
+      placeGuest(board, first[0], first[1], me.rotation.y, seated ? 0 : 0.14);
       if (walkTo) {
         const frontKey = studio ? "room:1" : "parlour";
         const toDoor = walkTo.spot === "door";
@@ -3502,7 +3591,9 @@ function RoomView({
     const baseDistance = roomDistance;
     if (!house && at.spot === spot && (spot !== "room" || at.roomNo === roomNo)) {
       me.position.set(standX, 0.0, standZ);
+      me.rotation.y = Math.PI;
       spin.add(me);
+      placeGuest(spin, standX, standZ, Math.PI, 0);
     }
     const legs: number[] = [];
     let walkTotal = 0;
@@ -3662,7 +3753,7 @@ function RoomView({
       renderer.dispose();
       root.removeChild(renderer.domElement);
     };
-  }, [placedKey, carsKey, look, beds, upstairs, duplex, spot, roomNo, atKey, walkKey]);
+  }, [placedKey, carsKey, look, beds, upstairs, duplex, spot, roomNo, atKey, walkKey, pose, guestsKey, selfId]);
 
   function turn(dir: number) {
     rig.current.yaw += dir * 0.55;
@@ -3924,6 +4015,9 @@ export function HouseRoom({
         at={at}
         walkTo={walk ? walk.to : null}
         onWalked={arrived}
+        pose={pose}
+        guests={guests}
+        selfId={selfId}
       />
       {walk ? (
         <div className="absolute bottom-[15.5rem] left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full bg-[#17241e]/95 px-3 py-2 text-xs font-semibold text-white shadow-lg">
@@ -3940,7 +4034,7 @@ export function HouseRoom({
         </button>
       ) : null}
       {guests.length && selfId && onPickGuest ? (
-        <PeopleLayer people={guests} selfId={selfId} besideId={guests.find((person) => person.id !== selfId)?.id ?? null} bubbles={bubbles} pickedId={null} onPick={onPickGuest} />
+        <PeopleLayer people={guests.filter((person) => person.id !== selfId)} selfId={selfId} besideId={guests.find((person) => person.id !== selfId)?.id ?? null} bubbles={bubbles} pickedId={null} onPick={onPickGuest} hideBodies />
       ) : null}
       {pose === "bed" && guests.find((person) => person.id !== selfId) ? (
         <BedDuvet
@@ -3963,8 +4057,8 @@ export function HouseRoom({
       <div className="absolute left-2 right-16 top-32 z-30 flex flex-wrap gap-1">
         {guests.some((person) => person.id !== selfId) && onSit ? (
           <>
-            <button type="button" disabled={pending || pose === "sit"} onClick={onSit} className="rounded-full bg-white px-3 py-1 text-[10px] font-semibold shadow disabled:opacity-40">Sit</button>
-            <button type="button" disabled={pending || pose === "stand"} onClick={onStand} className="rounded-full bg-white px-3 py-1 text-[10px] font-semibold shadow disabled:opacity-40">Stand</button>
+            <button type="button" disabled={pending || pose === "sit"} onClick={() => onSit?.()} className="rounded-full bg-white px-3 py-1 text-[10px] font-semibold shadow disabled:opacity-40">Sit</button>
+            <button type="button" disabled={pending || pose === "stand"} onClick={() => onStand?.()} className="rounded-full bg-white px-3 py-1 text-[10px] font-semibold shadow disabled:opacity-40">Stand</button>
           </>
         ) : null}
         {guests.some((person) => person.id !== selfId) && onFawwwk ? (
