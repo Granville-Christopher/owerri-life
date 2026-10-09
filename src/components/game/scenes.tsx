@@ -2105,6 +2105,7 @@ export function VenueInterior({
   onDance,
   onFood,
   onBook,
+  onFlyTrip,
   onOffer,
   onOutside,
   spendable,
@@ -2149,6 +2150,7 @@ export function VenueInterior({
   onDance: () => Promise<{ ok: boolean }>;
   onFood: () => void;
   onBook: (stay: "night" | "hour") => void;
+  onFlyTrip?: (tripId: string) => void;
   onOffer: (npcId: string) => Promise<{ ok: boolean }>;
   onOutside: () => void;
   spendable: number;
@@ -2273,7 +2275,7 @@ export function VenueInterior({
         ) : place.id === "car-stand" ? (
           <CarStandScene look={look} username={username} owned={cars} pending={pending} onBuy={onBuyCar} />
         ) : place.id === "sam-mbakwe" || place.kind === "airport" ? (
-          <AirportTerminalScene look={look} username={username} onBookFlight={(dest, cost) => onBook?.("night")} />
+          <AirportTerminalScene look={look} username={username} onBookFlight={onFlyTrip} />
         ) : place.id === "the-warehouse" ? (
           <WarehouseScene look={look} username={username} />
         ) : place.id === "everyday" ? (

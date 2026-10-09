@@ -8,6 +8,7 @@ import { InstallButton } from "@/components/InstallApp";
 import { CityWorld } from "@/components/game/CityWorld";
 import { ArrivalScene, HouseRoom, VenueInterior } from "@/components/game/scenes";
 import { RideScene } from "@/components/game/RideScene";
+import { FlightScene } from "@/components/game/FlightScene";
 import {
   acceptFriendRequest,
   addFriend,
@@ -74,7 +75,7 @@ import {
   useRestroom,
   go,
 } from "@/lib/game/actions";
-import { BET_STAKES, CAREERS, DREAMS, HOMES, LANDS, NPCS, PLACES, TOP_UPS, TRAITS, TREATMENT_FEE, TRIPS, careerById, carById, coursesAt, homeById, lectureLabel, placeActs, placeById, placeClosedNotice, type Course } from "@/lib/game/content";
+import { BET_STAKES, CAREERS, DREAMS, HOMES, LANDS, NPCS, PLACES, TOP_UPS, TRAITS, TREATMENT_FEE, TRIPS, careerById, carById, coursesAt, homeById, lectureLabel, placeActs, placeById, placeClosedNotice, tripById, type Course } from "@/lib/game/content";
 import { photoForVehicle } from "@/components/game/photoVehicles";
 import { POLICE_ID, multiplyOdds, travelOptions } from "@/lib/game/engine";
 import { clockLabel, dreamProgress, jobTitle, levelPay, moodLabel, naira, skillLabel, skillNeeded, weekday } from "@/lib/game/format";
@@ -103,6 +104,7 @@ export function GameShell({ view }: { view: GameView }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>(view.me.indoors ? "map" : "home");
   const [ride, setRide] = useState<null | { placeId: string; mode: TravelMode; vehicle: "car" | "bus" | "cab" | "okada"; carId?: string; then: "map" | "home" | "room" }>(null);
+  const [flight, setFlight] = useState<null | { tripId: string; city: string }>(null);
   const [toast, setToast] = useState<{ id: number; text: string; bad: boolean } | null>(null);
   const [homeSheet, setHomeSheet] = useState(false);
   const [chatWith, setChatWith] = useState<string | null>(null);
@@ -301,6 +303,10 @@ export function GameShell({ view }: { view: GameView }) {
                 });
               }}
               sheetRoot={phone}
+              onFly={(tripId) => {
+                const trip = tripById(tripId);
+                if (trip) setFlight({ tripId: trip.id, city: trip.city });
+              }}
             />
           ) : null}
           {!account && tab === "phone" ? (
@@ -406,6 +412,19 @@ export function GameShell({ view }: { view: GameView }) {
           <button type="button" className={`flex w-16 flex-col items-center gap-0.5 rounded-2xl px-2 py-1.5 ${!account && tab === "phone" ? "bg-[#17241e] text-white" : "text-[#5d6b62]"}`} onClick={() => { setAccount(false); setTab("phone"); }}><span className="text-base leading-none">▢</span>Phone</button>
         </nav>
         {ride ? <RideScene vehicle={ride.vehicle} carId={ride.carId} onArrive={finishRide} /> : null}
+        {flight ? (
+          <FlightScene
+            city={flight.city}
+            look={me.look}
+            onArrive={() => {
+              const plan = flight;
+              setFlight(null);
+              run(() => takeFlight(plan.tripId)).then((result) => {
+                if (result.ok) setTab("room");
+              });
+            }}
+          />
+        ) : null}
         {homeSheet && !ride ? (
           <div className="absolute inset-0 z-[60]" onClick={() => setHomeSheet(false)}>
             <div className="absolute inset-x-3 bottom-24 mx-auto max-w-md rounded-[1.6rem] bg-white p-4 text-[#17241e] shadow-2xl" onClick={(event) => event.stopPropagation()}>
@@ -865,6 +884,7 @@ function MapPanel({
   onOpen,
   onGoHome,
   sheetRoot,
+  onFly,
 }: {
   view: GameView;
   run: Run;
@@ -872,6 +892,7 @@ function MapPanel({
   onOpen: (id: string) => void;
   onGoHome: () => void;
   sheetRoot: HTMLDivElement | null;
+  onFly: (tripId: string) => void;
 }) {
   const [visit, setVisit] = useState(0);
   const [closedVisit, setClosedVisit] = useState(-1);
@@ -914,6 +935,7 @@ function MapPanel({
           onFood={() => run(orderFood)}
           onSpray={(amount) => run(() => spray(amount))}
           onBook={(stay) => run(() => takeRoom(stay))}
+          onFlyTrip={onFly}
           onOffer={(npcId) => run(() => makeOffer(npcId))}
           onOutside={() => run(goOutside)}
           spendable={view.pools.earned + view.pools.gifted}
@@ -945,7 +967,7 @@ function MapPanel({
           fill
           extra={
             <>
-              {place.id === "sam-mbakwe" ? <AirportDesk run={run} pending={pending} /> : null}
+              {place.id === "sam-mbakwe" ? <AirportDesk pending={pending} onFly={onFly} /> : null}
               {place.id === "state-cid" ? <PoliceDesk view={view} run={run} pending={pending} /> : null}
               {canWork ? (
                 <div className="grid gap-1.5">
@@ -1507,7 +1529,7 @@ function PhonePanel({
   );
 }
 
-function AirportDesk({ run, pending }: { run: Run; pending: boolean }) {
+function AirportDesk({ pending, onFly }: { pending: boolean; onFly: (tripId: string) => void }) {
   return (
     <div className="grid gap-2 rounded-2xl bg-[#f4efe4] p-3">
       <div>
@@ -1518,7 +1540,7 @@ function AirportDesk({ run, pending }: { run: Run; pending: boolean }) {
         <button
           key={trip.id}
           disabled={pending}
-          onClick={() => run(() => takeFlight(trip.id))}
+          onClick={() => onFly(trip.id)}
           className="rounded-2xl bg-white px-3 py-3 text-left text-sm disabled:opacity-40"
         >
           <span className="flex items-baseline justify-between gap-2">

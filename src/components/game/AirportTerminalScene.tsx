@@ -71,7 +71,7 @@ export function AirportTerminalScene({
 }: {
   look?: LookId;
   username?: string;
-  onBookFlight?: (destination: string, cost: number) => void;
+  onBookFlight?: (tripId: string) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const rig = useRef({ yaw: 0.25, zoom: 1.1 });
@@ -436,11 +436,9 @@ export function AirportTerminalScene({
     showToast(`✈️ Ifunanya printed your boarding pass for Gate ${activeGate}! Safe flight from Owerri.`);
   };
 
-  const handleBoardFlight = (city: string, price: number) => {
+  const handleBoardFlight = (tripId: string, city: string, price: number) => {
     showToast(`🛫 Now Boarding: Flight to ${city}! Ticket confirmed (${naira(price)}). Have a great trip.`);
-    if (onBookFlight) {
-      onBookFlight(city, price);
-    }
+    onBookFlight?.(tripId);
   };
 
   return (
@@ -481,7 +479,7 @@ export function AirportTerminalScene({
 
         <button
           type="button"
-          onClick={() => handleBoardFlight("Lagos (LOS)", 95000)}
+          onClick={() => handleBoardFlight("lagos", "Lagos (LOS)", 95000)}
           className="flex items-center justify-between rounded-xl bg-[#0f172a]/90 px-3 py-2 text-left text-xs font-bold text-white border border-white/10 hover:bg-[#1e293b] active:scale-95 transition-all shadow-lg backdrop-blur-md"
         >
           <div>
@@ -493,7 +491,7 @@ export function AirportTerminalScene({
 
         <button
           type="button"
-          onClick={() => handleBoardFlight("Abuja (ABV)", 160000)}
+          onClick={() => handleBoardFlight("abuja", "Abuja (ABV)", 160000)}
           className="flex items-center justify-between rounded-xl bg-[#0f172a]/90 px-3 py-2 text-left text-xs font-bold text-white border border-white/10 hover:bg-[#1e293b] active:scale-95 transition-all shadow-lg backdrop-blur-md"
         >
           <div>
@@ -505,7 +503,7 @@ export function AirportTerminalScene({
 
         <button
           type="button"
-          onClick={() => handleBoardFlight("London (LHR)", 1200000)}
+          onClick={() => handleBoardFlight("london", "London (LHR)", 1200000)}
           className="flex items-center justify-between rounded-xl bg-[#0f172a]/90 px-3 py-2 text-left text-xs font-bold text-white border border-white/10 hover:bg-[#1e293b] active:scale-95 transition-all shadow-lg backdrop-blur-md"
         >
           <div>
