@@ -2,6 +2,7 @@ import { courseById, dreamById, lectureLabel, matchLook, npcById, npcGender, npc
 import { POLICE_ID, atWork, clockIndex, indexLabel, normalizeBet, poolsOf, wallet } from "./engine";
 import { homeLabel, jobTitle, moodLabel, naira, playerBio } from "./format";
 import { currentPlayer } from "./auth";
+import { isAdmin } from "./adminAccess";
 import { readDb } from "./store";
 import type { Bet, NetWorthVisibility, Player } from "./types";
 
@@ -78,6 +79,7 @@ export interface GameView {
     pose: Player["pose"];
     intimacyWith: string | null;
     atWork: boolean;
+    admin: boolean;
   };
   balance: number;
   pools: { earned: number; gifted: number; purchased: number };
@@ -318,6 +320,7 @@ export async function buildView(playerId: string): Promise<GameView | null> {
       pose: me.pose ?? "stand",
       intimacyWith: me.intimacyWith ?? null,
       atWork: atWork(me),
+      admin: isAdmin(me),
     },
     balance,
     pools: poolsOf(mine, me.id),
@@ -399,6 +402,6 @@ export async function buildView(playerId: string): Promise<GameView | null> {
 
 export async function sessionView() {
   const player = await currentPlayer();
-  if (!player) return null;
+  if (!player || player.banned) return null;
   return buildView(player.id);
 }

@@ -33,7 +33,7 @@ import {
   leaveJob,
   leaveSchool,
   letTimePass,
-  addTopUp,
+  beginTopUp,
   buyCar,
   chooseCar,
   sellFurniturePiece,
@@ -406,6 +406,9 @@ export function GameShell({ view }: { view: GameView }) {
             <span className="hidden shrink-0 text-[#5d6b62] sm:inline">{moodLabel(me.needs, me.sick)}</span>
             <span className="hidden shrink-0 text-[#5d6b62] md:inline">{view.city.length} online</span>
             <span className="hidden sm:inline"><InstallButton /></span>
+            {me.admin ? (
+              <a href="/admin" className="shrink-0 rounded-full bg-[#17241e] px-2 py-1 text-[10px] font-semibold text-white sm:px-3 sm:text-xs">Admin</a>
+            ) : null}
             <button type="button" className="flex shrink-0 items-center gap-0.5 rounded-full bg-[#eef6ea] py-0.5 pl-2 pr-0.5 font-semibold sm:gap-1 sm:py-1 sm:pl-3 sm:pr-1" aria-label="Your balance" onClick={() => setTopUpOpen(true)}>
               {naira(view.balance)}
               <span className="grid h-4 w-4 place-items-center rounded-full bg-[#1f6b45] text-[10px] text-white sm:h-6 sm:w-6 sm:text-sm">+</span>
@@ -545,7 +548,7 @@ export function GameShell({ view }: { view: GameView }) {
               <SlideSheet
                 label="Wallet"
                 title="Top up"
-                detail="In-game naira only. Purchased naira cannot pay a meet-up."
+                detail="Pay with Paystack. Naira lands after Paystack confirms. Purchased naira cannot pay a meet-up."
                 onClose={() => setTopUpOpen(false)}
               >
                 <div className="grid gap-2">
@@ -554,15 +557,20 @@ export function GameShell({ view }: { view: GameView }) {
                       key={amount}
                       type="button"
                       disabled={pending}
-                      onClick={() =>
-                        run(() => addTopUp(amount)).then((result) => {
-                          if (result.ok) setTopUpOpen(false);
-                        })
-                      }
+                      onClick={() => {
+                        startTransition(async () => {
+                          const result = await beginTopUp(amount);
+                          if (result.ok) {
+                            window.location.assign(result.url);
+                            return;
+                          }
+                          flash(result.error, true);
+                        });
+                      }}
                       className="flex items-center justify-between rounded-2xl bg-white px-3 py-3 text-left text-sm disabled:opacity-40"
                     >
                       <span className="font-semibold">{naira(amount)}</span>
-                      <span className="text-xs font-semibold text-[#1f6b45]">Add</span>
+                      <span className="text-xs font-semibold text-[#1f6b45]">Pay</span>
                     </button>
                   ))}
                 </div>
@@ -629,7 +637,10 @@ function AccountPage({
         <p className="text-xs uppercase tracking-[0.16em] text-[#d5e4d8]">Balance</p>
         <p className="font-display text-3xl">{naira(view.balance)}</p>
         <p className="mt-2 text-xs text-[#d5e4d8]">Earned {naira(view.pools.earned)} · Gifted {naira(view.pools.gifted)} · Purchased {naira(view.pools.purchased)}</p>
-        <p className="mt-2 text-xs text-[#d5e4d8]">Top up adds purchased naira. It cannot pay a meet-up.</p>
+        <p className="mt-2 text-xs text-[#d5e4d8]">Top up with Paystack. Purchased naira cannot pay a meet-up.</p>
+        {me.admin ? (
+          <a href="/admin" className="mt-3 inline-flex rounded-full bg-[#e0b15a] px-3 py-2 text-xs font-semibold text-[#17241e]">Open admin</a>
+        ) : null}
       </section>
       <section className="rounded-[1.6rem] bg-white p-4">
         <h3 className="font-semibold">Skills</h3>

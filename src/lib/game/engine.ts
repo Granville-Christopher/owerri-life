@@ -18,7 +18,6 @@ import {
   homeById,
   lectureLabel,
   npcById,
-  TOP_UPS,
   TREATMENT_FEE,
   tripById,
   isTripPlace,
@@ -94,13 +93,6 @@ export function blankSkills(): Record<SkillKey, number> {
     comedy: 0,
     photography: 0,
   };
-}
-
-export function topUp(player: Player, ledger: LedgerEntry[], amount: number): Step {
-  const gain = Math.round(amount);
-  if (!(TOP_UPS as readonly number[]).includes(gain)) return fail(player, ledger, "Pick a top-up amount.");
-  const book = credit(ledger, player, gain, "purchased", "Top up", stamp(player.day, player.hour));
-  return succeed(player, book, [`${naira(gain)} added to your balance. Purchased naira cannot pay a meet-up.`]);
 }
 
 export function buyLand(player: Player, ledger: LedgerEntry[], plotId: string): Step {

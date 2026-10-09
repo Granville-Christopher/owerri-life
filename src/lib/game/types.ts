@@ -118,6 +118,7 @@ export interface Player {
   lastChatKey: string;
   log: string[];
   createdAt: string;
+  banned?: boolean;
 }
 
 export interface LedgerEntry {
@@ -164,6 +165,17 @@ export interface Report {
   targetName: string;
   note: string;
   at: string;
+  reviewed?: boolean;
+}
+
+export interface Payment {
+  id: string;
+  reference: string;
+  playerId: string;
+  amount: number;
+  status: "pending" | "paid" | "failed";
+  at: string;
+  paidAt?: string;
 }
 
 export type BetPick = "1" | "X" | "2";
@@ -225,6 +237,7 @@ export interface DB {
   bets: Bet[];
   requests: FriendRequest[];
   calls: FloorCall[];
+  payments: Payment[];
 }
 
 export interface CreateInput {

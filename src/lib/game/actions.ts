@@ -47,7 +47,6 @@ import {
   meetPerson,
   normalizeBet,
   sleepInRoom,
-  topUp,
   travel,
   serveDetention,
   settlePolice,
@@ -67,6 +66,7 @@ import {
 import { naira, stamp } from "./format";
 import { authBlocked, authCleared, authFailed, burnPasswordCheck, clearSession, hashPassword, needsUpgrade, sessionPlayerId, setSession, verifyPassword } from "./auth";
 import { passwordProblem } from "./password";
+import { openTopUp } from "./paystack";
 import { mutate, readDb } from "./store";
 import type { BetPick, ChatQuote, CreateInput, Gender, LookId, NetWorthVisibility, Placement, Reveal, TraitId, TravelMode, WorkStyle } from "./types";
 
@@ -204,6 +204,9 @@ export async function login(email: string, password: string): Promise<ActionResu
     if (!player || !matches) {
       return { save: false, value: { ok: false as const, error: "Email or password is wrong." } };
     }
+    if (player.banned) {
+      return { save: false, value: { ok: false as const, error: "This account is closed." } };
+    }
     const upgrade = needsUpgrade(player.passwordHash);
     if (upgrade) player.passwordHash = hashPassword(password);
     return { save: upgrade, value: { ok: true as const, id: player.id } };
@@ -233,6 +236,7 @@ function play(
   return mutate<ActionResult>((db) => {
     const index = db.players.findIndex((player) => player.id === playerId);
     if (index < 0) return { save: false, value: { ok: false as const, error: "Sign in again." } };
+    if (db.players[index].banned) return { save: false, value: { ok: false as const, error: "This account is closed." } };
     const gate = settlePolice(db.players[index], db);
     db.players[index] = gate.player;
     if (gate.blocked && mode !== "custody") {
@@ -374,8 +378,14 @@ export async function goMeet(peerId: string) {
   );
 }
 
-export async function addTopUp(amount: number) {
-  return withPlayer((id) => simple(id, (player, ledger) => topUp(player, ledger, amount)));
+export async function beginTopUp(amount: number) {
+  const id = await sessionPlayerId();
+  if (!id) return { ok: false as const, error: "Sign in again." };
+  const db = await readDb();
+  const player = db.players.find((item) => item.id === id);
+  if (!player) return { ok: false as const, error: "Sign in again." };
+  if (player.banned) return { ok: false as const, error: "This account is closed." };
+  return openTopUp(player.id, player.email, amount);
 }
 
 export async function sleepAtHome() {

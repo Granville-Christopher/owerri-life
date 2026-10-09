@@ -10,7 +10,8 @@ export const metadata: Metadata = { title: "Sign in", robots: { index: false, fo
 export const dynamic = "force-dynamic";
 
 export default async function LoginPage() {
-  if (await currentPlayer()) redirect("/play");
+  const signedIn = await currentPlayer();
+  if (signedIn && !signedIn.banned) redirect("/play");
   return (
     <main className="min-h-dvh bg-[#0c1a14] px-4 py-8">
       <div className="mx-auto mb-4 flex max-w-md justify-end">
