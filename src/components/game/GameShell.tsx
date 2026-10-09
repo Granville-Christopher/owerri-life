@@ -104,13 +104,13 @@ const styles: Array<{ id: WorkStyle; name: string; detail: string }> = [
 ];
 
 function driven(mode: TravelMode) {
-  return mode === "bus" || mode === "car" || mode === "cab" || mode === "okada";
+  return mode === "bus" || mode === "keke" || mode === "car" || mode === "cab" || mode === "okada";
 }
 
 export function GameShell({ view }: { view: GameView }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>(view.me.indoors ? "map" : "home");
-  const [ride, setRide] = useState<null | { placeId: string; mode: TravelMode; vehicle: "car" | "bus" | "cab" | "okada"; carId?: string; then: "map" | "home" | "room" }>(null);
+  const [ride, setRide] = useState<null | { placeId: string; mode: TravelMode; vehicle: "car" | "bus" | "cab" | "okada" | "keke"; carId?: string; then: "map" | "home" | "room" }>(null);
   const [flight, setFlight] = useState<null | { tripId: string; city: string; back?: boolean }>(null);
   const [toast, setToast] = useState<{ id: number; text: string; bad: boolean } | null>(null);
   const [homeSheet, setHomeSheet] = useState(false);
@@ -141,7 +141,7 @@ export function GameShell({ view }: { view: GameView }) {
     setRide({
       placeId,
       mode,
-      vehicle: mode === "bus" ? "bus" : mode === "cab" ? "cab" : mode === "okada" ? "okada" : "car",
+      vehicle: mode === "bus" ? "bus" : mode === "cab" ? "cab" : mode === "okada" ? "okada" : mode === "keke" ? "keke" : "car",
       carId: mode === "car" ? view.me.activeCar : undefined,
       then,
     });

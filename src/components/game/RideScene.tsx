@@ -8,7 +8,7 @@ import { CAR_CATALOG, carById } from "@/lib/game/content";
 import { buildCabMesh, buildDetailedCarMesh } from "./carModels";
 import { loadAllRealCars, makeEnvironment, makeRealCar, realKindFor } from "./realCars";
 
-type RideVehicle = "car" | "bus" | "cab" | "okada";
+type RideVehicle = "car" | "bus" | "cab" | "okada" | "keke";
 
 // The route has a long straight tail at each end so traffic and buildings already exist when the ride starts.
 const POINTS: Array<[number, number]> = [
@@ -230,6 +230,50 @@ function okadaCockpit(): { group: THREE.Group; steer: THREE.Group } {
   return { group, steer };
 }
 
+function buildKekeMesh() {
+  const keke = new THREE.Group();
+  const tire = (x: number, z: number, r = 0.32) => {
+    const wheel = new THREE.Mesh(new THREE.TorusGeometry(r, 0.08, 8, 14), lambert(0x15151a));
+    wheel.rotation.y = Math.PI / 2;
+    wheel.position.set(x, r, z);
+    keke.add(wheel);
+  };
+  tire(0, 1.35, 0.28);
+  tire(-0.72, -0.85);
+  tire(0.72, -0.85);
+  keke.add(block(1.15, 0.16, 2.5, 0x1f6b45, 0, 0.42, -0.15));
+  keke.add(block(1.35, 0.85, 1.55, 0xf2c14e, 0, 1.05, -0.45));
+  keke.add(block(1.2, 0.55, 1.35, 0x8ec4ea, 0, 1.2, -0.4));
+  keke.add(block(1.4, 0.08, 1.6, 0x1f6b45, 0, 1.52, -0.45));
+  keke.add(block(0.55, 0.4, 0.7, 0xf2c14e, 0, 0.85, 0.85));
+  keke.add(block(0.42, 0.22, 0.4, 0x16344c, 0, 1.0, 0.95));
+  const driver = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), lambert(0x6b4429));
+  driver.position.set(0, 1.15, 0.82);
+  keke.add(driver);
+  return keke;
+}
+
+function kekeCockpit(): { group: THREE.Group; steer: THREE.Group } {
+  const group = new THREE.Group();
+  group.add(block(1.15, 0.28, 0.7, 0x1f6b45, 0, -0.72, -0.35));
+  group.add(block(0.42, 0.55, 0.2, 0xf2c14e, -0.35, -0.35, -1.15));
+  const driver = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), lambert(0x6b4429));
+  driver.position.set(0, -0.15, -1.35);
+  group.add(driver);
+  const root = new THREE.Group();
+  root.position.set(0, -0.28, -1.55);
+  root.rotation.x = -0.7;
+  const steer = new THREE.Group();
+  steer.add(wheelRing(0.14));
+  root.add(steer);
+  group.add(root);
+  group.add(block(1.5, 0.08, 0.9, 0x1f6b45, 0, 0.72, -0.4));
+  const left = block(0.08, 0.9, 0.08, 0xf2c14e, -0.62, 0.2, -0.2);
+  const right = block(0.08, 0.9, 0.08, 0xf2c14e, 0.62, 0.2, -0.2);
+  group.add(left, right);
+  return { group, steer };
+}
+
 function buildOkadaMesh() {
   const bike = new THREE.Group();
   const skin = 0x6b4429;
@@ -282,7 +326,7 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
   const [seat, setSeat] = useState<"inside" | "above">("inside");
   const finished = useRef(false);
   const deal = carById(carId) ?? CAR_CATALOG[1];
-  const label = vehicle === "bus" ? "Busimo" : vehicle === "cab" ? "Cab" : vehicle === "okada" ? "Okada" : deal.name;
+  const label = vehicle === "bus" ? "Busimo" : vehicle === "keke" ? "Keke" : vehicle === "cab" ? "Cab" : vehicle === "okada" ? "Okada" : deal.name;
   const seatLabel =
     vehicle === "car"
       ? seat === "inside"
@@ -292,9 +336,13 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
         ? seat === "inside"
           ? "You are on the okada"
           : "From above"
-        : seat === "inside"
-          ? "From your seat"
-          : "From above";
+        : vehicle === "keke"
+          ? seat === "inside"
+            ? "You are in the keke"
+            : "From above"
+          : seat === "inside"
+            ? "From your seat"
+            : "From above";
 
   function arrive() {
     if (finished.current) return;
@@ -570,6 +618,8 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
       rig.add(buildCabMesh());
     } else if (vehicle === "okada") {
       rig.add(buildOkadaMesh());
+    } else if (vehicle === "keke") {
+      rig.add(buildKekeMesh());
     } else {
       rig.add(buildDetailedCarMesh(deal, undefined, true));
     }
@@ -639,7 +689,7 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
     }
 
     // ── Cockpit shown on the camera ──────────────────────────────────
-    const cockpit = vehicle === "car" ? carCockpit() : vehicle === "cab" ? cabCockpit() : vehicle === "okada" ? okadaCockpit() : busCockpit();
+    const cockpit = vehicle === "car" ? carCockpit() : vehicle === "cab" ? cabCockpit() : vehicle === "okada" ? okadaCockpit() : vehicle === "keke" ? kekeCockpit() : busCockpit();
     const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 260);
     camera.add(cockpit.group);
     scene.add(camera);
@@ -657,7 +707,9 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
           ? { x: 0.1, y: 1.15, z: -0.55 }
           : vehicle === "okada"
             ? { x: 0, y: 1.28, z: 0.42 }
-            : { x: 0.7, y: 1.6, z: 0.5 };
+            : vehicle === "keke"
+              ? { x: 0.15, y: 1.22, z: -0.35 }
+              : { x: 0.7, y: 1.6, z: 0.5 };
     const ownLane = vehicle === "okada" ? 2.35 : OWN_LANE;
     const camPos = new THREE.Vector3();
     let camReady = false;
@@ -782,7 +834,7 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
           }}
           className={`rounded-lg px-2 py-1 text-[10px] font-semibold sm:text-xs ${seat === "inside" ? "bg-[#e0b15a] text-[#1a140c]" : "bg-[#0e1c16]/80 text-white"}`}
         >
-          {vehicle === "car" ? "Driver" : vehicle === "okada" ? "Rider" : "Inside"}
+          {vehicle === "car" ? "Driver" : vehicle === "okada" ? "Rider" : vehicle === "keke" ? "In the keke" : "Inside"}
         </button>
         <button
           type="button"
