@@ -311,11 +311,11 @@ type SeatSpot = { x: number; z: number; rot: number; bed?: boolean; y?: number }
 
 function sitLift(cushion: number | undefined, scale: number, bed = false) {
   const top = cushion ?? (bed ? 0.9 : 0.86);
-  return Math.max(0.1, top - 0.78 * scale + 0.12);
+  return Math.max(0.12, top - 0.84 * scale + (bed ? 0.2 : 0.14));
 }
 
 function lieLift(cushion: number | undefined) {
-  return (cushion ?? 0.9) - 0.14;
+  return (cushion ?? 0.9) + 0.2;
 }
 
 function seatsFor(entry: { id: string; x: number; z: number; rot: number }): SeatSpot[] {
@@ -377,15 +377,145 @@ function swingWalk(body: THREE.Object3D, dist: number, done: boolean) {
   limbs.arms[1].rotation.x = swing * 0.8;
 }
 
-function walkToward(body: THREE.Object3D, dest: { x: number; z: number; y?: number }, dt: number, speed = 2.6) {
-  const dx = dest.x - body.position.x;
-  const dz = dest.z - body.position.z;
+type WalkBlock = { x: number; z: number; w: number; d: number; rot: number };
+type WalkHop = { x: number; z: number };
+
+function furnitureBlock(entry: { id: string; x: number; z: number; rot: number }): WalkBlock | null {
+  if (entry.id === "rug") return null;
+  const item = furnitureById(entry.id);
+  if (!item) return null;
+  return { x: entry.x, z: entry.z, w: item.w * 0.9, d: item.d * 0.9, rot: entry.rot };
+}
+
+function inWalkBlock(px: number, pz: number, block: WalkBlock, pad: number) {
+  const dx = px - block.x;
+  const dz = pz - block.z;
+  const c = Math.cos(-block.rot);
+  const s = Math.sin(-block.rot);
+  const lx = dx * c - dz * s;
+  const lz = dx * s + dz * c;
+  return Math.abs(lx) <= block.w / 2 + pad && Math.abs(lz) <= block.d / 2 + pad;
+}
+
+function blockedAt(px: number, pz: number, blocks: WalkBlock[], pad: number, goal?: WalkHop) {
+  if (goal && Math.hypot(px - goal.x, pz - goal.z) < 0.55) return false;
+  return blocks.some((block) => inWalkBlock(px, pz, block, pad));
+}
+
+function clearLine(a: WalkHop, b: WalkHop, blocks: WalkBlock[], pad: number, goal?: WalkHop) {
+  const dist = Math.hypot(b.x - a.x, b.z - a.z);
+  const steps = Math.max(2, Math.ceil(dist / 0.18));
+  for (let i = 1; i < steps; i += 1) {
+    const t = i / steps;
+    if (blockedAt(a.x + (b.x - a.x) * t, a.z + (b.z - a.z) * t, blocks, pad, goal)) return false;
+  }
+  return true;
+}
+
+function findWalkPath(from: WalkHop, to: WalkHop, blocks: WalkBlock[], pad = 0.36): WalkHop[] {
+  if (!blocks.length || clearLine(from, to, blocks, pad, to)) return [to];
+  const cell = 0.4;
+  const extra = 5.5;
+  const minX = Math.min(from.x, to.x) - extra;
+  const maxX = Math.max(from.x, to.x) + extra;
+  const minZ = Math.min(from.z, to.z) - extra;
+  const maxZ = Math.max(from.z, to.z) + extra;
+  const ix = (x: number) => Math.round((x - minX) / cell);
+  const iz = (z: number) => Math.round((z - minZ) / cell);
+  const cols = ix(maxX) + 1;
+  const rows = iz(maxZ) + 1;
+  if (cols * rows > 9000) return [to];
+  const start = { x: ix(from.x), z: iz(from.z) };
+  const goal = { x: ix(to.x), z: iz(to.z) };
+  const walkable = (cx: number, cz: number) => {
+    if (cx < 0 || cz < 0 || cx >= cols || cz >= rows) return false;
+    return !blockedAt(minX + cx * cell, minZ + cz * cell, blocks, pad, to);
+  };
+  type Node = { x: number; z: number; g: number; f: number };
+  const key = (x: number, z: number) => `${x},${z}`;
+  const open: Node[] = [{ x: start.x, z: start.z, g: 0, f: Math.hypot(goal.x - start.x, goal.z - start.z) }];
+  const came = new Map<string, { x: number; z: number }>();
+  const best = new Map<string, number>([[key(start.x, start.z), 0]]);
+  const dirs = [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+    [1, 1],
+    [1, -1],
+    [-1, 1],
+    [-1, -1],
+  ];
+  let found: Node | null = null;
+  let guard = 0;
+  while (open.length && guard < 2500) {
+    guard += 1;
+    let bestI = 0;
+    for (let i = 1; i < open.length; i += 1) if (open[i].f < open[bestI].f) bestI = i;
+    const cur = open.splice(bestI, 1)[0];
+    if (cur.x === goal.x && cur.z === goal.z) {
+      found = cur;
+      break;
+    }
+    for (const [dx, dz] of dirs) {
+      const nx = cur.x + dx;
+      const nz = cur.z + dz;
+      if (!walkable(nx, nz)) continue;
+      const g = cur.g + Math.hypot(dx, dz);
+      const id = key(nx, nz);
+      if (g >= (best.get(id) ?? Infinity)) continue;
+      best.set(id, g);
+      came.set(id, { x: cur.x, z: cur.z });
+      open.push({ x: nx, z: nz, g, f: g + Math.hypot(goal.x - nx, goal.z - nz) });
+    }
+  }
+  if (!found) return [to];
+  const cells: WalkHop[] = [];
+  let cur: { x: number; z: number } | undefined = { x: found.x, z: found.z };
+  while (cur) {
+    cells.push({ x: minX + cur.x * cell, z: minZ + cur.z * cell });
+    cur = came.get(key(cur.x, cur.z));
+  }
+  cells.reverse();
+  const hops: WalkHop[] = [];
+  let prev = from;
+  for (const cellPt of cells) {
+    if (!hops.length || !clearLine(prev, cellPt, blocks, pad, to)) {
+      hops.push(cellPt);
+      prev = cellPt;
+    } else {
+      hops[hops.length - 1] = cellPt;
+      prev = cellPt;
+    }
+  }
+  hops.push(to);
+  return hops.filter((hop, i, list) => i === 0 || Math.hypot(hop.x - list[i - 1].x, hop.z - list[i - 1].z) > 0.12);
+}
+
+function dodgePath(pts: Array<[number, number]>, blocks: WalkBlock[]): Array<[number, number]> {
+  if (!blocks.length || pts.length < 2) return pts;
+  const out: Array<[number, number]> = [pts[0]];
+  for (let i = 1; i < pts.length; i += 1) {
+    const from = { x: out[out.length - 1][0], z: out[out.length - 1][1] };
+    const to = { x: pts[i][0], z: pts[i][1] };
+    for (const hop of findWalkPath(from, to, blocks)) out.push([hop.x, hop.z]);
+  }
+  return out;
+}
+
+function walkToward(body: THREE.Object3D, dest: { x: number; z: number; y?: number; hops?: WalkHop[] }, dt: number, speed = 2.6) {
+  const hop = dest.hops && dest.hops.length ? dest.hops[0] : dest;
+  const dx = hop.x - body.position.x;
+  const dz = hop.z - body.position.z;
   const dist = Math.hypot(dx, dz);
-  const restY = dest.y ?? 0;
-  if (dist < 0.1) {
+  const last = !dest.hops || dest.hops.length <= 1;
+  const restY = last ? (dest.y ?? 0) : 0;
+  if (dist < (last ? 0.1 : 0.16)) {
+    if (dest.hops && dest.hops.length) dest.hops.shift();
+    if (dest.hops && dest.hops.length) return false;
     body.position.x = dest.x;
     body.position.z = dest.z;
-    body.position.y = restY;
+    body.position.y = dest.y ?? 0;
     swingWalk(body, 0, true);
     return true;
   }
@@ -1785,7 +1915,16 @@ function HotelSuite({
       { x: -3.3, z: 1.5, rot: Math.PI / 2, y: 0.54 },
       { x: -1.6, z: -0.55, rot: 0, bed: true, y: 0.69 },
     ];
-    const hotelBed = { x: -1.6, z: -1.05, rot: 0, y: 0.8 };
+    const hotelBed = { x: -1.6, z: -1.05, rot: 0, y: lieLift(0.69) };
+    const hotelBlocks: WalkBlock[] = [
+      { x: -1.6, z: -2.05, w: 1.9, d: 2.45, rot: 0 },
+      { x: 1.05, z: 0.95, w: 0.85, d: 2.1, rot: 0 },
+      { x: 2.6, z: 0.95, w: 0.6, d: 1.2, rot: 0 },
+      { x: 4.25, z: 0.95, w: 0.45, d: 1.8, rot: 0 },
+      { x: -4.15, z: 1.5, w: 0.7, d: 1.5, rot: 0 },
+      { x: -4.22, z: -1.5, w: 0.55, d: 1.4, rot: 0 },
+      { x: 3.95, z: -3.05, w: 0.6, d: 0.6, rot: 0 },
+    ];
     const hotelStand = { x: -1.8, z: 0.9, rot: Math.PI, y: 0 };
     const startPose = pose;
     const startSeat = startPose === "sit" ? pickSitTarget(hotelStand, hotelSeats) ?? hotelSeats[0] : null;
@@ -1812,7 +1951,7 @@ function HotelSuite({
       });
       if (guestSit) {
         body.rotation.y = Math.PI / 2;
-        body.position.set(1.05, 0, 0.15 - index * 0.7);
+        body.position.set(1.05, sitLift(0.59, 0.9), 0.15 - index * 0.7);
       } else {
         body.rotation.y = Math.PI;
         body.position.set(-0.7 - index * 0.85, 0, 1.35);
@@ -1833,14 +1972,14 @@ function HotelSuite({
     let alive = true;
     let lastTick = performance.now();
     let visual: "stand" | "sit" | "lie" = startPose;
-    let dest: { x: number; z: number; rot: number; y?: number; mode: "stand" | "sit" | "lie" } | null = null;
+    let dest: { x: number; z: number; rot: number; y?: number; hops?: WalkHop[]; mode: "stand" | "sit" | "lie" } | null = null;
     const dress = (mode: "stand" | "sit" | "lie", rot: number, y?: number) => {
       const next = createRealisticHuman({ lookId: look, seated: mode === "sit", scale: 0.92 });
       you = swapHuman(you, next);
       if (mode === "lie") {
         you.rotation.x = -Math.PI / 2;
         you.rotation.y = 0;
-        you.position.y = y ?? 0.8;
+        you.position.y = y ?? lieLift(0.69);
       } else {
         you.rotation.x = 0;
         you.rotation.y = rot;
@@ -1850,11 +1989,11 @@ function HotelSuite({
     const aimFor = (want: "stand" | "sit" | "lie") => {
       if (want === "sit") {
         const seat = pickSitTarget({ x: you.position.x, z: you.position.z }, hotelSeats) ?? hotelSeats[0];
-        dest = { x: seat.x, z: seat.z, rot: seat.rot, y: sitLift(seat.y, 0.92, seat.bed), mode: "sit" };
+        dest = { x: seat.x, z: seat.z, rot: seat.rot, y: sitLift(seat.y, 0.92, seat.bed), hops: findWalkPath({ x: you.position.x, z: you.position.z }, seat, hotelBlocks), mode: "sit" };
       } else if (want === "lie") {
-        dest = { ...hotelBed, mode: "lie" };
+        dest = { ...hotelBed, hops: findWalkPath({ x: you.position.x, z: you.position.z }, hotelBed, hotelBlocks), mode: "lie" };
       } else {
-        dest = { ...hotelStand, mode: "stand" };
+        dest = { ...hotelStand, hops: findWalkPath({ x: you.position.x, z: you.position.z }, hotelStand, hotelBlocks), mode: "stand" };
       }
       if (visual !== "stand") {
         dress("stand", you.rotation.y);
@@ -3245,8 +3384,15 @@ function RoomView({
     let walkPts: Array<[number, number]> | null = null;
     let walkFail = false;
     const seats: SeatSpot[] = [];
+    const walkBlocks: WalkBlock[] = [];
     const takeSeats = (list: PlacedPiece[]) => {
       for (const entry of list) seats.push(...seatsFor(entry));
+    };
+    const takeBlocks = (list: PlacedPiece[], ox = 0, oz = 0) => {
+      for (const entry of list) {
+        const block = furnitureBlock(entry);
+        if (block) walkBlocks.push({ ...block, x: ox + block.x, z: oz + block.z });
+      }
     };
     const seated = pose === "sit";
     const me = createRealisticHuman({ lookId: look, scale: 0.92, seated });
@@ -3460,6 +3606,7 @@ function RoomView({
         dropItems(mine, false);
         const rx = entry.x0 + entry.w / 2;
         const rz = entry.z0 + entry.d / 2;
+        takeBlocks(mine, rx, rz);
         for (const piece2 of mine) {
           for (const seat of seatsFor(piece2)) {
             seats.push({ ...seat, x: rx + seat.x, z: rz + seat.z });
@@ -3467,6 +3614,13 @@ function RoomView({
         }
         if (entry.kind === "room" && !hasBedIn(mine)) {
           seats.push({ x: rx - (entry.w / 2 - 2), z: rz - (entry.d / 2 - 2.2), rot: 0, bed: true, y: 0.56 });
+          walkBlocks.push({ x: rx - (entry.w / 2 - 2), z: rz - (entry.d / 2 - 2.2), w: 2.1, d: 1.9, rot: 0 });
+        }
+        if (entry.kind === "kitchen") walkBlocks.push({ x: rx - 3.8, z: rz - 4.55, w: 6.4, d: 0.9, rot: 0 });
+        if (entry.kind === "bathroom") {
+          walkBlocks.push({ x: rx - 2.95, z: rz - 2.3, w: 2.8, d: 2.7, rot: 0 });
+          walkBlocks.push({ x: rx + 0.6, z: rz - 3.1, w: 0.85, d: 1.1, rot: 0 });
+          walkBlocks.push({ x: rx + 3.4, z: rz - 3.3, w: 1.9, d: 0.7, rot: 0 });
         }
         const landPlan = everyRoom.find((item) => item.hall);
         if (entry.kind === "room") dressBedroom(entry.w, entry.d, entry.roomNo, mine, !!landPlan && entry.z0 < landPlan.z0);
@@ -3560,7 +3714,7 @@ function RoomView({
           const doorZ = front.z0 + front.d / 2 + Math.min(3.3, front.d / 2 - 2);
           pts.push([front.x0 + 1.4, doorZ], [front.x0 - 2.2, doorZ]);
         }
-        if (pts && pts.length > 1) walkPts = pts;
+        if (pts && pts.length > 1) walkPts = dodgePath(pts, walkBlocks);
         else walkFail = true;
       }
       if (duplex || beds >= 3) {
@@ -3619,12 +3773,15 @@ function RoomView({
       span = size.w * 0.88;
       dropItems(items.filter((entry) => entry.spot === "kitchen"), true);
       takeSeats(items.filter((entry) => entry.spot === "kitchen"));
+      takeBlocks(items.filter((entry) => entry.spot === "kitchen"));
+      walkBlocks.push({ x: -3.8, z: -4.55, w: 6.4, d: 0.9, rot: 0 });
       standX = 0.2;
       standZ = 1.8;
       roomDistance = 24;
     } else if (spot === "bathroom") {
       shell(9, 7.5, 3.2);
       bathFixtures();
+      walkBlocks.push({ x: -2.95, z: -2.3, w: 2.8, d: 2.7, rot: 0 }, { x: 0.6, z: -3.1, w: 0.85, d: 1.1, rot: 0 }, { x: 3.4, z: -3.3, w: 1.9, d: 0.7, rot: 0 });
       span = 9 * 1.05;
       standX = 0;
       standZ = 1.3;
@@ -3646,7 +3803,11 @@ function RoomView({
       const mine = items.filter((entry) => entry.spot === "room" && entry.roomNo === roomNo);
       if (!hasBedIn(mine)) mattress(-(size.w / 2 - 2), -(size.d / 2 - 2.2));
       takeSeats(mine);
-      if (!hasBedIn(mine)) seats.push({ x: -(size.w / 2 - 2), z: -(size.d / 2 - 2.2), rot: 0, bed: true, y: 0.56 });
+      takeBlocks(mine);
+      if (!hasBedIn(mine)) {
+        seats.push({ x: -(size.w / 2 - 2), z: -(size.d / 2 - 2.2), rot: 0, bed: true, y: 0.56 });
+        walkBlocks.push({ x: -(size.w / 2 - 2), z: -(size.d / 2 - 2.2), w: 2.1, d: 1.9, rot: 0 });
+      }
       const curtain = [0x1f6b45, 0xc4552a, 0x245c78, 0x7a3e6d][(roomNo - 1) % 4];
       add(piece(curtain, 0.35, 1.45, 0.06, size.w * 0.16 + 1.6, 2.05, -size.d / 2 + 0.15));
       dropItems(mine, true);
@@ -3661,6 +3822,7 @@ function RoomView({
       if (upstairs) flight(size.w / 2 - 2.4, 2.0, false);
       dropItems(items.filter((entry) => entry.spot === "parlour"), true);
       takeSeats(items.filter((entry) => entry.spot === "parlour"));
+      takeBlocks(items.filter((entry) => entry.spot === "parlour"));
       span = size.w * 0.74;
       standX = duplex && upstairs ? -1.2 : size.w / 2 - 3;
       standZ = size.d / 2 - 1.6;
@@ -3672,7 +3834,7 @@ function RoomView({
     const bodyScale = house ? 0.78 : 0.92;
     let you = me;
     let sitVisual: "stand" | "sit" | "bed" = seated ? "sit" : "stand";
-    let sitDest: { x: number; z: number; rot: number; y?: number; mode: "stand" | "sit" | "bed" } | null = null;
+    let sitDest: { x: number; z: number; rot: number; y?: number; hops?: WalkHop[]; mode: "stand" | "sit" | "bed" } | null = null;
     let sleptSent = false;
     if (!house && at.spot === spot && (spot !== "room" || at.roomNo === roomNo)) {
       const startSeat = seated ? pickSitTarget({ x: standX, z: standZ }, seats) : null;
@@ -3809,12 +3971,12 @@ function RoomView({
         if ((!sitDest && want !== sitVisual) || (sitDest && sitDest.mode !== want)) {
           if (want === "sit") {
             const seat = pickSitTarget({ x: you.position.x, z: you.position.z }, seats) ?? { x: standX + 1.35, z: standZ - 0.55, rot: Math.PI / 2, y: 0.82 };
-            sitDest = { x: seat.x, z: seat.z, rot: seat.rot, y: sitLift(seat.y, bodyScale, seat.bed), mode: "sit" };
+            sitDest = { x: seat.x, z: seat.z, rot: seat.rot, y: sitLift(seat.y, bodyScale, seat.bed), hops: findWalkPath({ x: you.position.x, z: you.position.z }, seat, walkBlocks), mode: "sit" };
           } else if (want === "bed") {
             const bed = seats.find((seat) => seat.bed) ?? pickSitTarget({ x: you.position.x, z: you.position.z }, seats) ?? { x: standX, z: standZ - 1.2, rot: 0, bed: true, y: 0.9 };
-            sitDest = { x: bed.x, z: bed.z, rot: bed.rot, y: lieLift(bed.y), mode: "bed" };
+            sitDest = { x: bed.x, z: bed.z, rot: bed.rot, y: lieLift(bed.y), hops: findWalkPath({ x: you.position.x, z: you.position.z }, bed, walkBlocks), mode: "bed" };
           } else {
-            sitDest = { x: you.position.x, z: you.position.z, rot: you.rotation.y, y: 0, mode: "stand" };
+            sitDest = { x: you.position.x, z: you.position.z, rot: you.rotation.y, y: 0, hops: findWalkPath({ x: you.position.x, z: you.position.z }, { x: you.position.x, z: you.position.z }, walkBlocks), mode: "stand" };
           }
           if (sitVisual !== "stand") {
             you = swapHuman(you, createRealisticHuman({ lookId: look, seated: false, scale: bodyScale }));
