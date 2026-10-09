@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { createRealisticHuman, weakGpu } from "@/lib/game/humanModel";
 import type { LookId } from "@/lib/game/types";
 import { loadRealAirliner } from "@/components/game/realPlane";
+import { attachSceneCameraControls } from "@/components/game/sceneCameraControls";
 
 const FLIGHT_MS = 22000;
 
@@ -85,12 +86,12 @@ function paintTitle(): THREE.CanvasTexture {
     ctx.textBaseline = "middle";
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
-    ctx.font = "900 268px Impact, Arial Black, sans-serif";
+    ctx.font = "900 179px Impact, Arial Black, sans-serif";
     ctx.strokeStyle = "#0e1c16";
-    ctx.lineWidth = 54;
+    ctx.lineWidth = 36;
     ctx.strokeText("OWERRI LIFE", 1024, 250);
     ctx.strokeStyle = "#143d2c";
-    ctx.lineWidth = 28;
+    ctx.lineWidth = 19;
     ctx.strokeText("OWERRI LIFE", 1024, 250);
     ctx.fillStyle = "#e0b15a";
     ctx.fillText("OWERRI LIFE", 1024, 250);
@@ -99,6 +100,46 @@ function paintTitle(): THREE.CanvasTexture {
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 8;
   tex.needsUpdate = true;
+  return tex;
+}
+
+function paintDoor(): THREE.CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 512;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    ctx.fillStyle = "#d8dee6";
+    ctx.fillRect(0, 0, 256, 512);
+    ctx.strokeStyle = "#1a2430";
+    ctx.lineWidth = 16;
+    ctx.strokeRect(8, 8, 240, 496);
+    ctx.strokeStyle = "#8a93a0";
+    ctx.lineWidth = 6;
+    ctx.strokeRect(22, 22, 212, 468);
+    ctx.fillStyle = "#16344c";
+    ctx.beginPath();
+    ctx.ellipse(128, 148, 46, 56, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#c5ccd6";
+    ctx.lineWidth = 8;
+    ctx.stroke();
+    ctx.fillStyle = "#143d2c";
+    ctx.fillRect(40, 236, 176, 64);
+    ctx.fillStyle = "#e0b15a";
+    ctx.font = "bold 42px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("EXIT", 128, 268);
+    ctx.fillStyle = "#c4a15a";
+    ctx.fillRect(168, 340, 52, 16);
+    ctx.fillStyle = "#1a2430";
+    ctx.fillRect(172, 344, 44, 8);
+    ctx.fillStyle = "#c4552a";
+    ctx.fillRect(28, 452, 200, 18);
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
 
@@ -136,7 +177,7 @@ function seatMesh() {
   return seat;
 }
 
-function buildCabin(lite: boolean) {
+function buildCabin(lite: boolean, doorTex: THREE.Texture) {
   const cabin = new THREE.Group();
   const carpet = cloth(0x3a2a22);
   const aisle = cloth(0x5a4638);
@@ -157,15 +198,24 @@ function buildCabin(lite: boolean) {
   cabin.add(block(0.72, 0.04, 13.1, 0xb7bfc9, -1.12, 1.86, 0.1, binMat));
   cabin.add(block(0.72, 0.04, 13.1, 0xb7bfc9, 1.12, 1.86, 0.1, binMat));
 
+  const glass = new THREE.MeshLambertMaterial({
+    color: 0x7eb4d8,
+    emissive: 0x3a6280,
+    emissiveIntensity: 0.55,
+    transparent: true,
+    opacity: 0.78,
+  });
+  const rimMat = cloth(0x9aa4b0);
   for (let i = 0; i < 10; i += 1) {
     const z = 5.6 - i * 1.22;
     for (const side of [-1, 1]) {
-      const frame = block(0.04, 0.34, 0.42, 0x9aa4b0, side * 1.6, 1.32, z, cloth(0x9aa4b0));
-      cabin.add(frame);
-      const pane = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.3, 0.24),
-        new THREE.MeshLambertMaterial({ color: 0x7eb4d8, emissive: 0x3a6280, emissiveIntensity: 0.4, transparent: true, opacity: 0.7 }),
-      );
+      const rim = new THREE.Mesh(new THREE.CircleGeometry(0.2, 16), rimMat);
+      rim.scale.set(1, 1.28, 1);
+      rim.position.set(side * 1.605, 1.32, z);
+      rim.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
+      cabin.add(rim);
+      const pane = new THREE.Mesh(new THREE.CircleGeometry(0.155, 16), glass);
+      pane.scale.set(1, 1.28, 1);
       pane.position.set(side * 1.58, 1.32, z);
       pane.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
       cabin.add(pane);
@@ -179,7 +229,10 @@ function buildCabin(lite: boolean) {
 
   const bulk = cloth(0x1f6b45);
   cabin.add(block(3.2, 2.05, 0.12, 0x1f6b45, 0, 1.05, 6.95, bulk));
-  cabin.add(block(0.7, 1.55, 0.04, 0x143d2c, 0, 0.9, 6.88, cloth(0x143d2c)));
+  cabin.add(block(0.62, 1.48, 0.05, 0x2a3340, 0, 0.92, 6.88, cloth(0x2a3340)));
+  const crew = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.12), new THREE.MeshBasicMaterial({ color: 0xe0b15a }));
+  crew.position.set(0, 1.52, 6.85);
+  cabin.add(crew);
   const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.18), new THREE.MeshBasicMaterial({ color: 0xe0b15a }));
   sign.position.set(0, 1.85, 6.88);
   cabin.add(sign);
@@ -187,8 +240,20 @@ function buildCabin(lite: boolean) {
   cabin.add(block(1.1, 0.7, 0.45, 0xcfd6de, 1.05, 0.4, 6.55, cloth(0xcfd6de)));
 
   cabin.add(block(3.2, 2.05, 0.1, 0x2a3340, 0, 1.05, -6.95, cloth(0x2a3340)));
-  cabin.add(block(0.55, 1.5, 0.04, 0x17241e, -0.7, 0.85, -6.88));
-  cabin.add(block(0.55, 1.5, 0.04, 0x17241e, 0.7, 0.85, -6.88));
+
+  for (const [x, z, yaw] of [
+    [-1.62, 6.05, Math.PI / 2],
+    [1.62, 6.05, -Math.PI / 2],
+    [-1.62, -6.05, Math.PI / 2],
+    [1.62, -6.05, -Math.PI / 2],
+  ] as const) {
+    const frame = block(0.06, 1.78, 0.92, 0x1a2430, x, 0.98, z);
+    cabin.add(frame);
+    const leaf = new THREE.Mesh(new THREE.PlaneGeometry(0.78, 1.62), new THREE.MeshBasicMaterial({ map: doorTex }));
+    leaf.position.set(x + (x > 0 ? -0.04 : 0.04), 0.98, z);
+    leaf.rotation.y = yaw;
+    cabin.add(leaf);
+  }
 
   const looks: LookId[] = ["ada", "chidi", "ngozi", "emeka", "zara", "ibe"];
   const shirts = [0xc4552a, 0x245c78, 0x1f6b45, 0x7a3e6d, 0xd4a017, 0x1e3a5f];
@@ -226,12 +291,105 @@ function buildCabin(lite: boolean) {
   return cabin;
 }
 
-function dressAirliner(plane: THREE.Group, title: THREE.Texture) {
+function buildFallbackAirliner() {
+  const plane = new THREE.Group();
+  const white = cloth(0xf4f6f8);
+  const green = cloth(0x15803d);
+  const dark = cloth(0x334155);
+  const glass = cloth(0x0f172a);
+  const fuse = new THREE.Mesh(new THREE.CylinderGeometry(1.22, 1.22, 16.5, 20), white);
+  fuse.rotation.x = Math.PI / 2;
+  plane.add(fuse);
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(1.22, 3.2, 20), white);
+  nose.rotation.x = -Math.PI / 2;
+  nose.position.z = 9.85;
+  plane.add(nose);
+  const tail = new THREE.Mesh(new THREE.ConeGeometry(1.22, 2.8, 16), white);
+  tail.rotation.x = Math.PI / 2;
+  tail.position.z = -9.65;
+  plane.add(tail);
+  const cock = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.42, 1.3), glass);
+  cock.position.set(0, 0.72, 8.2);
+  plane.add(cock);
+  for (const side of [-1, 1]) {
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(8.4, 0.14, 2.6), white);
+    wing.position.set(side * 5.1, -0.15, 0.2);
+    wing.rotation.y = side * 0.22;
+    wing.rotation.z = side * -0.05;
+    plane.add(wing);
+    const eng = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.58, 2.4, 14), dark);
+    eng.rotation.x = Math.PI / 2;
+    eng.position.set(side * 3.4, -0.95, 0.4);
+    plane.add(eng);
+  }
+  const fin = new THREE.Mesh(new THREE.BoxGeometry(0.16, 3.2, 2.6), green);
+  fin.position.set(0, 2.2, -7.4);
+  fin.rotation.x = -0.38;
+  plane.add(fin);
+  const stab = new THREE.Mesh(new THREE.BoxGeometry(6.4, 0.1, 1.5), white);
+  stab.position.set(0, 0.55, -8.1);
+  plane.add(stab);
+  return plane;
+}
+
+function dressAirliner(plane: THREE.Group, title: THREE.Texture, doorTex: THREE.Texture) {
   plane.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(plane);
   const size = box.getSize(new THREE.Vector3());
   const centre = box.getCenter(new THREE.Vector3());
-  const fuseX = Math.max(1.12, size.x * 0.09);
+  const fuseX = Math.max(size.x * 0.49, 1.18);
+  const windowY = centre.y + size.y * 0.08;
+  const doorZs = [box.max.z - size.z * 0.16, box.min.z + size.z * 0.15];
+  const overwingZ = centre.z + size.z * 0.02;
+  const skip = [...doorZs, overwingZ];
+  const near = (z: number, spots: number[], pad: number) => spots.some((spot) => Math.abs(z - spot) < pad);
+
+  const glass = new THREE.MeshLambertMaterial({ color: 0x1a3a55, emissive: 0x6ec8ff, emissiveIntensity: 0.7 });
+  const rimMat = new THREE.MeshLambertMaterial({ color: 0x2a3340 });
+  const winCount = 18;
+  const z0 = box.min.z + size.z * 0.2;
+  const z1 = box.max.z - size.z * 0.2;
+  for (let i = 0; i < winCount; i += 1) {
+    const z = z0 + (i / (winCount - 1)) * (z1 - z0);
+    if (near(z, skip, size.z * 0.045)) continue;
+    for (const side of [-1, 1]) {
+      const rim = new THREE.Mesh(new THREE.CircleGeometry(0.18, 12), rimMat);
+      rim.scale.set(1, 1.35, 1);
+      rim.position.set(centre.x + side * fuseX, windowY, z);
+      rim.rotation.y = side > 0 ? Math.PI / 2 : -Math.PI / 2;
+      plane.add(rim);
+      const pane = new THREE.Mesh(new THREE.CircleGeometry(0.13, 12), glass);
+      pane.scale.set(1, 1.35, 1);
+      pane.position.set(centre.x + side * (fuseX + 0.02), windowY, z);
+      pane.rotation.y = side > 0 ? Math.PI / 2 : -Math.PI / 2;
+      plane.add(pane);
+    }
+  }
+
+  const doorH = Math.min(2.35, size.y * 0.52);
+  const doorW = Math.min(1.15, size.z * 0.055);
+  const doorMat = new THREE.MeshBasicMaterial({ map: doorTex, side: THREE.DoubleSide });
+  for (const z of doorZs) {
+    for (const side of [-1, 1]) {
+      const frame = new THREE.Mesh(new THREE.PlaneGeometry(doorW + 0.12, doorH + 0.14), new THREE.MeshBasicMaterial({ color: 0x1a2430, side: THREE.DoubleSide }));
+      frame.position.set(centre.x + side * (fuseX + 0.03), centre.y - size.y * 0.02, z);
+      frame.rotation.y = side > 0 ? Math.PI / 2 : -Math.PI / 2;
+      plane.add(frame);
+      const leaf = new THREE.Mesh(new THREE.PlaneGeometry(doorW, doorH), doorMat);
+      leaf.position.set(centre.x + side * (fuseX + 0.05), centre.y - size.y * 0.02, z);
+      leaf.rotation.y = side > 0 ? Math.PI / 2 : -Math.PI / 2;
+      plane.add(leaf);
+    }
+  }
+  const hatchW = doorW * 0.62;
+  const hatchH = doorH * 0.42;
+  for (const side of [-1, 1]) {
+    const hatch = new THREE.Mesh(new THREE.PlaneGeometry(hatchW, hatchH), doorMat);
+    hatch.position.set(centre.x + side * (fuseX + 0.05), windowY, overwingZ);
+    hatch.rotation.y = side > 0 ? Math.PI / 2 : -Math.PI / 2;
+    plane.add(hatch);
+  }
+
   const titleMat = new THREE.MeshBasicMaterial({
     map: title,
     transparent: true,
@@ -242,11 +400,11 @@ function dressAirliner(plane: THREE.Group, title: THREE.Texture) {
     polygonOffsetFactor: -4,
     polygonOffsetUnits: -4,
   });
-  const decalW = Math.min(16.5, size.z * 0.78);
-  const decalH = Math.min(4.2, size.y * 0.55);
+  const decalW = Math.min(16.5, size.z * 0.78) * (2 / 3);
+  const decalH = Math.min(4.2, size.y * 0.55) * (2 / 3);
   for (const side of [-1, 1]) {
     const decal = new THREE.Mesh(new THREE.PlaneGeometry(decalW, decalH), titleMat);
-    decal.position.set(centre.x + side * fuseX, centre.y + size.y * 0.04, centre.z + size.z * 0.02);
+    decal.position.set(centre.x + side * (fuseX + 0.06), centre.y + size.y * 0.16, centre.z + size.z * 0.04);
     decal.rotation.y = side > 0 ? Math.PI / 2 : -Math.PI / 2;
     plane.add(decal);
   }
@@ -273,6 +431,7 @@ export function FlightScene({
 }) {
   const host = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
+  const lookRig = useRef({ yaw: 0, pitch: 0, zoom: 1 });
   const view = useRef<"inside" | "outside">("inside");
   const [seat, setSeat] = useState<"inside" | "outside">("inside");
   const finished = useRef(false);
@@ -366,6 +525,7 @@ export function FlightScene({
     scene.add(stars);
 
     const title = paintTitle();
+    const doorTex = paintDoor();
     let alive = true;
     const flight = new THREE.Group();
     scene.add(flight);
@@ -376,14 +536,16 @@ export function FlightScene({
       if (planeAsked) return;
       planeAsked = true;
       void loadRealAirliner().then((model) => {
-        if (!alive || !model) return;
-        dressAirliner(model, title);
-        exterior.add(model);
+        if (!alive) return;
+        const plane = model ?? buildFallbackAirliner();
+        dressAirliner(plane, title, doorTex);
+        exterior.add(plane);
       });
     };
     if (!lite) askPlane();
 
-    const cabin = buildCabin(lite);
+    lookRig.current = { yaw: 0, pitch: 0, zoom: 1 };
+    const cabin = buildCabin(lite, doorTex);
     const you = createRealisticHuman({ lookId: look, seated: true, scale: 0.8, lite });
     you.position.set(-1.14, 0.12, 4.7 - 2 * 1.28);
     you.rotation.y = 0;
@@ -410,6 +572,13 @@ export function FlightScene({
       camera.updateProjectionMatrix();
     };
     fit();
+    const detachControls = attachSceneCameraControls(root, lookRig, {
+      minZoom: 0.7,
+      maxZoom: 2.6,
+      minPitch: -0.5,
+      maxPitch: 0.55,
+      zoomSpeed: 0.1,
+    });
 
     let frame = 0;
     const started = performance.now();
@@ -443,13 +612,20 @@ export function FlightScene({
         cabin.visible = true;
         exterior.visible = false;
         flight.updateMatrixWorld(true);
+        const yaw = lookRig.current.yaw;
+        const pitch = lookRig.current.pitch ?? 0;
+        const zoom = lookRig.current.zoom;
         const eye = new THREE.Vector3(-0.58, 1.42, 1.85);
         cabin.localToWorld(eye);
         camera.position.copy(eye);
-        const gaze = new THREE.Vector3(0.15, 1.22, 5.1);
+        const gaze = new THREE.Vector3(
+          -0.58 + Math.sin(yaw) * 3.4,
+          1.42 + pitch * 2.4,
+          1.85 + Math.cos(yaw) * 3.4,
+        );
         cabin.localToWorld(gaze);
         camera.lookAt(gaze);
-        camera.fov = 68;
+        camera.fov = Math.max(28, Math.min(82, 68 / zoom));
         camera.updateProjectionMatrix();
         camReady = false;
       } else {
@@ -484,10 +660,12 @@ export function FlightScene({
       alive = false;
       window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", onResize);
+      detachControls();
       renderer.domElement.removeEventListener("webglcontextlost", onLost);
       cityMap.dispose();
       cloudTex.dispose();
       title.dispose();
+      doorTex.dispose();
       envMap?.dispose();
       renderer.dispose();
       if (root.contains(renderer.domElement)) root.removeChild(renderer.domElement);
@@ -536,6 +714,30 @@ export function FlightScene({
           Skip
         </button>
       </div>
+      {seat === "inside" ? (
+        <div className="absolute right-2 top-1/2 z-10 flex -translate-y-1/2 flex-col gap-1">
+          <button
+            type="button"
+            aria-label="Zoom in"
+            onClick={() => {
+              lookRig.current.zoom = Math.min(2.6, lookRig.current.zoom * 1.18);
+            }}
+            className="grid h-8 w-8 place-items-center rounded-full bg-white text-base font-bold text-[#17241e] shadow-lg"
+          >
+            +
+          </button>
+          <button
+            type="button"
+            aria-label="Zoom out"
+            onClick={() => {
+              lookRig.current.zoom = Math.max(0.7, lookRig.current.zoom / 1.18);
+            }}
+            className="grid h-8 w-8 place-items-center rounded-full bg-white text-base font-bold text-[#17241e] shadow-lg"
+          >
+            −
+          </button>
+        </div>
+      ) : null}
     </div>,
     document.body,
   );
