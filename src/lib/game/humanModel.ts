@@ -264,8 +264,8 @@ export function createRealisticHuman(options: HumanOptions = {}): THREE.Group {
     knee.add(calf, foot);
     leg.add(thigh, knee);
     if (seated) {
-      leg.rotation.x = -1.15;
-      knee.rotation.x = 1.35;
+      leg.rotation.x = -Math.PI / 2;
+      knee.rotation.x = Math.PI / 2;
     }
     leg.position.set(side * 0.11, hipY - 0.02, 0);
     leg.userData.knee = knee;

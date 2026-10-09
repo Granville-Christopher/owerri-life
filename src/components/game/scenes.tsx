@@ -311,15 +311,16 @@ function spotFor(name: string) {
 type SeatSpot = { x: number; z: number; rot: number; bed?: boolean; y?: number };
 
 function sitLift(cushion: number | undefined, scale: number, bed = false) {
-  const top = cushion ?? (bed ? 0.9 : 0.86);
-  return Math.max(0.12, top - 0.84 * scale + (bed ? 0.2 : 0.14));
+  const top = cushion ?? (bed ? 0.9 : 0.55);
+  if (bed) return Math.max(0.08, top - 0.62 * scale);
+  return Math.max(0, top - 0.8 * scale);
 }
 
 function sitInChair(seat: SeatSpot, scale: number) {
-  const back = seat.bed ? 0 : 0.12;
+  const intoSeat = seat.bed ? 0 : 0.08;
   return {
-    x: seat.x - Math.sin(seat.rot) * back,
-    z: seat.z - Math.cos(seat.rot) * back,
+    x: seat.x + Math.sin(seat.rot) * intoSeat,
+    z: seat.z + Math.cos(seat.rot) * intoSeat,
     rot: seat.rot,
     y: sitLift(seat.y, scale, seat.bed),
     bed: seat.bed,
