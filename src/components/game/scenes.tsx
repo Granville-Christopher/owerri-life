@@ -3305,6 +3305,7 @@ function RoomView({
   guests = [],
   selfId,
   onSlept,
+  aim = null,
 }: {
   at: Loc;
   walkTo: Loc | null;
@@ -3329,6 +3330,7 @@ function RoomView({
   guests?: ScenePerson[];
   selfId?: string;
   onSlept?: () => void;
+  aim?: "shower" | "toilet" | null;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const rig = useRef({ yaw: 0.55, zoom: 1.15 });
@@ -3351,7 +3353,7 @@ function RoomView({
   cbs.current.enter = onEdit;
   cbs.current.slept = onSlept;
   const atKey = `${at.spot}:${at.roomNo}`;
-  const walkKey = walkTo ? `${walkTo.spot}:${walkTo.roomNo}` : "";
+  const walkKey = walkTo ? `${walkTo.spot}:${walkTo.roomNo}:${aim ?? ""}` : aim ?? "";
   const furnRef = useRef<Map<string, THREE.Group>>(new Map());
   const taps = useRef<{ select: (key: string) => void; drop: (x: number, z: number) => void }>({ select: () => undefined, drop: () => undefined });
   const homeStub = { id: duplex ? "duplex" : "home", beds, upstairs } as Home;
@@ -3976,8 +3978,8 @@ function RoomView({
         }
         if (entry.kind === "kitchen") walkBlocks.push({ x: rx - 3.8, z: rz - 4.55, w: 6.4, d: 0.9, rot: 0 });
         if (entry.kind === "bathroom") {
-          walkBlocks.push({ x: rx - 2.95, z: rz - 2.3, w: 2.8, d: 2.7, rot: 0 });
-          walkBlocks.push({ x: rx + 0.6, z: rz - 3.1, w: 0.85, d: 1.1, rot: 0 });
+          walkBlocks.push({ x: rx - 3.15, z: rz - 2.95, w: 2.1, d: 1.3, rot: 0 });
+          walkBlocks.push({ x: rx + 0.6, z: rz - 3.2, w: 0.7, d: 0.7, rot: 0 });
           walkBlocks.push({ x: rx + 3.4, z: rz - 3.3, w: 1.9, d: 0.7, rot: 0 });
         }
         const landPlan = everyRoom.find((item) => item.hall);
@@ -4073,6 +4075,17 @@ function RoomView({
           const doorZ = front.z0 + front.d / 2 + Math.min(3.3, front.d / 2 - 2);
           pts.push([front.x0 + 1.4, doorZ], [front.x0 - 2.2, doorZ]);
         }
+        if (pts && !toDoor && walkTo?.spot === "bathroom" && aim) {
+          const bath = nodes.get(walkTo.roomNo > 1 ? `bathroom:${walkTo.roomNo}` : "bathroom");
+          if (bath) {
+            const rx = bath.x0 + bath.w / 2;
+            const rz = bath.z0 + bath.d / 2;
+            const local: [number, number] = aim === "shower" ? [-2.55, -1.75] : [0.6, -2.15];
+            const end: [number, number] = [rx + local[0], rz + local[1]];
+            if (pts.length < 2) pts.push(end);
+            else pts[pts.length - 1] = end;
+          }
+        }
         if (pts && pts.length > 1) walkPts = dodgePath(pts, walkBlocks);
         else walkFail = true;
       }
@@ -4140,10 +4153,18 @@ function RoomView({
     } else if (spot === "bathroom") {
       shell(9, 7.5, 3.2);
       bathFixtures();
-      walkBlocks.push({ x: -2.95, z: -2.3, w: 2.8, d: 2.7, rot: 0 }, { x: 0.6, z: -3.1, w: 0.85, d: 1.1, rot: 0 }, { x: 3.4, z: -3.3, w: 1.9, d: 0.7, rot: 0 });
+      walkBlocks.push({ x: -3.15, z: -2.95, w: 2.1, d: 1.3, rot: 0 }, { x: 0.6, z: -3.2, w: 0.7, d: 0.7, rot: 0 }, { x: 3.4, z: -3.3, w: 1.9, d: 0.7, rot: 0 });
       span = 9 * 1.05;
-      standX = 0;
-      standZ = 1.3;
+      if (aim === "shower") {
+        standX = -2.55;
+        standZ = -1.75;
+      } else if (aim === "toilet") {
+        standX = 0.6;
+        standZ = -2.72;
+      } else {
+        standX = 0;
+        standZ = 1.3;
+      }
       roomDistance = 16;
     } else if (spot === "landing") {
       const wide = duplex ? 20 : 16;
@@ -4195,18 +4216,31 @@ function RoomView({
     let sitVisual: "stand" | "sit" | "bed" = seated ? "sit" : "stand";
     let sitDest: { x: number; z: number; rot: number; y?: number; hops?: WalkHop[]; mode: "stand" | "sit" | "bed" } | null = null;
     let sleptSent = false;
+    const atFixture = !house && spot === "bathroom" && (aim === "toilet" || aim === "shower");
     if (!house && at.spot === spot && (spot !== "room" || at.roomNo === roomNo)) {
-      const startSeat = seated ? pickSitTarget({ x: standX, z: standZ }, seats) : null;
-      if (startSeat) {
-        const parked = sitInChair(startSeat, bodyScale);
-        you.position.set(parked.x, parked.y, parked.z);
-        you.rotation.y = parked.rot;
-      } else {
-        you.position.set(standX, 0, standZ);
+      if (spot === "bathroom" && aim === "toilet") {
+        you = createRealisticHuman({ lookId: look, seated: true, scale: bodyScale });
+        you.position.set(0.6, sitLift(0.82, bodyScale), -2.72);
+        you.rotation.y = 0;
+        sitVisual = "sit";
+      } else if (spot === "bathroom" && aim === "shower") {
+        you = createRealisticHuman({ lookId: look, seated: false, scale: bodyScale });
+        you.position.set(-2.55, 0, -1.75);
         you.rotation.y = Math.PI;
+        sitVisual = "stand";
+      } else {
+        const startSeat = seated ? pickSitTarget({ x: standX, z: standZ }, seats) : null;
+        if (startSeat) {
+          const parked = sitInChair(startSeat, bodyScale);
+          you.position.set(parked.x, parked.y, parked.z);
+          you.rotation.y = parked.rot;
+        } else {
+          you.position.set(standX, 0, standZ);
+          you.rotation.y = Math.PI;
+        }
       }
       spin.add(you);
-      placeGuest(spin, you.position.x, you.position.z, you.rotation.y, seated ? sitLift(startSeat?.y, bodyScale, startSeat?.bed) : 0);
+      placeGuest(spin, you.position.x, you.position.z, you.rotation.y, spot === "bathroom" && aim === "toilet" ? you.position.y : seated ? sitLift(0.86, bodyScale) : 0);
     }
     const legs: number[] = [];
     let walkTotal = 0;
@@ -4226,7 +4260,7 @@ function RoomView({
     spin.add(marker);
 
     const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 420);
-    const aim = new THREE.Vector3(9, 11, 12).normalize();
+    const camDir = new THREE.Vector3(9, 11, 12).normalize();
     const fit = () => {
       const width = root.clientWidth || 1;
       const height = root.clientHeight || 1;
@@ -4326,7 +4360,7 @@ function RoomView({
       } else if (walkFail && !walkSent) {
         walkSent = true;
         cbs.current.walked();
-      } else {
+      } else if (!atFixture) {
         const want: "stand" | "sit" | "bed" = poseRef.current === "sit" ? "sit" : poseRef.current === "bed" ? "bed" : "stand";
         if ((!sitDest && want !== sitVisual) || (sitDest && sitDest.mode !== want)) {
           if (want === "sit") {
@@ -4364,8 +4398,8 @@ function RoomView({
         }
       }
       spin.rotation.y = rig.current.yaw;
-      camera.position.copy(aim).multiplyScalar((roomDistance * (phonePullback() > 1 ? 1.28 : 1)) / rig.current.zoom);
-      camera.lookAt(0, lookY, 0);
+      camera.position.copy(camDir).multiplyScalar((roomDistance * (phonePullback() > 1 ? 1.28 : 1)) / rig.current.zoom);
+      camera.lookAt(atFixture ? standX * 0.55 : 0, lookY, atFixture ? standZ * 0.45 : 0);
       const group = live.current.edit && live.current.selected ? furn.get(live.current.selected) : null;
       if (group) {
         const item = furnitureById(String(group.userData.id));
@@ -4395,7 +4429,7 @@ function RoomView({
       renderer.dispose();
       root.removeChild(renderer.domElement);
     };
-  }, [placedKey, carsKey, look, beds, upstairs, duplex, spot, roomNo, atKey, walkKey, guestsKey, selfId]);
+  }, [placedKey, carsKey, look, beds, upstairs, duplex, spot, roomNo, atKey, walkKey, aim, guestsKey, selfId]);
 
   function turn(dir: number) {
     rig.current.yaw += dir * 0.55;
@@ -4566,22 +4600,25 @@ export function HouseRoom({
   const [spot, setSpot] = useState<HomeSpot>(studio ? "room" : "parlour");
   const [roomNo, setRoomNo] = useState(1);
   const [at, setAt] = useState<Loc>({ spot: studio ? "room" : "parlour", roomNo: 1 });
-  const [walk, setWalk] = useState<{ to: Loc; then?: () => void } | null>(null);
+  const [walk, setWalk] = useState<{ to: Loc; then?: () => void; aim?: "shower" | "toilet" } | null>(null);
+  const [posed, setPosed] = useState<null | "shower" | "toilet">(null);
   const sameLoc = (a: Loc, b: Loc) => a.spot === b.spot && (a.spot !== "room" || a.roomNo === b.roomNo);
   const placeName = (loc: Loc) => (loc.spot === "door" ? "the front door" : loc.spot === "room" ? (studio ? "the room" : `Room ${loc.roomNo}`) : loc.spot === "landing" ? "the landing" : `the ${loc.spot}`);
   function lookAt(s: HomeSpot, no = 1) {
     setWalk(null);
+    setPosed(null);
     setSpot(s);
     setRoomNo(no);
   }
-  function walkTo(to: Loc, then?: () => void) {
-    if (sameLoc(at, to)) {
+  function walkTo(to: Loc, then?: () => void, aim?: "shower" | "toilet") {
+    setPosed(aim ?? null);
+    if (!aim && sameLoc(at, to)) {
       if (to.spot !== "door") lookAt(to.spot, to.roomNo);
       then?.();
       return;
     }
     setSpot("house");
-    setWalk({ to, then });
+    setWalk({ to, then, aim });
   }
   function arrived() {
     if (!walk) return;
@@ -4663,6 +4700,7 @@ export function HouseRoom({
         onEdit={() => setEdit(true)}
         at={at}
         walkTo={walk ? walk.to : null}
+        aim={walk?.aim ?? posed}
         onWalked={arrived}
         pose={sleeping ? "bed" : pose}
         guests={visitors}
@@ -4679,7 +4717,7 @@ export function HouseRoom({
       />
       {walk ? (
         <div className="absolute bottom-[15.5rem] left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full bg-[#17241e]/95 px-3 py-2 text-xs font-semibold text-white shadow-lg">
-          <span>Walking to {placeName(walk.to)}…</span>
+          <span>Walking to {walk.aim === "shower" ? "the shower" : walk.aim === "toilet" ? "the toilet" : placeName(walk.to)}…</span>
           <button type="button" onClick={arrived} className="rounded-full bg-white px-2.5 py-1 text-[11px] text-[#17241e]">Skip</button>
         </div>
       ) : spot !== "house" && !sameLoc(at, { spot, roomNo }) ? (
@@ -4734,13 +4772,13 @@ export function HouseRoom({
           </button>
         ) : null}
         {onShower ? (
-          <button type="button" disabled={pending || Boolean(walk)} onClick={() => walkTo({ spot: "bathroom", roomNo: 1 }, onShower)} className="rounded-full bg-[#245c78] px-3 py-1 text-[10px] font-semibold text-white shadow disabled:opacity-40">Shower</button>
+          <button type="button" disabled={pending || Boolean(walk)} onClick={() => walkTo({ spot: "bathroom", roomNo: 1 }, onShower, "shower")} className="rounded-full bg-[#245c78] px-3 py-1 text-[10px] font-semibold text-white shadow disabled:opacity-40">Shower</button>
         ) : null}
         {onToilet ? (
           <button
             type="button"
             disabled={pending || Boolean(walk)}
-            onClick={() => walkTo({ spot: "bathroom", roomNo: 1 }, onToilet)}
+            onClick={() => walkTo({ spot: "bathroom", roomNo: 1 }, onToilet, "toilet")}
             className="rounded-full bg-[#7a5a2a] px-3 py-1 text-[10px] font-semibold text-white shadow disabled:opacity-40"
           >
             Toilet
