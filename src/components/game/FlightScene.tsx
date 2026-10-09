@@ -332,13 +332,47 @@ function buildFallbackAirliner() {
   return plane;
 }
 
+function hullMeshes(root: THREE.Object3D) {
+  const meshes: THREE.Mesh[] = [];
+  root.traverse((obj) => {
+    if (obj instanceof THREE.Mesh) meshes.push(obj);
+  });
+  return meshes;
+}
+
+function hullX(meshes: THREE.Mesh[], fromX: number, y: number, z: number, dirX: number) {
+  const ray = new THREE.Raycaster(new THREE.Vector3(fromX, y, z), new THREE.Vector3(dirX, 0, 0), 0, 12);
+  const hit = ray.intersectObjects(meshes, false)[0];
+  return hit ? hit.point.x : null;
+}
+
+function skinX(meshes: THREE.Mesh[], centreX: number, y: number, z: number, side: number, radius: number) {
+  const start = centreX + side * Math.min(4.4, Math.max(2.1, radius * 2.6));
+  const hit = hullX(meshes, start, y, z, -side);
+  const x = hit ?? centreX + side * radius;
+  return x + side * 0.02;
+}
+
 function dressAirliner(plane: THREE.Group, title: THREE.Texture, doorTex: THREE.Texture) {
   plane.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(plane);
   const size = box.getSize(new THREE.Vector3());
   const centre = box.getCenter(new THREE.Vector3());
-  const fuseX = Math.max(size.x * 0.49, 1.18);
-  const windowY = centre.y + size.y * 0.08;
+  const meshes = hullMeshes(plane);
+  const probeYs = [-0.22, -0.14, -0.06, 0.02, 0.1].map((t) => centre.y + size.y * t);
+  let radius = Math.min(1.28, size.y * 0.18);
+  let windowY = centre.y + 0.38;
+  for (const y of probeYs) {
+    const right = hullX(meshes, centre.x + Math.min(4.2, size.x * 0.16), y, centre.z, -1);
+    const left = hullX(meshes, centre.x - Math.min(4.2, size.x * 0.16), y, centre.z, 1);
+    if (right == null && left == null) continue;
+    const span = ((right != null ? Math.abs(right - centre.x) : 0) + (left != null ? Math.abs(left - centre.x) : 0)) / (right != null && left != null ? 2 : 1);
+    if (span > 0.45 && span < Math.min(2.4, size.x * 0.14)) {
+      radius = span;
+      windowY = y + span * 0.22;
+      break;
+    }
+  }
   const doorZs = [box.max.z - size.z * 0.16, box.min.z + size.z * 0.15];
   const overwingZ = centre.z + size.z * 0.02;
   const skip = [...doorZs, overwingZ];
@@ -347,36 +381,40 @@ function dressAirliner(plane: THREE.Group, title: THREE.Texture, doorTex: THREE.
   const glass = new THREE.MeshLambertMaterial({ color: 0x1a3a55, emissive: 0x6ec8ff, emissiveIntensity: 0.7 });
   const rimMat = new THREE.MeshLambertMaterial({ color: 0x2a3340 });
   const winCount = 18;
-  const z0 = box.min.z + size.z * 0.2;
-  const z1 = box.max.z - size.z * 0.2;
+  const z0 = box.min.z + size.z * 0.22;
+  const z1 = box.max.z - size.z * 0.22;
   for (let i = 0; i < winCount; i += 1) {
     const z = z0 + (i / (winCount - 1)) * (z1 - z0);
     if (near(z, skip, size.z * 0.045)) continue;
     for (const side of [-1, 1]) {
-      const rim = new THREE.Mesh(new THREE.CircleGeometry(0.18, 12), rimMat);
+      const x = skinX(meshes, centre.x, windowY, z, side, radius);
+      const rim = new THREE.Mesh(new THREE.CircleGeometry(0.16, 12), rimMat);
       rim.scale.set(1, 1.35, 1);
-      rim.position.set(centre.x + side * fuseX, windowY, z);
+      rim.position.set(x, windowY, z);
       rim.rotation.y = side > 0 ? Math.PI / 2 : -Math.PI / 2;
       plane.add(rim);
-      const pane = new THREE.Mesh(new THREE.CircleGeometry(0.13, 12), glass);
+      const pane = new THREE.Mesh(new THREE.CircleGeometry(0.12, 12), glass);
       pane.scale.set(1, 1.35, 1);
-      pane.position.set(centre.x + side * (fuseX + 0.02), windowY, z);
+      pane.position.set(x + side * 0.012, windowY, z);
       pane.rotation.y = side > 0 ? Math.PI / 2 : -Math.PI / 2;
       plane.add(pane);
     }
   }
 
-  const doorH = Math.min(2.35, size.y * 0.52);
-  const doorW = Math.min(1.15, size.z * 0.055);
-  const doorMat = new THREE.MeshBasicMaterial({ map: doorTex, side: THREE.DoubleSide });
+  const doorH = Math.min(1.72, radius * 1.35);
+  const doorW = Math.min(0.82, size.z * 0.042);
+  const doorY = windowY - doorH * 0.18;
+  const doorMat = new THREE.MeshBasicMaterial({ map: doorTex, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  const frameMat = new THREE.MeshBasicMaterial({ color: 0x1a2430, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
   for (const z of doorZs) {
     for (const side of [-1, 1]) {
-      const frame = new THREE.Mesh(new THREE.PlaneGeometry(doorW + 0.12, doorH + 0.14), new THREE.MeshBasicMaterial({ color: 0x1a2430, side: THREE.DoubleSide }));
-      frame.position.set(centre.x + side * (fuseX + 0.03), centre.y - size.y * 0.02, z);
+      const x = skinX(meshes, centre.x, doorY, z, side, radius);
+      const frame = new THREE.Mesh(new THREE.PlaneGeometry(doorW + 0.1, doorH + 0.12), frameMat);
+      frame.position.set(x, doorY, z);
       frame.rotation.y = side > 0 ? Math.PI / 2 : -Math.PI / 2;
       plane.add(frame);
       const leaf = new THREE.Mesh(new THREE.PlaneGeometry(doorW, doorH), doorMat);
-      leaf.position.set(centre.x + side * (fuseX + 0.05), centre.y - size.y * 0.02, z);
+      leaf.position.set(x + side * 0.012, doorY, z);
       leaf.rotation.y = side > 0 ? Math.PI / 2 : -Math.PI / 2;
       plane.add(leaf);
     }
@@ -384,8 +422,9 @@ function dressAirliner(plane: THREE.Group, title: THREE.Texture, doorTex: THREE.
   const hatchW = doorW * 0.62;
   const hatchH = doorH * 0.42;
   for (const side of [-1, 1]) {
+    const x = skinX(meshes, centre.x, windowY, overwingZ, side, radius);
     const hatch = new THREE.Mesh(new THREE.PlaneGeometry(hatchW, hatchH), doorMat);
-    hatch.position.set(centre.x + side * (fuseX + 0.05), windowY, overwingZ);
+    hatch.position.set(x + side * 0.012, windowY, overwingZ);
     hatch.rotation.y = side > 0 ? Math.PI / 2 : -Math.PI / 2;
     plane.add(hatch);
   }
@@ -401,10 +440,13 @@ function dressAirliner(plane: THREE.Group, title: THREE.Texture, doorTex: THREE.
     polygonOffsetUnits: -4,
   });
   const decalW = Math.min(16.5, size.z * 0.78) * (2 / 3);
-  const decalH = Math.min(4.2, size.y * 0.55) * (2 / 3);
+  const decalH = Math.min(1.6, radius * 1.15);
+  const titleZ = centre.z + size.z * 0.04;
+  const titleY = windowY + radius * 0.55;
   for (const side of [-1, 1]) {
+    const x = skinX(meshes, centre.x, titleY, titleZ, side, radius);
     const decal = new THREE.Mesh(new THREE.PlaneGeometry(decalW, decalH), titleMat);
-    decal.position.set(centre.x + side * (fuseX + 0.06), centre.y + size.y * 0.16, centre.z + size.z * 0.04);
+    decal.position.set(x + side * 0.02, titleY, titleZ);
     decal.rotation.y = side > 0 ? Math.PI / 2 : -Math.PI / 2;
     plane.add(decal);
   }
