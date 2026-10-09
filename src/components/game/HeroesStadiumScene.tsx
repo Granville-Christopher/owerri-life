@@ -670,7 +670,7 @@ export function HeroesStadiumScene({
       />
 
       {/* Mobile-Optimized Stadium & VIP Seat Badge */}
-      <div className="pointer-events-none absolute left-3 top-3 z-20 max-w-[calc(100%-4.5rem)] sm:max-w-xs rounded-2xl bg-[#091e2b]/90 p-2.5 sm:p-3 shadow-2xl backdrop-blur-md border border-[#38bdf8]/30">
+      <div className="pointer-events-none absolute left-3 top-14 z-20 max-w-[calc(100%-4.5rem)] sm:max-w-xs rounded-2xl bg-[#091e2b]/90 p-2.5 sm:p-3 shadow-2xl backdrop-blur-md border border-[#38bdf8]/30">
         <div className="flex items-center gap-1.5">
           <span className="flex h-2.5 w-2.5 animate-ping rounded-full bg-[#22c55e]" />
           <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.16em] text-[#e0b15a]">VIP Grandstand · Seated</p>
@@ -734,7 +734,7 @@ export function HeroesStadiumScene({
 
       {/* Chant / Snack Toast */}
       {chantMessage ? (
-        <div className="pointer-events-none absolute inset-x-3 top-20 z-40 mx-auto max-w-sm rounded-2xl bg-[#061826]/95 border-2 border-[#e0b15a] p-2.5 sm:p-3 text-center shadow-2xl backdrop-blur-md">
+        <div className="pointer-events-none absolute inset-x-3 top-36 z-40 mx-auto max-w-sm rounded-2xl bg-[#061826]/95 border-2 border-[#e0b15a] p-2.5 sm:p-3 text-center shadow-2xl backdrop-blur-md">
           <p className="text-xs sm:text-sm font-bold text-[#e0b15a]">{chantMessage}</p>
         </div>
       ) : null}

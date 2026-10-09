@@ -455,7 +455,7 @@ export function AirportTerminalScene({
       />
 
       {/* Airport Title Header */}
-      <div className="absolute left-3 top-3 z-20 flex items-center gap-2 rounded-2xl bg-[#09111e]/90 px-3.5 py-2 border border-[#0284c7]/40 shadow-xl backdrop-blur-md">
+      <div className="absolute left-3 top-14 z-20 flex items-center gap-2 rounded-2xl bg-[#09111e]/90 px-3.5 py-2 border border-[#0284c7]/40 shadow-xl backdrop-blur-md">
         <span className="text-xl">✈️</span>
         <div>
           <h2 className="text-xs font-extrabold uppercase tracking-wider text-[#38bdf8]">
@@ -468,7 +468,7 @@ export function AirportTerminalScene({
       </div>
 
       {/* Quick Flight Actions (Middle-Left) */}
-      <div className="absolute left-3 top-20 z-20 flex flex-col gap-2 max-w-[190px]">
+      <div className="absolute left-3 top-32 z-20 flex flex-col gap-2 max-w-[190px]">
         <button
           type="button"
           onClick={handleCheckIn}

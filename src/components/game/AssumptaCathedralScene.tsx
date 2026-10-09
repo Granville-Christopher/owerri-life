@@ -487,7 +487,7 @@ export function AssumptaCathedralScene({
       />
 
       {/* Cathedral Title Header */}
-      <div className="absolute left-3 top-3 z-20 flex items-center gap-2 rounded-2xl bg-[#09111e]/90 px-3.5 py-2 border border-[#d4af37]/40 shadow-xl backdrop-blur-md">
+      <div className="absolute left-3 top-14 z-20 flex items-center gap-2 rounded-2xl bg-[#09111e]/90 px-3.5 py-2 border border-[#d4af37]/40 shadow-xl backdrop-blur-md">
         <span className="text-xl">⛪</span>
         <div>
           <h2 className="text-xs font-extrabold uppercase tracking-wider text-[#fde047]">
@@ -500,7 +500,7 @@ export function AssumptaCathedralScene({
       </div>
 
       {/* Floating Action Buttons (Middle-Left & Bottom) */}
-      <div className="absolute left-3 top-20 z-20 flex flex-col gap-2">
+      <div className="absolute left-3 top-32 z-20 flex flex-col gap-2">
         {/* Sit in Pew / Stand Button */}
         <button
           type="button"

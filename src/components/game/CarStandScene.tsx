@@ -365,7 +365,7 @@ export function CarStandScene({
       />
 
       {/* Showroom Title Header */}
-      <div className="absolute left-3 top-3 z-20 flex items-center gap-2 rounded-2xl bg-[#09111e]/90 px-3.5 py-2 border border-[#e0b15a]/40 shadow-xl backdrop-blur-md">
+      <div className="absolute left-3 top-14 z-20 flex items-center gap-2 rounded-2xl bg-[#09111e]/90 px-3.5 py-2 border border-[#e0b15a]/40 shadow-xl backdrop-blur-md">
         <span className="text-xl">🚘</span>
         <div>
           <h2 className="text-xs font-extrabold uppercase tracking-wider text-[#e0b15a]">
@@ -378,7 +378,7 @@ export function CarStandScene({
       </div>
 
       {/* Car Selection Tabs (Middle-Left) */}
-      <div className="absolute left-2 right-14 top-[4.6rem] z-20 flex gap-1.5 overflow-x-auto pb-1">
+      <div className="absolute left-2 right-14 top-[7.4rem] z-20 flex gap-1.5 overflow-x-auto pb-1">
         {CAR_CATALOG.map((car) => {
           const active = selectedCar.id === car.id;
           const ownedThis = garage.includes(car.id);

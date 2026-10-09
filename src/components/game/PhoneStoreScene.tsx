@@ -641,7 +641,7 @@ export function PhoneStoreScene({
       />
 
       {/* Mobile-Optimized Store Header Badge */}
-      <div className="pointer-events-none absolute left-3 top-3 z-20 max-w-[calc(100%-4.5rem)] sm:max-w-xs rounded-2xl bg-[#09111c]/90 p-2.5 sm:p-3 shadow-2xl backdrop-blur-md border border-[#38bdf8]/30">
+      <div className="pointer-events-none absolute left-3 top-14 z-20 max-w-[calc(100%-4.5rem)] sm:max-w-xs rounded-2xl bg-[#09111c]/90 p-2.5 sm:p-3 shadow-2xl backdrop-blur-md border border-[#38bdf8]/30">
         <div className="flex items-center gap-1.5">
           <span className="flex h-2 w-2 rounded-full bg-[#22c55e]" />
           <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.16em] text-[#e0b15a]">Verified Gadget Store</p>
@@ -655,13 +655,13 @@ export function PhoneStoreScene({
 
       {/* Purchase Toast Banner */}
       {purchaseToast ? (
-        <div className="pointer-events-none absolute inset-x-3 top-16 sm:top-20 z-40 mx-auto max-w-sm sm:max-w-md animate-bounce rounded-2xl bg-[#061826]/95 border-2 border-[#22c55e] p-2.5 sm:p-3 text-center shadow-2xl backdrop-blur-md">
+        <div className="pointer-events-none absolute inset-x-3 top-32 sm:top-36 z-40 mx-auto max-w-sm sm:max-w-md animate-bounce rounded-2xl bg-[#061826]/95 border-2 border-[#22c55e] p-2.5 sm:p-3 text-center shadow-2xl backdrop-blur-md">
           <p className="text-xs sm:text-sm font-bold text-[#4ade80]">{purchaseToast}</p>
         </div>
       ) : null}
 
       {/* Mobile-Optimized Showcase, Wall Cases & Quick Actions Panel */}
-      <div className="absolute left-3 top-24 sm:top-28 z-30 w-[calc(100%-1.5rem)] sm:w-80 max-h-[50vh] sm:max-h-[calc(100%-8rem)] flex flex-col rounded-2xl bg-[#09111c]/95 border border-[#38bdf8]/35 shadow-2xl backdrop-blur-xl transition-all">
+      <div className="absolute left-3 top-36 sm:top-40 z-30 w-[calc(100%-1.5rem)] sm:w-80 max-h-[50vh] sm:max-h-[calc(100%-8rem)] flex flex-col rounded-2xl bg-[#09111c]/95 border border-[#38bdf8]/35 shadow-2xl backdrop-blur-xl transition-all">
         {/* Panel Header */}
         <div className="flex items-center justify-between p-3 pb-2 border-b border-white/10">
           <div>

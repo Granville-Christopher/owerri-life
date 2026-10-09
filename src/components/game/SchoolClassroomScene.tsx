@@ -536,7 +536,7 @@ export function SchoolClassroomScene({
       />
 
       {/* Mobile-Optimized University Header Badge */}
-      <div className="pointer-events-none absolute left-3 top-3 z-20 max-w-[calc(100%-4.5rem)] sm:max-w-xs rounded-2xl bg-[#09111c]/90 p-2.5 sm:p-3 shadow-2xl backdrop-blur-md border border-[#e0b15a]/30">
+      <div className="pointer-events-none absolute left-3 top-14 z-20 max-w-[calc(100%-4.5rem)] sm:max-w-xs rounded-2xl bg-[#09111c]/90 p-2.5 sm:p-3 shadow-2xl backdrop-blur-md border border-[#e0b15a]/30">
         <div className="flex items-center gap-1.5">
           <span className="flex h-2 w-2 rounded-full bg-[#22c55e] animate-pulse" />
           <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.16em] text-[#e0b15a]">Live Lecture in Session</p>
@@ -550,13 +550,13 @@ export function SchoolClassroomScene({
 
       {/* Toast Alert */}
       {toast ? (
-        <div className="pointer-events-none absolute inset-x-3 top-16 sm:top-20 z-40 mx-auto max-w-sm sm:max-w-md animate-bounce rounded-2xl bg-[#061826]/95 border-2 border-[#22c55e] p-2.5 sm:p-3 text-center shadow-2xl backdrop-blur-md">
+        <div className="pointer-events-none absolute inset-x-3 top-32 sm:top-36 z-40 mx-auto max-w-sm sm:max-w-md animate-bounce rounded-2xl bg-[#061826]/95 border-2 border-[#22c55e] p-2.5 sm:p-3 text-center shadow-2xl backdrop-blur-md">
           <p className="text-xs sm:text-sm font-bold text-[#4ade80]">{toast}</p>
         </div>
       ) : null}
 
       {/* Mobile-Optimized Collapsible Student Actions Panel */}
-      <div className="absolute left-3 top-24 sm:top-28 z-30 w-[calc(100%-1.5rem)] sm:w-72 max-h-[50vh] sm:max-h-[calc(100%-8rem)] flex flex-col rounded-2xl bg-[#09111c]/95 border border-[#e0b15a]/35 shadow-2xl backdrop-blur-xl transition-all">
+      <div className="absolute left-3 top-36 sm:top-40 z-30 w-[calc(100%-1.5rem)] sm:w-72 max-h-[50vh] sm:max-h-[calc(100%-8rem)] flex flex-col rounded-2xl bg-[#09111c]/95 border border-[#e0b15a]/35 shadow-2xl backdrop-blur-xl transition-all">
         {/* Toggle Bar */}
         <div className="flex items-center justify-between p-2.5 sm:p-3 border-b border-white/10">
           <div className="min-w-0 pr-2">

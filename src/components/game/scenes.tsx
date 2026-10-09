@@ -1149,7 +1149,7 @@ function ClubFloor({
   return (
     <div className="relative h-full min-h-[70vh] overflow-hidden bg-[#07060c]">
       <ClubHall name={name} look={look} people={people} selfId={selfId} dancing={dancing} sprayBurst={sprayBurst} />
-      <div className="absolute inset-x-3 top-3 z-20">
+      <div className="absolute inset-x-3 top-14 z-20">
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
@@ -1174,7 +1174,7 @@ function ClubFloor({
           </ul>
         ) : null}
       </div>
-      <div className="pointer-events-none absolute left-1/2 top-16 z-10 -translate-x-1/2 text-center text-[10px] font-semibold text-white">
+      <div className="pointer-events-none absolute left-1/2 top-28 z-10 -translate-x-1/2 text-center text-[10px] font-semibold text-white">
         <span className={`ol-tip ${service ? "ol-tip-on" : ""}`}>Make some noise for {shout}</span>
       </div>
       <div className="pointer-events-none absolute inset-0 z-10">
@@ -1990,7 +1990,7 @@ export function ArrivalScene({
   return (
     <section className="relative h-full overflow-hidden">
       <BuildingFront placeId={placeId} look={look} />
-      <div className="pointer-events-none absolute left-3 top-16 z-20 max-w-[14rem] rounded-2xl bg-[#0e1c16]/80 px-3 py-2 text-[#f6f1e6]">
+      <div className="pointer-events-none absolute left-3 top-14 z-20 max-w-[14rem] rounded-2xl bg-[#0e1c16]/80 px-3 py-2 text-[#f6f1e6]">
         <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#e0b15a]">Outside</p>
         <p className="truncate font-semibold">{place.name}</p>
         <p className="mt-1 text-[11px] text-[#d5e4d8]">{closed ?? place.hours}</p>
@@ -4593,7 +4593,7 @@ export function HouseRoom({
           Step outside
         </button>
       ) : null}
-      <p className="pointer-events-none absolute left-3 top-20 z-10 rounded-full bg-white px-3 py-2 text-xs font-semibold shadow">{name}</p>
+      <p className="pointer-events-none absolute left-3 top-14 z-10 rounded-full bg-white px-3 py-2 text-xs font-semibold shadow">{name}</p>
       <div className="absolute left-2 right-16 top-32 z-30 flex flex-wrap gap-1">
         {visitors.some((person) => person.id !== selfId) && onFawwwk ? (
           <button
