@@ -1,5 +1,6 @@
 "use server";
 
+import { createHash, timingSafeEqual } from "crypto";
 import { homeAreaId, placeById } from "./content";
 import { poolsOf, wallet } from "./engine";
 import { naira, stamp } from "./format";
@@ -22,7 +23,15 @@ function adminNameOk(username: string) {
   return null;
 }
 
-export async function registerAdmin(usernameRaw: string, emailRaw: string, password: string) {
+function setupKeyMatches(given: string) {
+  const secret = process.env.ADMIN_SETUP_SECRET ?? "";
+  if (secret.length < 16) return false;
+  const a = createHash("sha256").update(given).digest();
+  const b = createHash("sha256").update(secret).digest();
+  return timingSafeEqual(a, b);
+}
+
+export async function registerAdmin(usernameRaw: string, emailRaw: string, password: string, setupKey = "") {
   const username = usernameRaw.trim();
   const email = emailRaw.trim().toLowerCase();
   const blocked = authBlocked(`admin-join:${email}`);
@@ -33,6 +42,13 @@ export async function registerAdmin(usernameRaw: string, emailRaw: string, passw
   const passwordError = passwordProblem(password);
   if (passwordError) return { ok: false as const, error: passwordError };
   const created = await mutate<{ ok: true; id: string } | { ok: false; error: string }>((db) => {
+    if ((process.env.ADMIN_SETUP_SECRET ?? "").length >= 16) {
+      if (!setupKeyMatches(setupKey)) {
+        return { save: false, value: { ok: false, error: "Admin registration is closed. The setup key does not match." } };
+      }
+    } else if (db.admins.length > 0) {
+      return { save: false, value: { ok: false, error: "Admin registration is closed. Another admin needs the setup key." } };
+    }
     const taken = db.admins.some((item) => item.email === email || item.username.toLowerCase() === username.toLowerCase());
     if (taken) return { save: false, value: { ok: false, error: "That admin email or username is already registered." } };
     const id = crypto.randomUUID();

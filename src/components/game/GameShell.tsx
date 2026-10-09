@@ -8,6 +8,8 @@ import { InstallButton } from "@/components/InstallApp";
 import { CityWorld } from "@/components/game/CityWorld";
 import { ArrivalScene, HouseRoom, VenueInterior } from "@/components/game/scenes";
 import { RideScene } from "@/components/game/RideScene";
+import { SpacesPanel } from "@/components/game/SpacesPanel";
+import { VoiceNoteButton } from "@/components/game/VoiceNote";
 import { FlightScene } from "@/components/game/FlightScene";
 import {
   acceptFriendRequest,
@@ -1112,7 +1114,7 @@ function MapPanel({
   );
 }
 
-type PhoneApp = "jobs" | "messages" | "bets" | "houses" | "properties" | "land" | "wallet" | "bus" | "food" | "campus" | "market" | "night" | "club" | "health" | "fly" | "skills" | "settings";
+type PhoneApp = "jobs" | "messages" | "bets" | "houses" | "properties" | "land" | "wallet" | "bus" | "food" | "campus" | "market" | "night" | "club" | "health" | "fly" | "skills" | "settings" | "spaces";
 
 function PhoneDeck({
   view,
@@ -1124,6 +1126,7 @@ function PhoneDeck({
   const apps: Array<{ name: string; icon: string; tone: string; pick: PhoneApp }> = [
     { name: "Jobs", icon: "💼", tone: "bg-[#143d2c]", pick: "jobs" },
     { name: "Messages", icon: "💬", tone: "bg-[#3d7ea6]", pick: "messages" },
+    { name: "Spaces", icon: "🎙️", tone: "bg-[#245c78]", pick: "spaces" },
     { name: "Bets", icon: "⚽", tone: "bg-[#1f6b45]", pick: "bets" },
     { name: "Houses", icon: "🏠", tone: "bg-[#a9782a]", pick: "houses" },
     { name: "Properties", icon: "🔑", tone: "bg-[#143d2c]", pick: "properties" },
@@ -1220,6 +1223,7 @@ function PhonePanel({
   const titles: Record<PhoneApp, string> = {
     jobs: "Jobs",
     messages: "Messages",
+    spaces: "Spaces",
     bets: "Bets",
     houses: "Houses",
     properties: "Properties",
@@ -1268,6 +1272,7 @@ function PhonePanel({
               <PeoplePanel view={view} run={run} pending={pending} peerId={peer} onPeer={setPeer} onOpen={onOpen} onMeet={onMeet} onVisit={onArrived} />
         </div>
       ) : null}
+      {app === "spaces" ? <SpacesPanel /> : null}
       {app === "bets" ? <BetsPanel view={view} run={run} pending={pending} /> : null}
       {app === "wallet" ? <LedgerPanel view={view} /> : null}
       {app === "settings" ? (
@@ -2126,7 +2131,9 @@ function PeoplePanel({
                 >
                   <div className={`rounded-2xl px-3 py-2 ${line.kind === "money" || line.kind === "food" || line.kind === "invite" ? "bg-[#fff4d6] text-[#5a3d12]" : mine ? "rounded-br-sm bg-[#d8f3dc] text-[#143d2c]" : "rounded-bl-sm bg-white"}`}>
                     {line.replyTo ? <Quote from={line.replyTo.fromName} text={line.replyTo.text} /> : null}
-                    {line.kind === "money" || line.kind === "food" ? (
+                    {line.kind === "voice" && line.voiceId ? (
+                      <audio controls preload="none" src={`/api/voice/${line.voiceId}`} className="h-8 max-w-full" />
+                    ) : line.kind === "money" || line.kind === "food" ? (
                       <p className="text-sm font-semibold">{line.text}</p>
                     ) : line.kind === "post" ? (
                       <p className="text-sm"><span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#a9782a]">Post</span> <MentionText text={line.text} names={[peer.name, view.me.username]} /></p>
@@ -2147,6 +2154,7 @@ function PeoplePanel({
           <div className="bg-[#fffaf2] p-2">
             <p className="px-1 pb-2 text-[10px] text-[#5d6b62]">Swipe left to reply. Swipe right to delete a message you sent.</p>
             {reply ? <ReplyBar reply={reply} onClear={() => setReply(null)} /> : null}
+            <VoiceNoteButton peerId={peer.id} disabled={pending} />
             {mentionQuery(text) != null ? (
               <button type="button" className="mb-2 rounded-full bg-[#efe4d2] px-3 py-1 text-xs font-semibold" onClick={() => setText((current) => current.replace(/@[^\s@]*$/, `@${peer.name} `))}>@{peer.name}</button>
             ) : null}

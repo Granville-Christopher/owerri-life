@@ -1,3 +1,8 @@
+export function spaceReturn(value: string | null | undefined) {
+  if (!value || !/^\/space\/[a-z0-9]{8}$/.test(value)) return null;
+  return value;
+}
+
 export function siteUrl() {
   const explicit = process.env.NEXT_PUBLIC_SITE_URL?.trim();
   if (explicit) return explicit.replace(/\/$/, "");

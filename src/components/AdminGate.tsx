@@ -56,6 +56,7 @@ export function AdminRegisterForm() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [setupKey, setSetupKey] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -63,7 +64,7 @@ export function AdminRegisterForm() {
     event.preventDefault();
     setPending(true);
     setError(null);
-    const result = await registerAdmin(username, email, password);
+    const result = await registerAdmin(username, email, password, setupKey);
     setPending(false);
     if (!result.ok) {
       setError(result.error);
@@ -92,6 +93,11 @@ export function AdminRegisterForm() {
         <input type="password" required autoComplete="new-password" className="mt-1 w-full rounded-2xl border border-[#e4d8c4] bg-white px-3 py-3" value={password} onChange={(event) => setPassword(event.target.value)} />
       </label>
       <p className="mt-2 text-xs text-[#5d6b62]">8 or more characters, with upper case, lower case, a number, and a special character.</p>
+      <label className="mt-3 block text-sm font-semibold">
+        Setup key
+        <input type="password" autoComplete="off" className="mt-1 w-full rounded-2xl border border-[#e4d8c4] bg-white px-3 py-3" value={setupKey} onChange={(event) => setSetupKey(event.target.value)} />
+      </label>
+      <p className="mt-2 text-xs text-[#5d6b62]">Leave this blank only for the first admin, and only when the host has not set a setup key. After that, registration stays closed unless the key matches.</p>
       <button disabled={pending} className="mt-6 w-full rounded-full bg-[#1f6b45] px-4 py-3 font-semibold text-[#f6f1e6] disabled:opacity-40">
         {pending ? "Creating…" : "Create admin account"}
       </button>

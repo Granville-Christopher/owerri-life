@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { login } from "@/lib/game/actions";
 
-export function LoginForm() {
+export function LoginForm({ next = null }: { next?: string | null }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -21,7 +21,7 @@ export function LoginForm() {
       setError(result.error);
       return;
     }
-    router.push("/play");
+    router.push(next ?? "/play");
     router.refresh();
   }
 

@@ -106,9 +106,12 @@ function localSave(): DB | null {
 
 type CityDoc = DB & { _id: "state" };
 
+export function mongoDb() {
+  return client().db("owerri-life");
+}
+
 async function collection() {
-  const db = client().db("owerri-life");
-  return db.collection<CityDoc>("city");
+  return mongoDb().collection<CityDoc>("city");
 }
 
 async function load(): Promise<DB> {
