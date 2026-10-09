@@ -529,6 +529,8 @@ export function CityWorld({
       if (id === "owerri-west-palms") return { hx: 16, hz: 14 };
       if (id === "city-bank") return { hx: 14, hz: 12 };
       if (id === "wetheral-strip") return { hx: 18, hz: 14 };
+      if (id === "owerri-mall") return { hx: 20, hz: 16 };
+      if (id === "relief-market" || id === "eke-ukwu") return { hx: 26, hz: 20 };
       if (kind === "health") return { hx: 14, hz: 11 };
       if (kind === "market") return { hx: 14, hz: 11 };
       if (kind === "hotel") return { hx: 7, hz: 7 };
@@ -885,6 +887,12 @@ export function CityWorld({
     }
     const martAfter = laid.get("everyday");
     if (martAfter) parkOffRoad(martAfter, 12, 10);
+    for (const id of ["relief-market", "owerri-mall", "eke-ukwu"]) {
+      const at = laid.get(id);
+      if (!at) continue;
+      const foot = footOf(id);
+      parkOffRoad(at, foot.hx, foot.hz);
+    }
     for (const item of laidSpots) {
       if (pickups.has(item.id) || hotels.has(item.id) || item.id === "channel-garden") {
         const foot = footOf(item.id);
@@ -893,6 +901,12 @@ export function CityWorld({
     }
     const airportAt = laid.get("sam-mbakwe");
     if (airportAt) keepClear.push({ x: airportAt.x, z: airportAt.z, hx: 100, hz: 72 });
+    for (const id of ["relief-market", "owerri-mall", "eke-ukwu"]) {
+      const at = laid.get(id);
+      if (!at) continue;
+      const foot = footOf(id);
+      keepClear.push({ x: at.x, z: at.z, hx: foot.hx, hz: foot.hz });
+    }
     keepClear.push({ x: riceAt.x, z: riceAt.z, hx: 50, hz: 38 });
     function nearAirport(x: number, z: number) {
       if (!airportAt) return false;
@@ -1253,10 +1267,43 @@ export function CityWorld({
       const park = [0xf2c14e, 0xc4552a, 0x17241e, 0x245c78, 0x1f6b45, 0xf4efe4];
       park.forEach((color, index) => {
         const car = carMesh(color);
-        car.position.set(-14 + index * 3.4, 0, 21);
+        car.position.set(-14 + index * 3.4, 0, 12);
         group.add(car);
       });
       group.position.set(x, 0, z);
+      scene.add(group);
+      return group;
+    }
+
+    function mallYard(cx: number, cz: number) {
+      const group = new THREE.Group();
+      group.add(block(36, 0.12, 28, 0xd5d8dc, 0, 0.08, 0));
+      group.add(block(36, 0.7, 0.3, 0x9aa3ad, 0, 0.45, -14));
+      group.add(block(36, 0.7, 0.3, 0x9aa3ad, 0, 0.45, 14));
+      group.add(block(0.3, 0.7, 28, 0x9aa3ad, -18, 0.45, 0));
+      group.add(block(0.3, 0.7, 10, 0x9aa3ad, 18, 0.45, -9));
+      group.add(block(0.3, 0.7, 10, 0x9aa3ad, 18, 0.45, 9));
+      group.add(block(20, 8.2, 12, 0xf7fbfc, 0, 4.2, -2));
+      group.add(block(20.4, 0.4, 12.4, 0x1f6b45, 0, 8.4, -2));
+      group.add(block(9, 4.2, 0.12, 0x9fd0ea, 0, 3.4, 4.08));
+      group.add(block(2.2, 3.2, 0.14, 0x143d2c, 0, 1.7, 4.14));
+      const bays = [
+        { ox: 0, oz: 9.2, rot: 0 },
+        { ox: 0, oz: -11.2, rot: Math.PI },
+        { ox: 13.4, oz: 1, rot: Math.PI / 2 },
+        { ox: -13.4, oz: 1, rot: -Math.PI / 2 },
+      ];
+      const bay = bays.find((option) => !hitsRoad(cx + option.ox, cz + option.oz, 11, 5)) ?? bays[2];
+      const paints = [0xf2c14e, 0xc4552a, 0x17241e, 0x245c78, 0x1f6b45, 0xf4efe4];
+      const alongBay = bay.rot === 0 || Math.abs(bay.rot) === Math.PI;
+      paints.forEach((color, index) => {
+        const car = carMesh(color);
+        const along = (index - 2.5) * 3.2;
+        car.position.set(alongBay ? bay.ox + along : bay.ox, 0, alongBay ? bay.oz : bay.oz + along);
+        car.rotation.y = bay.rot;
+        group.add(car);
+      });
+      group.position.set(cx, 0, cz);
       scene.add(group);
       return group;
     }
@@ -1883,17 +1930,32 @@ export function CityWorld({
       const start = mid - span / 2;
       const names = ["anonymous-gadgets", "sugar-gadgets", "buc-phones", "elion-phones", "ocha-gadgets", "maxii-gadgets", "easy-life", "gadgets-plug"];
       const fillers = ["Tecno Plaza", "Sirvic Mobiles", "Dialogue Phones", "Screen Doctor", "Charger Hub", "Cases & Glass", "Phone Hub", "Accessory Lane"];
+      function shopBlocked(x: number, z: number) {
+        if (footHits(x, z, 4, 3)) return true;
+        const yards: Array<[string, number, number]> = [
+          ["relief-market", 32, 24],
+          ["owerri-mall", 24, 20],
+          ["eke-ukwu", 32, 24],
+          ["heroes-square", 26, 22],
+          ["ikenegbu-market", 22, 16],
+          ["everyday", 16, 12],
+        ];
+        return yards.some(([id, hx, hz]) => {
+          const at = laid.get(id);
+          return Boolean(at && Math.abs(x - at.x) < hx && Math.abs(z - at.z) < hz);
+        });
+      }
       let named = 0;
       let filler = 0;
       for (let along = start + 8; along <= start + span - 8; along += 12) {
         for (const side of [-1, 1]) {
-          const x = alongZ ? tetlowFixed + side * 14 : along;
-          const z = alongZ ? along : tetlowFixed + side * 14;
+          const x = alongZ ? tetlowFixed + side * 18 : along;
+          const z = alongZ ? along : tetlowFixed + side * 18;
           const onHotel = Math.hypot(x - hotelAt.x, z - hotelAt.z) < 18;
           const onCampus = Math.abs(x - campusAt.x) < 54 && Math.abs(z - campusAt.z) < 40;
           const stripAt = laid.get("wetheral-strip");
           const onStripClub = stripAt ? Math.hypot(x - stripAt.x, z - stripAt.z) < 24 : false;
-          if (onHotel || onCampus || onStripClub || footHits(x, z, 4, 3)) continue;
+          if (onHotel || onCampus || onStripClub || shopBlocked(x, z)) continue;
           if (named < names.length) {
             const shop = laid.get(names[named]);
             if (shop) {
@@ -1906,6 +1968,27 @@ export function CityWorld({
             stall.rotation.y = alongZ ? (side > 0 ? -Math.PI / 2 : Math.PI / 2) : side > 0 ? Math.PI : 0;
             pill(fillers[filler], new THREE.Vector3(x, 3.2, z));
             filler += 1;
+          }
+        }
+      }
+      if (named < names.length) {
+        for (let along = start - 80; along <= start + span + 80 && named < names.length; along += 10) {
+          for (const side of [-1, 1]) {
+            if (named >= names.length) break;
+            const x = alongZ ? tetlowFixed + side * 18 : along;
+            const z = alongZ ? along : tetlowFixed + side * 18;
+            if (shopBlocked(x, z)) continue;
+            const taken = names.slice(0, named).some((id) => {
+              const other = laid.get(id);
+              return other ? Math.hypot(other.x - x, other.z - z) < 10 : false;
+            });
+            if (taken) continue;
+            const shop = laid.get(names[named]);
+            if (shop) {
+              shop.x = x;
+              shop.z = z;
+            }
+            named += 1;
           }
         }
       }
@@ -1936,6 +2019,9 @@ export function CityWorld({
       } else if (place.kind === "school") {
         group = schoolYard(at.x, at.z);
         labelY = 26;
+      } else if (place.id === "owerri-mall") {
+        group = mallYard(at.x, at.z);
+        labelY = 9.2;
       } else if (place.kind === "market") {
         group = marketYard(at.x, at.z);
         labelY = 6.4;
