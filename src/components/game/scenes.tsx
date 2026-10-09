@@ -767,28 +767,80 @@ function nairaNoteTexture() {
   return texture;
 }
 
-function danceBody(body: THREE.Object3D, t: number, baseY: number, facing: number) {
+function danceBody(body: THREE.Object3D, t: number, baseY: number, facing: number, style = 0) {
   const limbs = body.userData.limbs as { arms: THREE.Group[]; legs: THREE.Group[] } | undefined;
-  const beat = t * 0.011;
-  body.position.y = baseY + Math.abs(Math.sin(beat * 2)) * 0.1;
-  body.rotation.y = facing + Math.sin(beat) * 0.4;
-  body.rotation.z = Math.sin(beat * 2) * 0.09;
+  const torso = body.userData.torso as THREE.Object3D | undefined;
+  const hips = body.userData.hips as THREE.Object3D | undefined;
+  const head = body.userData.head as THREE.Object3D | undefined;
+  const rest = body.userData.rest as { hipY: number; torsoY: number; headY: number } | undefined;
+  const beat = t * 0.0074;
+  const bounce = Math.abs(Math.sin(beat * 2));
+  const sway = Math.sin(beat);
+  const late = Math.sin(beat - 0.35);
+  const phrase = Math.floor(beat / (Math.PI * 2) + style) % 3;
+
+  body.position.y = baseY + bounce * 0.05;
+  body.rotation.y = facing + sway * 0.2 + Math.sin(beat * 0.5) * 0.08;
+  body.rotation.z = Math.sin(beat * 2) * 0.055;
+  body.rotation.x = -0.04 + bounce * 0.05;
+
+  if (hips) {
+    hips.rotation.y = sway * 0.55;
+    hips.rotation.z = Math.sin(beat * 2 + 0.5) * 0.2;
+    hips.position.x = sway * 0.05;
+    hips.position.y = (rest?.hipY ?? hips.position.y) + bounce * 0.012;
+  }
+  if (torso) {
+    torso.rotation.y = late * 0.32;
+    torso.rotation.x = -0.1 + bounce * 0.12;
+    torso.rotation.z = Math.sin(beat * 2 + 0.9) * 0.12;
+  }
+  if (head) {
+    head.rotation.x = bounce * 0.16 - 0.05;
+    head.rotation.y = sway * 0.16;
+    head.rotation.z = Math.sin(beat * 2) * 0.05;
+  }
   if (!limbs) return;
   limbs.arms.forEach((arm, i) => {
     const side = i === 0 ? -1 : 1;
-    arm.rotation.z = side * (0.2 + Math.sin(beat + i) * 0.65);
-    arm.rotation.x = -0.85 + Math.sin(beat * 2 + i) * 0.75;
+    if (phrase === 0) {
+      arm.rotation.z = side * (0.95 + Math.sin(beat * 2 + i) * 0.28);
+      arm.rotation.x = -1.2 + Math.sin(beat * 2 + i * 0.8) * 0.28;
+    } else if (phrase === 1) {
+      if (i === 0) {
+        arm.rotation.z = -0.2 + Math.sin(beat * 2) * 0.18;
+        arm.rotation.x = -0.25 + bounce * 0.7;
+      } else {
+        arm.rotation.z = 1.15 + Math.sin(beat) * 0.22;
+        arm.rotation.x = -0.65 + Math.sin(beat * 2) * 0.22;
+      }
+    } else {
+      arm.rotation.z = side * (0.35 + bounce * 0.45);
+      arm.rotation.x = -0.55 + Math.sin(beat * 2 + side) * 0.55;
+    }
   });
   limbs.legs.forEach((leg, i) => {
-    leg.rotation.x = Math.sin(beat * 2 + i * Math.PI) * 0.5;
+    const step = Math.sin(beat * 2 + i * Math.PI);
+    leg.rotation.x = bounce * 0.2 + Math.max(0, step) * 0.22;
+    leg.rotation.z = (i === 0 ? -1 : 1) * (0.05 + bounce * 0.04);
   });
 }
 
 function restBody(body: THREE.Object3D, baseY: number, facing: number) {
   body.position.y = baseY;
-  body.rotation.y = facing;
-  body.rotation.z = 0;
+  body.rotation.set(0, facing, 0);
   const limbs = body.userData.limbs as { arms: THREE.Group[]; legs: THREE.Group[] } | undefined;
+  const torso = body.userData.torso as THREE.Object3D | undefined;
+  const hips = body.userData.hips as THREE.Object3D | undefined;
+  const head = body.userData.head as THREE.Object3D | undefined;
+  const rest = body.userData.rest as { hipY: number; torsoY: number; headY: number } | undefined;
+  if (torso) torso.rotation.set(0, 0, 0);
+  if (hips) {
+    hips.rotation.set(0, 0, 0);
+    hips.position.x = 0;
+    if (rest) hips.position.y = rest.hipY;
+  }
+  if (head) head.rotation.set(0, 0, 0);
   if (!limbs) return;
   limbs.arms.forEach((arm, i) => {
     arm.rotation.z = (i === 0 ? -1 : 1) * 0.09;
@@ -796,6 +848,7 @@ function restBody(body: THREE.Object3D, baseY: number, facing: number) {
   });
   limbs.legs.forEach((leg) => {
     leg.rotation.x = 0;
+    leg.rotation.z = 0;
   });
 }
 
@@ -992,7 +1045,7 @@ function ClubHall({
       }
     }
 
-    type Dancer = { mesh: THREE.Object3D; y: number; facing: number; always: boolean };
+    type Dancer = { mesh: THREE.Object3D; y: number; facing: number; always: boolean; style: number };
     const dancers: Dancer[] = [];
     const seated = sitting || people.find((person) => person.id === selfId)?.pose === "sit";
     const me = createRealisticHuman({ lookId: look, seated, scale: 0.92 });
@@ -1004,7 +1057,7 @@ function ClubHall({
       me.rotation.y = Math.PI;
     }
     add(me);
-    if (!seated) dancers.push({ mesh: me, y: 0, facing: Math.PI, always: false });
+    if (!seated) dancers.push({ mesh: me, y: 0, facing: Math.PI, always: false, style: 0 });
 
     people
       .filter((person) => person.id !== selfId)
@@ -1018,14 +1071,14 @@ function ClubHall({
         body.position.set(x, 0, z);
         body.rotation.y = Math.PI;
         add(body);
-        if (person.pose !== "sit") dancers.push({ mesh: body, y: 0, facing: Math.PI, always: true });
+        if (person.pose !== "sit") dancers.push({ mesh: body, y: 0, facing: Math.PI, always: true, style: index + 1 });
       });
 
     const dj = createRealisticHuman({ lookId: LOOKS[2]?.id ?? look, scale: 0.88, customShirt: 0x111118 });
     dj.position.set(0.2, 0.55, -4.35);
     dj.rotation.y = 0;
     add(dj);
-    dancers.push({ mesh: dj, y: 0.55, facing: 0, always: true });
+    dancers.push({ mesh: dj, y: 0.55, facing: 0, always: true, style: 2 });
 
     const bills: THREE.Mesh[] = [];
     const noteMap = nairaNoteTexture();
@@ -1064,7 +1117,7 @@ function ClubHall({
       });
       const onFloor = dancingRef.current && !seated;
       for (const dancer of dancers) {
-        if (onFloor || dancer.always) danceBody(dancer.mesh, t + dancer.facing * 40, dancer.y, dancer.facing);
+        if (onFloor || dancer.always) danceBody(dancer.mesh, t + dancer.style * 420, dancer.y, dancer.facing, dancer.style);
         else restBody(dancer.mesh, dancer.y, dancer.facing);
       }
       if (!seated) {

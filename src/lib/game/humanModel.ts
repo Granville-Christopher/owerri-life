@@ -404,6 +404,14 @@ export function createRealisticHuman(options: HumanOptions = {}): THREE.Group {
   person.add(shadow);
 
   person.userData.limbs = limbs;
+  person.userData.torso = torso;
+  person.userData.hips = hips;
+  person.userData.head = head;
+  person.userData.rest = {
+    hipY: hips.position.y,
+    torsoY: torso.position.y,
+    headY: head.position.y,
+  };
   person.scale.setScalar(scale);
   return person;
 }
