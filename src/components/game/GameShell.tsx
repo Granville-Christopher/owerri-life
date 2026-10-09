@@ -185,7 +185,7 @@ export function GameShell({ view }: { view: GameView }) {
       setSkyReady(false);
       return;
     }
-    const id = window.setTimeout(() => setSkyReady(true), 80);
+    const id = window.setTimeout(() => setSkyReady(true), 250);
     return () => window.clearTimeout(id);
   }, [flight]);
   const crowd = [...view.calls].reverse().find((call) => call.fromId !== me.id);
