@@ -1,0 +1,2 @@
+a320.glb — Airbus A320 (logo-free) from amvlab/aircraft-models, CC-BY 4.0.
+https://github.com/amvlab/aircraft-models

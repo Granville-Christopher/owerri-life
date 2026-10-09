@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import * as THREE from "three";
 import { createRealisticHuman } from "@/lib/game/humanModel";
 import type { LookId } from "@/lib/game/types";
+import { loadRealAirliner } from "@/components/game/realPlane";
 
 const FLIGHT_MS = 22000;
 
@@ -105,94 +106,29 @@ function block(w: number, h: number, d: number, color: number, x = 0, y = 0, z =
   return mesh;
 }
 
-function buildAirliner(title: THREE.Texture) {
-  const plane = new THREE.Group();
-  const white = new THREE.MeshLambertMaterial({ color: 0xf6f8fb });
-  const green = new THREE.MeshLambertMaterial({ color: 0x1f6b45 });
-  const gold = new THREE.MeshLambertMaterial({ color: 0xe0b15a });
-  const dark = new THREE.MeshLambertMaterial({ color: 0x1a242c });
-  const glass = new THREE.MeshLambertMaterial({ color: 0x1b3348, emissive: 0x4a7aa0, emissiveIntensity: 0.22 });
-
-  const profile = [
-    new THREE.Vector2(0.02, 8.55),
-    new THREE.Vector2(0.28, 8.28),
-    new THREE.Vector2(0.62, 7.78),
-    new THREE.Vector2(0.95, 7.05),
-    new THREE.Vector2(1.12, 6.15),
-    new THREE.Vector2(1.18, 4.6),
-    new THREE.Vector2(1.2, 1.4),
-    new THREE.Vector2(1.2, -3.6),
-    new THREE.Vector2(1.12, -5.8),
-    new THREE.Vector2(0.92, -7.05),
-    new THREE.Vector2(0.58, -7.85),
-    new THREE.Vector2(0.22, -8.35),
-    new THREE.Vector2(0.02, -8.55),
-  ];
-  const fuse = new THREE.Mesh(new THREE.LatheGeometry(profile, 48), white);
-  fuse.rotation.x = -Math.PI / 2;
-  fuse.position.y = 1.22;
-  plane.add(fuse);
-
+function dressAirliner(plane: THREE.Group, title: THREE.Texture) {
+  plane.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(plane);
+  const size = box.getSize(new THREE.Vector3());
+  const centre = box.getCenter(new THREE.Vector3());
+  const fuseX = Math.max(1.05, size.x * 0.08);
+  const titleMat = new THREE.MeshBasicMaterial({ map: title, transparent: true, side: THREE.DoubleSide, depthWrite: false, depthTest: true });
   for (const side of [-1, 1]) {
-    plane.add(block(0.05, 0.28, 10.8, 0x1f6b45, side * 1.21, 1.02, 0.25, green));
-    plane.add(block(0.05, 0.09, 10.8, 0xe0b15a, side * 1.21, 1.22, 0.25, gold));
-  }
-
-  const titleMat = new THREE.MeshBasicMaterial({ map: title, transparent: true, side: THREE.DoubleSide, depthWrite: false });
-  for (const side of [-1, 1]) {
-    const decal = new THREE.Mesh(new THREE.PlaneGeometry(7.6, 1.15), titleMat);
-    decal.position.set(side * 1.23, 1.48, 0.35);
+    const decal = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(9.2, size.z * 0.42), Math.min(1.35, size.y * 0.22)), titleMat);
+    decal.position.set(centre.x + side * fuseX, centre.y + size.y * 0.02, centre.z + size.z * 0.04);
     decal.rotation.y = side > 0 ? Math.PI / 2 : -Math.PI / 2;
     plane.add(decal);
   }
-
-  for (let i = 0; i < 9; i += 1) {
-    const pane = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.22, 0.32), glass);
-    pane.position.set(1.18, 1.52, 4.8 - i * 1.05);
-    plane.add(pane);
-    const paneL = pane.clone();
-    paneL.position.x = -1.18;
-    plane.add(paneL);
-  }
-
-  const windscreen = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.42, 0.12), glass);
-  windscreen.position.set(0, 1.62, 7.15);
-  windscreen.rotation.x = -0.35;
-  plane.add(windscreen);
-
-  const wing = new THREE.Mesh(new THREE.BoxGeometry(16.8, 0.16, 3.6), white);
-  wing.position.set(0, 0.92, -0.15);
-  wing.rotation.y = 0.08;
-  plane.add(wing);
-  for (const side of [-7.6, 7.6]) {
-    const winglet = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.85, 0.9), white);
-    winglet.position.set(side, 1.28, -1.35);
-    plane.add(winglet);
-  }
-  const stab = new THREE.Mesh(new THREE.BoxGeometry(6.2, 0.12, 1.7), white);
-  stab.position.set(0, 1.85, -7.55);
-  plane.add(stab);
-  const fin = new THREE.Mesh(new THREE.BoxGeometry(0.18, 3.35, 2.4), green);
-  fin.position.set(0, 3.05, -7.55);
-  plane.add(fin);
-  const finGold = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.22, 2.4), gold);
-  finGold.position.set(0, 4.55, -7.55);
-  plane.add(finGold);
-
-  for (const side of [-3.85, 3.85]) {
-    const nacelle = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.46, 2.55, 16), dark);
-    nacelle.rotation.x = Math.PI / 2;
-    nacelle.position.set(side, 0.38, 0.55);
-    plane.add(nacelle);
-    const intake = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.05, 8, 18), gold);
-    intake.position.set(side, 0.38, 1.78);
-    plane.add(intake);
-  }
-
-  const glow = new THREE.PointLight(0xfff1c8, 1.4, 18);
-  glow.position.set(0, 0.5, 7.6);
-  plane.add(glow);
-  return plane;
+  const red = new THREE.PointLight(0xff2a2a, 2.4, 8);
+  red.position.set(box.min.x, centre.y, centre.z);
+  const green = new THREE.PointLight(0x22c55e, 2.4, 8);
+  green.position.set(box.max.x, centre.y, centre.z);
+  const strobe = new THREE.PointLight(0xffffff, 0, 14);
+  strobe.position.set(centre.x, box.max.y, box.min.z);
+  const nose = new THREE.PointLight(0xfff1c8, 1.1, 12);
+  nose.position.set(centre.x, centre.y, box.max.z);
+  plane.add(red, green, strobe, nose);
+  plane.userData.strobe = strobe;
 }
 
 function seatMesh() {
@@ -235,7 +171,7 @@ export function FlightScene({
       renderer.setSize(root.clientWidth || 1, root.clientHeight || 1);
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1.05;
+      renderer.toneMappingExposure = 1.18;
       root.appendChild(renderer.domElement);
     } catch {
       arrive();
@@ -250,11 +186,21 @@ export function FlightScene({
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color("#050814");
-    scene.fog = new THREE.Fog("#070b16", 40, 220);
-    scene.add(new THREE.HemisphereLight(0x9fb7e8, 0x0a1020, 0.55));
-    const moon = new THREE.DirectionalLight(0xcfe4ff, 0.55);
-    moon.position.set(-30, 40, 10);
+    scene.fog = new THREE.Fog("#070b16", 50, 260);
+    scene.add(new THREE.HemisphereLight(0xb7ccec, 0x1a140c, 0.72));
+    const moon = new THREE.DirectionalLight(0xe8f1ff, 1.35);
+    moon.position.set(-24, 38, 16);
     scene.add(moon);
+    const cityGlow = new THREE.DirectionalLight(0xe0b15a, 0.38);
+    cityGlow.position.set(6, -18, 8);
+    scene.add(cityGlow);
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    const envScene = new THREE.Scene();
+    envScene.add(new THREE.HemisphereLight(0xc5d8f0, 0x2a2018, 2.2));
+    const envMap = pmrem.fromScene(envScene, 0.05).texture;
+    scene.environment = envMap;
+    scene.environmentIntensity = 0.85;
+    pmrem.dispose();
 
     const cityMap = paintCity();
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), new THREE.MeshBasicMaterial({ map: cityMap }));
@@ -292,8 +238,16 @@ export function FlightScene({
     scene.add(stars);
 
     const title = paintTitle();
-    const airliner = buildAirliner(title);
-    scene.add(airliner);
+    let alive = true;
+    const flight = new THREE.Group();
+    scene.add(flight);
+    const exterior = new THREE.Group();
+    flight.add(exterior);
+    void loadRealAirliner().then((model) => {
+      if (!alive || !model) return;
+      dressAirliner(model, title);
+      exterior.add(model);
+    });
 
     const cabin = new THREE.Group();
     cabin.add(block(3.2, 0.08, 14, 0x2a3340, 0, 0, 0));
@@ -355,7 +309,7 @@ export function FlightScene({
     const cabinLight = new THREE.PointLight(0xffe6c8, 1.35, 12);
     cabinLight.position.set(0, 1.8, 1);
     cabin.add(cabinLight);
-    airliner.add(cabin);
+    flight.add(cabin);
     cabin.position.set(0, 0.35, 0.4);
 
     const camera = new THREE.PerspectiveCamera(62, 1, 0.08, 400);
@@ -367,7 +321,6 @@ export function FlightScene({
     };
     fit();
 
-    let alive = true;
     let frame = 0;
     const started = performance.now();
     const camPos = new THREE.Vector3();
@@ -377,10 +330,12 @@ export function FlightScene({
       const now = performance.now();
       const t = Math.min(1, (now - started) / FLIGHT_MS);
       const z = t * 140;
-      airliner.position.set(Math.sin(t * 6) * 1.4, 8 + Math.sin(t * 10) * 0.35, z);
-      airliner.rotation.z = Math.sin(t * 6) * 0.04;
-      airliner.rotation.x = -0.04;
+      flight.position.set(Math.sin(t * 6) * 1.4, 8 + Math.sin(t * 10) * 0.35, z);
+      flight.rotation.z = Math.sin(t * 6) * 0.04;
+      flight.rotation.x = -0.04;
       cityMap.offset.y = t * 1.8;
+      const strobe = exterior.children[0]?.userData.strobe as THREE.PointLight | undefined;
+      if (strobe) strobe.intensity = Math.sin(now / 90) > 0.55 ? 3.2 : 0;
       clouds.forEach((cloud, i) => {
         cloud.position.z = ((-20 - i * 14 + t * 90) % 180) - 90;
         cloud.position.x += Math.sin(now / 1800 + i) * 0.01;
@@ -394,7 +349,9 @@ export function FlightScene({
       attendant.position.y = Math.abs(Math.sin(now / 180)) * 0.03;
 
       if (view.current === "inside") {
-        airliner.updateMatrixWorld(true);
+        cabin.visible = true;
+        exterior.visible = false;
+        flight.updateMatrixWorld(true);
         const eye = new THREE.Vector3(-0.55, 1.38, 1.62);
         cabin.localToWorld(eye);
         camera.position.copy(eye);
@@ -405,16 +362,19 @@ export function FlightScene({
         camera.updateProjectionMatrix();
         camReady = false;
       } else {
-        const goal = airliner.position.clone().add(new THREE.Vector3(17, 5.1, -5.5));
+        cabin.visible = false;
+        exterior.visible = true;
+        const swing = Math.sin(now / 4200) * 3.2;
+        const goal = flight.position.clone().add(new THREE.Vector3(18 + swing, 6.2, -14));
         if (!camReady) {
           camPos.copy(goal);
           camReady = true;
         } else {
-          camPos.lerp(goal, 0.08);
+          camPos.lerp(goal, 0.07);
         }
         camera.position.copy(camPos);
-        camera.lookAt(airliner.position.clone().add(new THREE.Vector3(0, 1.15, 0.4)));
-        camera.fov = 50;
+        camera.lookAt(flight.position.clone().add(new THREE.Vector3(0, 1.4, 2.4)));
+        camera.fov = 38;
         camera.updateProjectionMatrix();
       }
       if (barRef.current) barRef.current.style.width = `${Math.round(t * 100)}%`;
@@ -433,6 +393,7 @@ export function FlightScene({
       cityMap.dispose();
       cloudTex.dispose();
       title.dispose();
+      envMap.dispose();
       renderer.dispose();
       if (root.contains(renderer.domElement)) root.removeChild(renderer.domElement);
     };
