@@ -857,7 +857,6 @@ function ClubHall({
     add(piece(theme.wall, 18.2, 3.55, 0.2, 0, 1.8, -6.2));
     add(piece(theme.wall, 0.2, 3.55, 13, -9, 1.8, 0));
     add(piece(theme.wall, 0.2, 3.55, 13, 9, 1.8, 0));
-    add(piece(0x0c0a10, 18, 0.12, 13, 0, 3.55, 0));
 
     for (let i = 0; i < 8; i += 1) {
       const strip = piece(theme.accent, 1.8, 0.04, 0.06, -6.4 + i * 1.85, 3.38, -5.95);
