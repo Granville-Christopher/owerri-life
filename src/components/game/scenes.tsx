@@ -307,9 +307,27 @@ function spotFor(name: string) {
   return { left: `${8 + (hash % 74)}%`, top: `${24 + ((hash >> 5) % 52)}%` };
 }
 
-const SEAT_IDS = new Set(["sofa", "armchair", "dining", "bed", "double-bed"]);
-
 type SeatSpot = { x: number; z: number; rot: number; bed?: boolean };
+
+function seatsFor(entry: { id: string; x: number; z: number; rot: number }): SeatSpot[] {
+  const at = (lx: number, lz: number, face: number, bed = false): SeatSpot => {
+    const c = Math.cos(entry.rot);
+    const s = Math.sin(entry.rot);
+    return {
+      x: entry.x + lx * c + lz * s,
+      z: entry.z - lx * s + lz * c,
+      rot: entry.rot + face,
+      bed,
+    };
+  };
+  if (entry.id === "dining") {
+    return [at(-0.6, 0.95, Math.PI), at(0.6, 0.95, Math.PI), at(-0.6, -0.95, 0), at(0.6, -0.95, 0)];
+  }
+  if (entry.id === "desk") return [at(0, 0.9, Math.PI)];
+  if (entry.id === "sofa" || entry.id === "armchair") return [at(0, 0.18, 0)];
+  if (entry.id === "bed" || entry.id === "double-bed") return [at(0, 0.35, 0, true)];
+  return [];
+}
 
 function nearestSeat(from: { x: number; z: number }, seats: SeatSpot[]): SeatSpot | null {
   if (!seats.length) return null;
@@ -2406,7 +2424,7 @@ export function VenueInterior({
             }}
           />
         ) : place.kind === "home" && house ? (
-          <HouseRoom name={house.name} homeId={house.homeId} furniture={house.furniture} layout={house.layout} beds={house.beds} upstairs={house.upstairs} duplex={house.duplex} cars={cars} look={look} pending={pending} onBuy={onBuyFurniture ?? (() => undefined)} onMove={onMoveFurniture ?? (() => undefined)} onSell={onSellFurniture} onSleep={onHomeSleep} onShower={onHomeShower} onToilet={onHomeToilet} guests={people} selfId={selfId} bubbles={bubbles} onPickGuest={pickPerson} onSit={() => { setSitting(true); onSit?.(); }} onStand={() => { setSitting(false); onStand?.(); }} onFawwwk={onFawwwk} pose={sitting || pose === "sit" ? "sit" : pose} onOutside={onOutside} />
+          <HouseRoom name={house.name} homeId={house.homeId} furniture={house.furniture} layout={house.layout} beds={house.beds} upstairs={house.upstairs} duplex={house.duplex} cars={cars} look={look} pending={pending} onBuy={onBuyFurniture ?? (() => undefined)} onMove={onMoveFurniture ?? (() => undefined)} onSell={onSellFurniture} onSleep={onHomeSleep} onShower={onHomeShower} onToilet={onHomeToilet} guests={people} selfId={selfId} besideId={besideId} bubbles={bubbles} onPickGuest={pickPerson} onSit={() => { setSitting(true); onSit?.(); }} onStand={() => { setSitting(false); onStand?.(); }} onFawwwk={onFawwwk} pose={sitting || pose === "sit" ? "sit" : pose} onOutside={onOutside} />
         ) : beach ? (
           <BeachHouse look={look} people={people} selfId={selfId} />
         ) : place.id === "assumpta-cathedral" ? (
@@ -3211,17 +3229,7 @@ function RoomView({
     let walkFail = false;
     const seats: SeatSpot[] = [];
     const takeSeats = (list: PlacedPiece[]) => {
-      for (const entry of list) {
-        if (!SEAT_IDS.has(entry.id)) continue;
-        const bed = entry.id === "bed" || entry.id === "double-bed";
-        const along = entry.id === "dining" ? 0.9 : 0;
-        seats.push({
-          x: entry.x + Math.sin(entry.rot) * along,
-          z: entry.z + Math.cos(entry.rot) * along,
-          rot: entry.rot + (entry.id === "sofa" || entry.id === "armchair" ? Math.PI : 0),
-          bed,
-        });
-      }
+      for (const entry of list) seats.push(...seatsFor(entry));
     };
     const seated = pose === "sit";
     const me = createRealisticHuman({ lookId: look, scale: 0.92, seated });
@@ -3436,13 +3444,9 @@ function RoomView({
         const rx = entry.x0 + entry.w / 2;
         const rz = entry.z0 + entry.d / 2;
         for (const piece2 of mine) {
-          if (!SEAT_IDS.has(piece2.id)) continue;
-          seats.push({
-            x: rx + piece2.x,
-            z: rz + piece2.z,
-            rot: piece2.rot + (piece2.id === "sofa" || piece2.id === "armchair" ? Math.PI : 0),
-            bed: piece2.id === "bed" || piece2.id === "double-bed",
-          });
+          for (const seat of seatsFor(piece2)) {
+            seats.push({ ...seat, x: rx + seat.x, z: rz + seat.z });
+          }
         }
         if (entry.kind === "room" && !hasBedIn(mine)) {
           seats.push({ x: rx - (entry.w / 2 - 2), z: rz - (entry.d / 2 - 2.2), rot: 0, bed: true });
@@ -3962,6 +3966,7 @@ export function HouseRoom({
   shopNonce = 0,
   guests = [],
   selfId,
+  besideId = null,
   bubbles = [],
   onPickGuest,
   onSit,
@@ -3991,6 +3996,7 @@ export function HouseRoom({
   shopNonce?: number;
   guests?: ScenePerson[];
   selfId?: string;
+  besideId?: string | null;
   bubbles?: Array<{ fromId: string; text: string }>;
   onPickGuest?: (id: string) => void;
   onSit?: () => void;
@@ -4064,6 +4070,7 @@ export function HouseRoom({
           return { key: piece.key, id: piece.id, label: at.homeId === homeId ? roomName(at.spot, at.roomNo) : homeById(at.homeId).name };
         })
     : [];
+  const visitors = guests.filter((person) => person.id === selfId || Boolean(besideId && person.id === besideId));
   const chip = (active: boolean) => `rounded-full px-3 py-1 text-[10px] font-semibold shadow ${active ? "bg-[#17241e] text-white" : "bg-white"}`;
 
   function bring(key: string) {
@@ -4101,7 +4108,7 @@ export function HouseRoom({
         walkTo={walk ? walk.to : null}
         onWalked={arrived}
         pose={pose}
-        guests={guests}
+        guests={visitors}
         selfId={selfId}
       />
       {walk ? (
@@ -4118,11 +4125,11 @@ export function HouseRoom({
           Come here
         </button>
       ) : null}
-      {pose === "bed" && guests.find((person) => person.id !== selfId) ? (
+      {pose === "bed" && visitors.find((person) => person.id !== selfId) ? (
         <BedDuvet
           left={look ?? "chidi"}
-          right={lookFrom(guests.find((person) => person.id !== selfId)!.id, guests.find((person) => person.id !== selfId)!.look, guests.find((person) => person.id !== selfId)!.gender)}
-          names={[guests.find((person) => person.id === selfId)?.name ?? "You", guests.find((person) => person.id !== selfId)!.name]}
+          right={lookFrom(visitors.find((person) => person.id !== selfId)!.id, visitors.find((person) => person.id !== selfId)!.look, visitors.find((person) => person.id !== selfId)!.gender)}
+          names={[visitors.find((person) => person.id === selfId)?.name ?? "You", visitors.find((person) => person.id !== selfId)!.name]}
         />
       ) : null}
       {onOutside ? (
@@ -4143,11 +4150,11 @@ export function HouseRoom({
             <button type="button" disabled={pending || pose === "stand"} onClick={() => onStand?.()} className="rounded-full bg-white px-3 py-1 text-[10px] font-semibold shadow disabled:opacity-40">Stand</button>
           </>
         ) : null}
-        {guests.some((person) => person.id !== selfId) && onFawwwk ? (
+        {visitors.some((person) => person.id !== selfId) && onFawwwk ? (
           <button
             type="button"
             disabled={pending}
-            onClick={() => onFawwwk(guests.find((person) => person.id !== selfId)?.id ?? "")}
+            onClick={() => onFawwwk(visitors.find((person) => person.id !== selfId)?.id ?? "")}
             className="rounded-full bg-[#7a2e1e] px-3 py-1 text-[10px] font-semibold text-white shadow disabled:opacity-40"
           >
             Fawwwk

@@ -279,6 +279,7 @@ export function GameShell({ view }: { view: GameView }) {
                 ...view.nearby.map((person) => ({ id: person.id, name: person.name, look: person.look, gender: person.gender, pose: person.pose })),
               ]}
               selfId={me.id}
+              besideId={me.besideId}
               bubbles={view.bubbles}
               onPickGuest={setPersonId}
               onSit={() => run(sitDown)}
