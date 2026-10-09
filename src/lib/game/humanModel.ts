@@ -146,7 +146,9 @@ export function createRealisticHuman(options: HumanOptions = {}): THREE.Group {
   const torsoD = 0.28;
   const limbW = 0.22;
   const armLen = 0.58;
-  const legLen = 0.72;
+  const thighLen = 0.36;
+  const shinLen = 0.34;
+  const footH = 0.14;
 
   const hipY = seated ? 0.78 : 0.96;
   const torsoY = seated ? 1.28 : 1.46;
@@ -205,34 +207,34 @@ export function createRealisticHuman(options: HumanOptions = {}): THREE.Group {
     limbs.arms.push(arm);
   }
 
-  if (seated) {
+  const buildLeg = (seatedLeg: boolean) => {
     for (const side of [-1, 1]) {
       const leg = new THREE.Group();
-      const thigh = mesh(new THREE.BoxGeometry(limbW + 0.02, legLen * 0.52, limbW + 0.02), pantsMat);
-      thigh.position.set(0, -legLen * 0.26, legLen * 0.22);
-      thigh.rotation.x = Math.PI / 2;
-      const shin = mesh(new THREE.BoxGeometry(limbW, legLen * 0.48, limbW), pantsMat);
-      shin.position.set(0, -legLen * 0.38, legLen * 0.48);
-      const foot = mesh(new THREE.BoxGeometry(limbW + 0.04, 0.12, limbW + 0.14), plastic(0x111827));
-      foot.position.set(0, -legLen * 0.58, legLen * 0.52);
-      leg.add(thigh, shin, foot);
+      const thigh = mesh(new THREE.BoxGeometry(limbW + 0.02, thighLen, limbW + 0.02), pantsMat);
+      thigh.position.y = -thighLen / 2;
+
+      const knee = new THREE.Group();
+      knee.position.y = -thighLen;
+      const shin = mesh(new THREE.BoxGeometry(limbW, shinLen, limbW), pantsMat);
+      shin.position.y = -shinLen / 2;
+      const foot = mesh(new THREE.BoxGeometry(limbW + 0.06, footH, limbW + 0.18), plastic(0x111827));
+      foot.position.set(0, -shinLen - footH * 0.35, 0.04);
+      knee.add(shin, foot);
+
+      leg.add(thigh, knee);
+      if (seatedLeg) {
+        thigh.rotation.x = Math.PI / 2;
+        thigh.position.set(0, -thighLen * 0.15, thighLen * 0.42);
+        knee.position.set(0, -thighLen * 0.55, thighLen * 0.88);
+        knee.rotation.x = 1.05;
+      }
       leg.position.set(side * 0.11, hipY, 0);
+      leg.userData.knee = knee;
       person.add(leg);
       limbs.legs.push(leg);
     }
-  } else {
-    for (const side of [-1, 1]) {
-      const leg = new THREE.Group();
-      const upper = mesh(new THREE.BoxGeometry(limbW + 0.02, legLen, limbW + 0.02), pantsMat);
-      upper.position.y = -legLen / 2;
-      const foot = mesh(new THREE.BoxGeometry(limbW + 0.06, 0.14, limbW + 0.18), plastic(0x111827));
-      foot.position.set(0, -legLen - 0.04, 0.04);
-      leg.add(upper, foot);
-      leg.position.set(side * 0.11, hipY, 0);
-      person.add(leg);
-      limbs.legs.push(leg);
-    }
-  }
+  };
+  buildLeg(seated);
 
   const shadow = new THREE.Mesh(
     new THREE.CircleGeometry(0.3, 16),
