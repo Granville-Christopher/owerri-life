@@ -78,7 +78,7 @@ import {
   useRestroom,
   go,
 } from "@/lib/game/actions";
-import { BET_STAKES, CAREERS, DREAMS, HOMES, LANDS, NPCS, PLACES, TOP_UPS, TRAITS, TREATMENT_FEE, TRIPS, careerById, carById, coursesAt, homeById, isTripPlace, lectureLabel, placeActs, placeById, placeClosedNotice, tripById, tripFromPlace, type Course } from "@/lib/game/content";
+import { BET_STAKES, CAREERS, DREAMS, HOMES, LANDS, NPCS, PLACES, TOP_UPS, TRAITS, TREATMENT_FEE, TRIPS, careerById, carById, coursesAt, homeAreaId, homeById, isTripPlace, lectureLabel, placeActs, placeById, placeClosedNotice, tripById, tripFromPlace, type Course } from "@/lib/game/content";
 import { photoForVehicle } from "@/components/game/photoVehicles";
 import { POLICE_ID, multiplyOdds, travelOptions } from "@/lib/game/engine";
 import { clockLabel, dreamProgress, jobTitle, levelPay, moodLabel, naira, skillLabel, skillNeeded, weekday } from "@/lib/game/format";
@@ -88,6 +88,10 @@ import { NEED_KEYS, type BetPick, type NeedKey, type TravelMode, type WorkStyle 
 type Run = (
   work: () => Promise<{ ok: true; notice?: string } | { ok: false; error: string }>,
 ) => Promise<{ ok: true; notice?: string } | { ok: false; error: string }>;
+
+function faceOf(person: PersonCard) {
+  return { id: person.id, name: person.name, look: person.look, gender: person.gender, pose: person.pose };
+}
 type Tab = "home" | "room" | "map" | "phone" | "people" | "bets" | "ledger";
 
 const styles: Array<{ id: WorkStyle; name: string; detail: string }> = [
@@ -278,7 +282,9 @@ export function GameShell({ view }: { view: GameView }) {
               onToilet={() => run(useRestroom)}
               guests={[
                 { id: me.id, name: me.username, look: me.look, gender: me.gender, pose: me.pose },
-                ...view.nearby.map((person) => ({ id: person.id, name: person.name, look: person.look, gender: person.gender, pose: person.pose })),
+                ...view.city
+                  .filter((person) => person.indoors && person.besideId === me.id && person.locationId === homeAreaId(me.homeId))
+                  .map(faceOf),
               ]}
               selfId={me.id}
               besideId={me.besideId}
@@ -978,7 +984,7 @@ function MapPanel({
           username={view.me.username}
           people={[
             { id: view.me.id, name: view.me.username, look: view.me.look, gender: view.me.gender, pose: view.me.pose },
-            ...view.nearby.map((person) => ({ id: person.id, name: person.name, look: person.look, gender: person.gender, pose: person.pose })),
+            ...(view.inside && place.kind === "home" ? view.inside.people : view.nearby).map(faceOf),
           ]}
           besideId={view.me.besideId}
           selfId={view.me.id}
@@ -1009,7 +1015,17 @@ function MapPanel({
           cars={view.me.cars ?? []}
           onBuyCar={(carId) => run(() => buyCar(carId))}
           house={
-            place.kind === "home" && place.id === homeById(view.me.homeId).areaId
+            view.inside && place.kind === "home" && view.inside.homeId
+              ? {
+                  name: view.inside.name,
+                  homeId: view.inside.homeId,
+                  furniture: view.inside.furniture,
+                  layout: view.inside.layout,
+                  beds: view.inside.beds,
+                  upstairs: view.inside.upstairs,
+                  duplex: view.inside.duplex,
+                }
+              : place.kind === "home" && place.id === homeById(view.me.homeId).areaId
               ? {
                   name: homeById(view.me.homeId).name,
                   homeId: view.me.homeId,
@@ -2154,12 +2170,11 @@ function PeoplePanel({
           <div className="bg-[#fffaf2] p-2">
             <p className="px-1 pb-2 text-[10px] text-[#5d6b62]">Swipe left to reply. Swipe right to delete a message you sent.</p>
             {reply ? <ReplyBar reply={reply} onClear={() => setReply(null)} /> : null}
-            <VoiceNoteButton peerId={peer.id} disabled={pending} />
             {mentionQuery(text) != null ? (
               <button type="button" className="mb-2 rounded-full bg-[#efe4d2] px-3 py-1 text-xs font-semibold" onClick={() => setText((current) => current.replace(/@[^\s@]*$/, `@${peer.name} `))}>@{peer.name}</button>
             ) : null}
             <form
-              className="flex gap-2"
+              className="flex items-center gap-2"
               onSubmit={(event) => {
                 event.preventDefault();
                 const next = text;
@@ -2169,6 +2184,7 @@ function PeoplePanel({
                 run(() => sendMessage(peer.id, next, quoted));
               }}
             >
+              <VoiceNoteButton peerId={peer.id} disabled={pending} />
               <input value={text} onChange={(event) => setText(event.target.value)} placeholder="Message" className="min-w-0 flex-1 rounded-full border border-[#e4d8c4] bg-white px-3 py-2 text-sm" />
               <button type="button" className="rounded-full border border-[#1f6b45] px-3 py-2 text-sm font-semibold text-[#1f6b45]" disabled={pending} onClick={() => onMeet(peer.id)}>Meet</button>
               <button className="rounded-full bg-[#1f6b45] px-4 py-2 text-sm font-semibold text-[#f6f1e6]" disabled={pending}>Send</button>

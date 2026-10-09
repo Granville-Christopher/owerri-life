@@ -74,11 +74,26 @@ export function VoiceNoteButton({ peerId, disabled }: { peerId: string; disabled
   }
 
   return (
-    <div className="mb-2">
-      {error ? <p className="mb-1 text-[11px] text-[#7a2e1e]">{error}</p> : null}
-      <button type="button" disabled={disabled} onClick={() => void toggle()} className={`rounded-full px-3 py-1 text-[11px] font-semibold ${recording ? "bg-[#7a2e1e] text-white" : "bg-[#efe4d2] text-[#143d2c]"}`}>
-        {recording ? "Stop voice note" : "Voice note"}
+    <span className="relative shrink-0">
+      {error ? <span className="absolute bottom-full left-0 z-10 mb-1 w-40 rounded-xl bg-[#f3d6cc] px-2 py-1 text-[10px] leading-4 text-[#7a2e1e]">{error}</span> : null}
+      <button
+        type="button"
+        aria-label={recording ? "Stop voice note" : "Voice note"}
+        disabled={disabled}
+        onClick={() => void toggle()}
+        className={`grid h-10 w-10 place-items-center rounded-full border ${recording ? "border-[#7a2e1e] bg-[#7a2e1e] text-white" : "border-[#e4d8c4] bg-white text-[#143d2c]"} disabled:opacity-40`}
+      >
+        {recording ? (
+          <span className="h-3 w-3 rounded-[3px] bg-white" />
+        ) : (
+          <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="9" y="3" width="6" height="11" rx="3" />
+            <path d="M6 11a6 6 0 0 0 12 0" />
+            <path d="M12 17v3" />
+            <path d="M8 20h8" />
+          </svg>
+        )}
       </button>
-    </div>
+    </span>
   );
 }

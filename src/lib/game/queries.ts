@@ -1,9 +1,9 @@
-import { courseById, dreamById, lectureLabel, matchLook, npcById, npcGender, npcLook, npcsAt, placeById, plotById, traitById } from "./content";
+import { courseById, dreamById, homeAreaId, homeById, lectureLabel, matchLook, npcById, npcGender, npcLook, npcsAt, placeById, plotById, traitById } from "./content";
 import { POLICE_ID, atWork, clockIndex, indexLabel, normalizeBet, poolsOf, wallet } from "./engine";
 import { homeLabel, jobTitle, moodLabel, naira, playerBio } from "./format";
 import { currentPlayer } from "./auth";
 import { readDb } from "./store";
-import type { Bet, NetWorthVisibility, Player } from "./types";
+import type { Bet, DB, NetWorthVisibility, Player } from "./types";
 
 export interface PersonCard {
   id: string;
@@ -26,6 +26,9 @@ export interface PersonCard {
   pose: Player["pose"];
   intimacyWith: string | null;
   locationId: string | null;
+  indoors: boolean;
+  besideId: string | null;
+  homeId: string;
 }
 
 export interface GameView {
@@ -101,6 +104,16 @@ export interface GameView {
   }>;
   bubbles: Array<{ fromId: string; name: string; text: string }>;
   city: PersonCard[];
+  inside: {
+    name: string;
+    homeId: string;
+    furniture: string[];
+    layout: Player["layout"];
+    beds: number;
+    upstairs: boolean;
+    duplex: boolean;
+    people: PersonCard[];
+  } | null;
   slate: Array<{
     id: string;
     home: string;
@@ -160,6 +173,9 @@ function cardForNpc(id: string, viewer: Player, balance = 0): PersonCard | null 
     pose: "stand",
     intimacyWith: null,
     locationId: npc.placeId,
+    indoors: true,
+    besideId: null,
+    homeId: "",
   };
 }
 
@@ -186,6 +202,55 @@ function cardForPlayer(other: Player, viewer: Player, balance: number): PersonCa
     pose: other.pose ?? "stand",
     intimacyWith: other.intimacyWith ?? null,
     locationId: other.locationId,
+    indoors: other.indoors,
+    besideId: other.besideId ?? null,
+    homeId: other.homeId,
+  };
+}
+
+function insideHouse(me: Player, db: DB): GameView["inside"] {
+  const place = placeById(me.locationId);
+  if (!me.indoors || place.kind !== "home") return null;
+  const area = me.locationId;
+  const livesHere = (person: Player) => homeAreaId(person.homeId) === area;
+  const present = (person: Player) => person.indoors && person.locationId === area;
+  const card = (person: Player) => cardForPlayer(person, me, wallet(db.ledger, person.id));
+  const visitorsOf = (hostId: string) => db.players.filter((person) => person.id !== me.id && present(person) && person.besideId === hostId);
+  const pointed = me.besideId ? db.players.find((person) => person.id === me.besideId) ?? null : null;
+  const npc = me.besideId && !pointed ? npcById(me.besideId) : null;
+  if (npc) {
+    const resident = cardForNpc(npc.id, me, wallet(db.ledger, npc.id));
+    const people = db.players.filter((person) => person.id !== me.id && present(person) && person.besideId === npc.id).map(card);
+    return {
+      name: `${npc.name}'s place`,
+      homeId: "",
+      furniture: [],
+      layout: {},
+      beds: 1,
+      upstairs: false,
+      duplex: false,
+      people: resident ? [resident, ...people] : people,
+    };
+  }
+  const mineHere = livesHere(me);
+  const myVisitors = visitorsOf(me.id);
+  let host: Player | null = null;
+  if (mineHere && (myVisitors.length > 0 || !pointed || !livesHere(pointed))) host = me;
+  else if (pointed && livesHere(pointed)) host = pointed;
+  else if (mineHere) host = me;
+  if (!host) return null;
+  const residence = host;
+  const home = homeById(residence.homeId);
+  const people = (residence.id === me.id ? myVisitors : db.players.filter((person) => person.id !== me.id && present(person) && (person.id === residence.id || person.besideId === residence.id))).map(card);
+  return {
+    name: residence.id === me.id ? home.name : `${residence.username}'s house`,
+    homeId: residence.homeId,
+    furniture: residence.furniture ?? [],
+    layout: residence.layout ?? {},
+    beds: home.beds,
+    upstairs: home.upstairs,
+    duplex: home.id.includes("duplex"),
+    people,
   };
 }
 
@@ -396,6 +461,7 @@ export async function buildView(playerId: string): Promise<GameView | null> {
     city: db.players
       .filter((player) => player.id !== me.id)
       .map((player) => cardForPlayer(player, me, wallet(db.ledger, player.id))),
+    inside: insideHouse(me, db),
   };
 }
 

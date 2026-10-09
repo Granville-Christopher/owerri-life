@@ -3754,7 +3754,7 @@ function RoomView({
     };
     const seated = pose === "sit";
     const me = createRealisticHuman({ lookId: look, scale: 0.92, seated });
-    const company = guests.filter((person) => person.id !== selfId).slice(0, 5);
+    const company = guests.filter((person) => person.id !== selfId).slice(0, 24);
     const placeGuest = (parent: THREE.Object3D, ox: number, oz: number, faceY: number, lift: number) => {
       company.forEach((person, index) => {
         const body = createRealisticHuman({
@@ -4625,7 +4625,9 @@ export function HouseRoom({
           return { key: piece.key, id: piece.id, label: at.homeId === homeId ? roomName(at.spot, at.roomNo) : homeById(at.homeId).name };
         })
     : [];
-  const visitors = guests.filter((person) => person.id === selfId || Boolean(besideId && person.id === besideId));
+  const visitors = guests;
+  const company = visitors.filter((person) => person.id !== selfId);
+  const partner = company.find((person) => person.id === besideId) ?? company[0] ?? null;
   const chip = (active: boolean) => `rounded-full px-3 py-1 text-[10px] font-semibold shadow ${active ? "bg-[#17241e] text-white" : "bg-white"}`;
 
   function bring(key: string) {
@@ -4689,11 +4691,11 @@ export function HouseRoom({
           Come here
         </button>
       ) : null}
-      {pose === "bed" && visitors.find((person) => person.id !== selfId) ? (
+      {pose === "bed" && partner ? (
         <BedDuvet
           left={look ?? "chidi"}
-          right={lookFrom(visitors.find((person) => person.id !== selfId)!.id, visitors.find((person) => person.id !== selfId)!.look, visitors.find((person) => person.id !== selfId)!.gender)}
-          names={[visitors.find((person) => person.id === selfId)?.name ?? "You", visitors.find((person) => person.id !== selfId)!.name]}
+          right={lookFrom(partner.id, partner.look, partner.gender)}
+          names={[visitors.find((person) => person.id === selfId)?.name ?? "You", partner.name]}
         />
       ) : null}
       {onOutside ? (
@@ -4708,11 +4710,11 @@ export function HouseRoom({
       ) : null}
       <p className="pointer-events-none absolute left-3 top-14 z-10 rounded-full bg-white px-3 py-2 text-xs font-semibold shadow">{name}</p>
       <div className="absolute left-2 right-16 top-32 z-30 flex flex-wrap gap-1">
-        {visitors.some((person) => person.id !== selfId) && onFawwwk ? (
+        {partner && onFawwwk ? (
           <button
             type="button"
             disabled={pending}
-            onClick={() => onFawwwk(visitors.find((person) => person.id !== selfId)?.id ?? "")}
+            onClick={() => onFawwwk(partner.id)}
             className="rounded-full bg-[#7a2e1e] px-3 py-1 text-[10px] font-semibold text-white shadow disabled:opacity-40"
           >
             Fawwwk
