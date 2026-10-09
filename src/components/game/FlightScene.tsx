@@ -76,26 +76,28 @@ function paintCloud(): THREE.CanvasTexture {
 
 function paintTitle(): THREE.CanvasTexture {
   const canvas = document.createElement("canvas");
-  canvas.width = 1024;
-  canvas.height = 256;
+  canvas.width = 2048;
+  canvas.height = 512;
   const ctx = canvas.getContext("2d");
   if (ctx) {
-    ctx.clearRect(0, 0, 1024, 256);
+    ctx.clearRect(0, 0, 2048, 512);
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.font = "900 110px Impact, Arial Black, sans-serif";
     ctx.lineJoin = "round";
-    ctx.strokeStyle = "#e0b15a";
-    ctx.lineWidth = 16;
-    ctx.strokeText("OWERRI LIFE", 512, 118);
-    ctx.fillStyle = "#143d2c";
-    ctx.fillText("OWERRI LIFE", 512, 118);
-    ctx.font = "800 28px Arial Black, sans-serif";
-    ctx.fillStyle = "#1f6b45";
-    ctx.fillText("QOW  ·  SAM MBAKWE", 512, 198);
+    ctx.lineCap = "round";
+    ctx.font = "900 268px Impact, Arial Black, sans-serif";
+    ctx.strokeStyle = "#0e1c16";
+    ctx.lineWidth = 54;
+    ctx.strokeText("OWERRI LIFE", 1024, 250);
+    ctx.strokeStyle = "#143d2c";
+    ctx.lineWidth = 28;
+    ctx.strokeText("OWERRI LIFE", 1024, 250);
+    ctx.fillStyle = "#e0b15a";
+    ctx.fillText("OWERRI LIFE", 1024, 250);
   }
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
   tex.needsUpdate = true;
   return tex;
 }
@@ -111,11 +113,22 @@ function dressAirliner(plane: THREE.Group, title: THREE.Texture) {
   const box = new THREE.Box3().setFromObject(plane);
   const size = box.getSize(new THREE.Vector3());
   const centre = box.getCenter(new THREE.Vector3());
-  const fuseX = Math.max(1.05, size.x * 0.08);
-  const titleMat = new THREE.MeshBasicMaterial({ map: title, transparent: true, side: THREE.DoubleSide, depthWrite: false, depthTest: true });
+  const fuseX = Math.max(1.12, size.x * 0.09);
+  const titleMat = new THREE.MeshBasicMaterial({
+    map: title,
+    transparent: true,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+    depthTest: true,
+    polygonOffset: true,
+    polygonOffsetFactor: -4,
+    polygonOffsetUnits: -4,
+  });
+  const decalW = Math.min(16.5, size.z * 0.78);
+  const decalH = Math.min(4.2, size.y * 0.55);
   for (const side of [-1, 1]) {
-    const decal = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(9.2, size.z * 0.42), Math.min(1.35, size.y * 0.22)), titleMat);
-    decal.position.set(centre.x + side * fuseX, centre.y + size.y * 0.02, centre.z + size.z * 0.04);
+    const decal = new THREE.Mesh(new THREE.PlaneGeometry(decalW, decalH), titleMat);
+    decal.position.set(centre.x + side * fuseX, centre.y + size.y * 0.04, centre.z + size.z * 0.02);
     decal.rotation.y = side > 0 ? Math.PI / 2 : -Math.PI / 2;
     plane.add(decal);
   }
