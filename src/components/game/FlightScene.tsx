@@ -102,10 +102,128 @@ function paintTitle(): THREE.CanvasTexture {
   return tex;
 }
 
+function cloth(color: number, rough = 0.82) {
+  return new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: 0.04, envMapIntensity: 0.35 });
+}
+
 function block(w: number, h: number, d: number, color: number, x = 0, y = 0, z = 0, mat?: THREE.Material) {
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat ?? new THREE.MeshLambertMaterial({ color }));
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat ?? cloth(color));
   mesh.position.set(x, y, z);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
   return mesh;
+}
+
+function seatMesh() {
+  const seat = new THREE.Group();
+  const leather = cloth(0x1a3d52, 0.62);
+  const dark = cloth(0x101820, 0.7);
+  const metal = new THREE.MeshStandardMaterial({ color: 0x8a93a0, roughness: 0.35, metalness: 0.55 });
+  seat.add(block(0.5, 0.1, 0.52, 0x1a3d52, 0, 0.5, 0.02, leather));
+  seat.add(block(0.5, 0.58, 0.1, 0x245c78, 0, 0.84, -0.22, leather));
+  seat.add(block(0.42, 0.16, 0.08, 0x17394c, 0, 1.16, -0.23, leather));
+  seat.add(block(0.05, 0.28, 0.42, 0x101820, -0.24, 0.62, 0, dark));
+  seat.add(block(0.05, 0.28, 0.42, 0x101820, 0.24, 0.62, 0, dark));
+  seat.add(block(0.46, 0.02, 0.08, 0x0b1220, 0, 0.78, 0.18, dark));
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.14), new THREE.MeshBasicMaterial({ color: 0x0e1c28 }));
+  screen.position.set(0, 0.92, -0.165);
+  seat.add(screen);
+  for (const x of [-0.16, 0.16]) {
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.022, 0.46, 8), metal);
+    leg.position.set(x, 0.23, -0.08);
+    seat.add(leg);
+  }
+  return seat;
+}
+
+function buildCabin() {
+  const cabin = new THREE.Group();
+  const carpet = cloth(0x3a2a22, 0.92);
+  const aisle = cloth(0x5a4638, 0.88);
+  const wall = cloth(0xd8dee6, 0.78);
+  const cream = cloth(0xe8edf2, 0.74);
+  const binMat = cloth(0xc5ccd6, 0.55);
+  const gold = cloth(0xc4a15a, 0.45);
+
+  cabin.add(block(3.35, 0.06, 14.4, 0x3a2a22, 0, 0.03, 0, carpet));
+  cabin.add(block(0.62, 0.02, 14.2, 0x5a4638, 0, 0.065, 0, aisle));
+  cabin.add(block(0.08, 0.01, 14.2, 0xc4a15a, 0, 0.07, 0, gold));
+  cabin.add(block(3.35, 0.05, 14.4, 0xe8edf2, 0, 2.22, 0, cream));
+  cabin.add(block(0.1, 2.16, 14.4, 0xd8dee6, -1.66, 1.1, 0, wall));
+  cabin.add(block(0.1, 2.16, 14.4, 0xd8dee6, 1.66, 1.1, 0, wall));
+
+  cabin.add(block(0.78, 0.28, 13.2, 0xc5ccd6, -1.12, 2.02, 0.1, binMat));
+  cabin.add(block(0.78, 0.28, 13.2, 0xc5ccd6, 1.12, 2.02, 0.1, binMat));
+  cabin.add(block(0.72, 0.04, 13.1, 0xb7bfc9, -1.12, 1.86, 0.1, binMat));
+  cabin.add(block(0.72, 0.04, 13.1, 0xb7bfc9, 1.12, 1.86, 0.1, binMat));
+
+  for (let i = 0; i < 10; i += 1) {
+    const z = 5.6 - i * 1.22;
+    for (const side of [-1, 1]) {
+      const frame = block(0.04, 0.34, 0.42, 0x9aa4b0, side * 1.6, 1.32, z, cloth(0x9aa4b0, 0.5));
+      cabin.add(frame);
+      const pane = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.3, 0.24),
+        new THREE.MeshStandardMaterial({ color: 0x7eb4d8, emissive: 0x4a7aa0, emissiveIntensity: 0.85, roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.7 }),
+      );
+      pane.position.set(side * 1.58, 1.32, z);
+      pane.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
+      cabin.add(pane);
+      const reading = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.04, 10), cloth(0xf4e4b8, 0.4));
+      reading.position.set(side * 0.95, 1.84, z);
+      cabin.add(reading);
+    }
+    const vent = block(1.8, 0.03, 0.18, 0xb0b8c2, 0, 2.12, z, cream);
+    cabin.add(vent);
+  }
+
+  const bulk = cloth(0x1f6b45, 0.7);
+  cabin.add(block(3.2, 2.05, 0.12, 0x1f6b45, 0, 1.05, 6.95, bulk));
+  cabin.add(block(0.7, 1.55, 0.04, 0x143d2c, 0, 0.9, 6.88, cloth(0x143d2c)));
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.18), new THREE.MeshBasicMaterial({ color: 0xe0b15a }));
+  sign.position.set(0, 1.85, 6.88);
+  cabin.add(sign);
+  cabin.add(block(1.1, 0.7, 0.45, 0xcfd6de, -1.05, 0.4, 6.55, cloth(0xcfd6de)));
+  cabin.add(block(1.1, 0.7, 0.45, 0xcfd6de, 1.05, 0.4, 6.55, cloth(0xcfd6de)));
+
+  cabin.add(block(3.2, 2.05, 0.1, 0x2a3340, 0, 1.05, -6.95, cloth(0x2a3340)));
+  cabin.add(block(0.55, 1.5, 0.04, 0x17241e, -0.7, 0.85, -6.88));
+  cabin.add(block(0.55, 1.5, 0.04, 0x17241e, 0.7, 0.85, -6.88));
+
+  const looks: LookId[] = ["ada", "chidi", "ngozi", "emeka", "zara", "ibe"];
+  const shirts = [0xc4552a, 0x245c78, 0x1f6b45, 0x7a3e6d, 0xd4a017, 0x1e3a5f];
+  for (let row = 0; row < 8; row += 1) {
+    const z = 4.7 - row * 1.28;
+    for (const x of [-1.14, -0.58, 0.58, 1.14]) {
+      const chair = seatMesh();
+      chair.position.set(x, 0, z);
+      cabin.add(chair);
+      const playerSeat = row === 2 && x === -1.14;
+      if (playerSeat) continue;
+      if ((row + Math.abs(x * 10)) % 4 === 0) continue;
+      const person = createRealisticHuman({
+        lookId: looks[(row * 3 + Math.abs(x * 10)) % looks.length],
+        seated: true,
+        scale: 0.78,
+        customShirt: shirts[(row + Math.round(x + 2)) % shirts.length],
+      });
+      person.position.set(x, 0.12, z + 0.04);
+      person.rotation.y = 0;
+      cabin.add(person);
+    }
+  }
+
+  const cabinLight = new THREE.PointLight(0xffe4c4, 1.15, 14);
+  cabinLight.position.set(0, 1.75, 1.2);
+  cabin.add(cabinLight);
+  const cabinFill = new THREE.PointLight(0xd7e6f5, 0.45, 16);
+  cabinFill.position.set(0, 1.6, -3);
+  cabin.add(cabinFill);
+  const aisleLight = new THREE.SpotLight(0xfff1dc, 0.55, 10, 0.7, 0.4);
+  aisleLight.position.set(0, 2.0, 2);
+  aisleLight.target.position.set(0, 0, 2);
+  cabin.add(aisleLight, aisleLight.target);
+  return cabin;
 }
 
 function dressAirliner(plane: THREE.Group, title: THREE.Texture) {
@@ -142,15 +260,6 @@ function dressAirliner(plane: THREE.Group, title: THREE.Texture) {
   nose.position.set(centre.x, centre.y, box.max.z);
   plane.add(red, green, strobe, nose);
   plane.userData.strobe = strobe;
-}
-
-function seatMesh() {
-  const seat = new THREE.Group();
-  seat.add(block(0.48, 0.08, 0.5, 0x1d4a66, 0, 0.42, 0));
-  seat.add(block(0.48, 0.62, 0.08, 0x245c78, 0, 0.72, -0.22));
-  seat.add(block(0.06, 0.22, 0.4, 0x17241e, -0.24, 0.52, 0));
-  seat.add(block(0.06, 0.22, 0.4, 0x17241e, 0.24, 0.52, 0));
-  return seat;
 }
 
 export function FlightScene({
@@ -262,50 +371,9 @@ export function FlightScene({
       exterior.add(model);
     });
 
-    const cabin = new THREE.Group();
-    cabin.add(block(3.2, 0.08, 14, 0x2a3340, 0, 0, 0));
-    cabin.add(block(3.2, 0.06, 14, 0x1a222c, 0, 2.15, 0));
-    cabin.add(block(0.08, 2.1, 14, 0xcfd6de, -1.58, 1.05, 0));
-    cabin.add(block(0.08, 2.1, 14, 0xcfd6de, 1.58, 1.05, 0));
-    for (let i = 0; i < 9; i += 1) {
-      const pane = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.28, 0.22),
-        new THREE.MeshBasicMaterial({ color: 0x8fb8d6, transparent: true, opacity: 0.35 }),
-      );
-      pane.position.set(-1.54, 1.35, 5.2 - i * 1.35);
-      pane.rotation.y = Math.PI / 2;
-      cabin.add(pane);
-      const paneR = pane.clone();
-      paneR.position.x = 1.54;
-      paneR.rotation.y = -Math.PI / 2;
-      cabin.add(paneR);
-    }
-    const bin = new THREE.MeshLambertMaterial({ color: 0xd9dee6 });
-    cabin.add(block(0.7, 0.22, 13, 0xd9dee6, -1.05, 1.95, 0, bin));
-    cabin.add(block(0.7, 0.22, 13, 0xd9dee6, 1.05, 1.95, 0, bin));
-    const looks: LookId[] = ["ada", "chidi", "ngozi", "emeka", "zara", "ibe"];
-    const shirts = [0xc4552a, 0x245c78, 0x1f6b45, 0x7a3e6d, 0xf2c14e, 0x17241e];
-    for (let row = 0; row < 8; row += 1) {
-      for (const x of [-1.12, -0.58, 0.58, 1.12]) {
-        const chair = seatMesh();
-        chair.position.set(x, 0, 4.6 - row * 1.32);
-        cabin.add(chair);
-        const playerSeat = row === 2 && x === -1.12;
-        if (playerSeat) continue;
-        if ((row + Math.abs(x)) % 3 === 0) continue;
-        const person = createRealisticHuman({
-          lookId: looks[(row * 3 + Math.abs(x * 10)) % looks.length],
-          seated: true,
-          scale: 0.78,
-          customShirt: shirts[(row + Math.round(x + 2)) % shirts.length],
-        });
-        person.position.set(x, 0, 4.55 - row * 1.32);
-        person.rotation.y = 0;
-        cabin.add(person);
-      }
-    }
+    const cabin = buildCabin();
     const you = createRealisticHuman({ lookId: look, seated: true, scale: 0.8 });
-    you.position.set(-1.12, 0, 4.55 - 2 * 1.32);
+    you.position.set(-1.14, 0.12, 4.7 - 2 * 1.28);
     you.rotation.y = 0;
     cabin.add(you);
 
@@ -316,12 +384,8 @@ export function FlightScene({
       customShirt: 0x1f6b45,
       customPants: 0x17241e,
     });
-    attendant.position.set(0, 0, 3.2);
+    attendant.position.set(0, 0.02, 3.2);
     cabin.add(attendant);
-
-    const cabinLight = new THREE.PointLight(0xffe6c8, 1.35, 12);
-    cabinLight.position.set(0, 1.8, 1);
-    cabin.add(cabinLight);
     flight.add(cabin);
     cabin.position.set(0, 0.35, 0.4);
 
@@ -365,10 +429,10 @@ export function FlightScene({
         cabin.visible = true;
         exterior.visible = false;
         flight.updateMatrixWorld(true);
-        const eye = new THREE.Vector3(-0.55, 1.38, 1.62);
+        const eye = new THREE.Vector3(-0.58, 1.42, 1.85);
         cabin.localToWorld(eye);
         camera.position.copy(eye);
-        const gaze = new THREE.Vector3(0.2, 1.18, 4.6);
+        const gaze = new THREE.Vector3(0.15, 1.22, 5.1);
         cabin.localToWorld(gaze);
         camera.lookAt(gaze);
         camera.fov = 68;
