@@ -828,19 +828,21 @@ function ClubHall({
     if (!root) return;
     const lite = weakGpu();
     const renderer = makeRenderer();
-    renderer.setSize(root.clientWidth, root.clientHeight);
+    renderer.domElement.style.width = "100%";
+    renderer.domElement.style.height = "100%";
+    renderer.domElement.style.display = "block";
+    renderer.setSize(root.clientWidth || 1, root.clientHeight || 1);
     root.appendChild(renderer.domElement);
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(theme.bg);
-    scene.fog = new THREE.Fog(theme.bg, 12, 38);
-    scene.add(new THREE.HemisphereLight(0x4a3a58, 0x0c0a10, 0.55));
-    const spot = new THREE.DirectionalLight(0xfff1d0, 0.7);
+    scene.add(new THREE.HemisphereLight(0xffe6c8, 0x2a2030, 0.95));
+    const spot = new THREE.DirectionalLight(0xfff1d0, 1.15);
     spot.position.set(3, 14, 6);
     scene.add(spot);
-    const wash = new THREE.PointLight(theme.wash, 14, 18);
+    const wash = new THREE.PointLight(theme.wash, 16, 28);
     wash.position.set(0.4, 3.1, 0.4);
     scene.add(wash);
-    const washB = new THREE.PointLight(theme.accent, 8, 14);
+    const washB = new THREE.PointLight(theme.accent, 10, 22);
     washB.position.set(-3, 2.8, -2);
     scene.add(washB);
 
@@ -1008,10 +1010,10 @@ function ClubHall({
     const noteMat = new THREE.MeshBasicMaterial({ map: noteMap, side: THREE.DoubleSide, transparent: true });
     let seenSpray = sprayRef.current;
 
-    const pull = phonePullback();
-    const camera = new THREE.PerspectiveCamera(pull > 1 ? 40 : 32, 1, 0.1, 90);
+    const pull = phonePullback() > 1 ? 1.22 : 1;
+    const camera = new THREE.PerspectiveCamera(pull > 1 ? 36 : 32, 1, 0.1, 120);
     const aim = new THREE.Vector3(8, 11, 13).normalize();
-    const baseDist = 24 * pull;
+    const baseDist = 18 * pull;
     const fit = () => {
       renderer.setSize(root.clientWidth || 1, root.clientHeight || 1);
       camera.aspect = (root.clientWidth || 1) / (root.clientHeight || 1);
@@ -1026,8 +1028,8 @@ function ClubHall({
       if (!alive) return;
       const t = performance.now() - t0;
       hall.rotation.y = rig.current.yaw;
-      wash.intensity = 11 + Math.sin(t * 0.004) * 4;
-      wash.color.setHSL((t * 0.00008) % 1, 0.55, 0.55);
+      wash.intensity = 14 + Math.sin(t * 0.004) * 3;
+      wash.color.setHSL((t * 0.00008) % 1, 0.45, 0.62);
       (led.material as THREE.MeshLambertMaterial).emissiveIntensity = 0.55 + Math.abs(Math.sin(t * 0.006)) * 0.7;
       tiles.forEach((tile, i) => {
         (tile.material as THREE.MeshLambertMaterial).emissiveIntensity = 0.12 + Math.abs(Math.sin(t * 0.005 + i)) * 0.55;
@@ -1081,10 +1083,13 @@ function ClubHall({
     loop();
     const onResize = () => fit();
     window.addEventListener("resize", onResize);
+    const watcher = new ResizeObserver(() => fit());
+    watcher.observe(root);
     return () => {
       alive = false;
       window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", onResize);
+      watcher.disconnect();
       detachControls();
       noteMap.dispose();
       noteGeo.dispose();
