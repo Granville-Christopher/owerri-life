@@ -310,7 +310,7 @@ export function createRealisticHuman(options: HumanOptions = {}): THREE.Group {
 
   const head = new THREE.Group();
   const skullGeo = new THREE.SphereGeometry(isFemale ? 0.15 : 0.156, segs, segs - 4);
-  skullGeo.rotateY(-Math.PI / 2);
+  skullGeo.rotateY(Math.PI / 2);
   const faceMap = typeof document !== "undefined" ? faceTexture(skin, pal.hair, isFemale, lite) : null;
   const headMat = new THREE.MeshPhongMaterial({
     color: faceMap ? 0xffffff : pal.skin,
@@ -378,7 +378,14 @@ export function createRealisticHuman(options: HumanOptions = {}): THREE.Group {
   const collar = mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.045, limbSegs), skinMat);
   collar.position.set(0, 0.24, 0.01);
   torso.add(collar);
-  torso.position.set(0, torsoY, 0);
+  for (const side of [-1, 1]) {
+    const shoulder = mesh(new THREE.CapsuleGeometry(0.042, 0.08, capSegs, limbSegs), shirtMat);
+    shoulder.rotation.z = side * Math.PI / 2;
+    shoulder.position.set(side * (isFemale ? 0.15 : 0.17), 0.16, 0);
+    torso.add(shoulder);
+  }
+  torso.rotation.x = seated ? 0.14 : 0;
+  torso.position.set(0, torsoY, seated ? -0.04 : 0);
   person.add(torso);
 
   const hips = new THREE.Group();
@@ -406,7 +413,7 @@ export function createRealisticHuman(options: HumanOptions = {}): THREE.Group {
   const buckle = mesh(new THREE.BoxGeometry(0.06, 0.032, 0.02), buckleMat);
   buckle.position.set(0, 0.08, 0.12);
   hips.add(pelvis, belt, buckle);
-  hips.position.set(0, hipY, 0);
+  hips.position.set(0, hipY, seated ? -0.05 : 0);
   person.add(hips);
 
   const limbs: { legs: THREE.Group[]; arms: THREE.Group[] } = { legs: [], arms: [] };
@@ -462,6 +469,7 @@ export function createRealisticHuman(options: HumanOptions = {}): THREE.Group {
       leg.add(thigh, calf, shoe);
       leg.position.set(side * 0.1, hipY - 0.06, 0);
       person.add(leg);
+      limbs.legs.push(leg);
     }
   } else {
     for (const side of [-1, 1]) {

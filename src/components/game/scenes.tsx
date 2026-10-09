@@ -315,6 +315,17 @@ function sitLift(cushion: number | undefined, scale: number, bed = false) {
   return Math.max(0.12, top - 0.84 * scale + (bed ? 0.2 : 0.14));
 }
 
+function sitInChair(seat: SeatSpot, scale: number) {
+  const back = seat.bed ? 0 : 0.12;
+  return {
+    x: seat.x - Math.sin(seat.rot) * back,
+    z: seat.z - Math.cos(seat.rot) * back,
+    rot: seat.rot,
+    y: sitLift(seat.y, scale, seat.bed),
+    bed: seat.bed,
+  };
+}
+
 function lieLift(cushion: number | undefined) {
   return (cushion ?? 0.9) + 0.2;
 }
@@ -335,8 +346,8 @@ function seatsFor(entry: { id: string; x: number; z: number; rot: number }): Sea
     return [at(-0.6, 0.95, Math.PI, false, 0.74), at(0.6, 0.95, Math.PI, false, 0.74), at(-0.6, -0.95, 0, false, 0.74), at(0.6, -0.95, 0, false, 0.74)];
   }
   if (entry.id === "desk") return [at(0, 0.9, Math.PI, false, 0.74)];
-  if (entry.id === "sofa") return [at(0, 0.18, 0, false, 0.95)];
-  if (entry.id === "armchair") return [at(0, 0.18, 0, false, 0.75)];
+  if (entry.id === "sofa") return [at(0, 0.05, 0, false, 0.95)];
+  if (entry.id === "armchair") return [at(0, 0.05, 0, false, 0.75)];
   if (entry.id === "bed" || entry.id === "double-bed") return [at(0, 0.35, 0, true, 0.9)];
   return [];
 }
@@ -1050,8 +1061,9 @@ function ClubHall({
     const seated = sitting || people.find((person) => person.id === selfId)?.pose === "sit";
     const me = createRealisticHuman({ lookId: look, seated, scale: 0.92 });
     if (seated) {
-      me.position.set(4.0, 0, -1.8);
-      me.rotation.y = 0;
+      const parked = sitInChair({ x: 4.0, z: -1.8, rot: 0, y: 0.5 }, 0.92);
+      me.position.set(parked.x, parked.y, parked.z);
+      me.rotation.y = parked.rot;
     } else {
       me.position.set(0.35, 0, 1.35);
       me.rotation.y = Math.PI;
@@ -2240,7 +2252,7 @@ function HotelSuite({
     const hotelSeats: SeatSpot[] = [
       { x: 1.05, z: 0.95, rot: Math.PI / 2, y: 0.59 },
       { x: 1.05, z: 0.15, rot: Math.PI / 2, y: 0.59 },
-      { x: -3.3, z: 1.5, rot: Math.PI / 2, y: 0.54 },
+      { x: -3.3, z: 1.5, rot: -Math.PI / 2, y: 0.54 },
       { x: -1.6, z: -0.55, rot: 0, bed: true, y: 0.69 },
     ];
     const hotelBed = { x: -1.6, z: -1.05, rot: 0, y: lieLift(0.69) };
@@ -2261,8 +2273,9 @@ function HotelSuite({
       you.rotation.x = -Math.PI / 2;
       you.position.set(hotelBed.x, hotelBed.y, hotelBed.z);
     } else if (startSeat) {
-      you.rotation.y = startSeat.rot;
-      you.position.set(startSeat.x, sitLift(startSeat.y, 0.92, startSeat.bed), startSeat.z);
+      const parked = sitInChair(startSeat, 0.92);
+      you.rotation.y = parked.rot;
+      you.position.set(parked.x, parked.y, parked.z);
     } else {
       you.rotation.y = hotelStand.rot;
       you.position.set(hotelStand.x, 0, hotelStand.z);
@@ -2278,8 +2291,9 @@ function HotelSuite({
         scale: 0.9,
       });
       if (guestSit) {
-        body.rotation.y = Math.PI / 2;
-        body.position.set(1.05, sitLift(0.59, 0.9), 0.15 - index * 0.7);
+        const parked = sitInChair({ x: 1.05, z: 0.15 - index * 0.7, rot: Math.PI / 2, y: 0.59 }, 0.9);
+        body.rotation.y = parked.rot;
+        body.position.set(parked.x, parked.y, parked.z);
       } else {
         body.rotation.y = Math.PI;
         body.position.set(-0.7 - index * 0.85, 0, 1.35);
@@ -2317,7 +2331,8 @@ function HotelSuite({
     const aimFor = (want: "stand" | "sit" | "lie") => {
       if (want === "sit") {
         const seat = pickSitTarget({ x: you.position.x, z: you.position.z }, hotelSeats) ?? hotelSeats[0];
-        dest = { x: seat.x, z: seat.z, rot: seat.rot, y: sitLift(seat.y, 0.92, seat.bed), hops: findWalkPath({ x: you.position.x, z: you.position.z }, seat, hotelBlocks), mode: "sit" };
+        const parked = sitInChair(seat, 0.92);
+        dest = { x: parked.x, z: parked.z, rot: parked.rot, y: parked.y, hops: findWalkPath({ x: you.position.x, z: you.position.z }, parked, hotelBlocks), mode: "sit" };
       } else if (want === "lie") {
         dest = { ...hotelBed, hops: findWalkPath({ x: you.position.x, z: you.position.z }, hotelBed, hotelBlocks), mode: "lie" };
       } else {
@@ -4039,8 +4054,9 @@ function RoomView({
       const first = stand(home);
       const houseSeat = seated ? pickSitTarget({ x: first[0], z: first[1] }, seats) : null;
       if (houseSeat) {
-        me.position.set(houseSeat.x, sitLift(houseSeat.y, 0.78, houseSeat.bed), houseSeat.z);
-        me.rotation.y = houseSeat.rot;
+        const parked = sitInChair(houseSeat, 0.78);
+        me.position.set(parked.x, parked.y, parked.z);
+        me.rotation.y = parked.rot;
       } else {
         me.position.set(first[0], seated ? sitLift(0.86, 0.78) : 0.14, first[1]);
       }
@@ -4181,8 +4197,9 @@ function RoomView({
     if (!house && at.spot === spot && (spot !== "room" || at.roomNo === roomNo)) {
       const startSeat = seated ? pickSitTarget({ x: standX, z: standZ }, seats) : null;
       if (startSeat) {
-        you.position.set(startSeat.x, sitLift(startSeat.y, bodyScale, startSeat.bed), startSeat.z);
-        you.rotation.y = startSeat.rot;
+        const parked = sitInChair(startSeat, bodyScale);
+        you.position.set(parked.x, parked.y, parked.z);
+        you.rotation.y = parked.rot;
       } else {
         you.position.set(standX, 0, standZ);
         you.rotation.y = Math.PI;
@@ -4313,7 +4330,8 @@ function RoomView({
         if ((!sitDest && want !== sitVisual) || (sitDest && sitDest.mode !== want)) {
           if (want === "sit") {
             const seat = pickSitTarget({ x: you.position.x, z: you.position.z }, seats) ?? { x: standX + 1.35, z: standZ - 0.55, rot: Math.PI / 2, y: 0.82 };
-            sitDest = { x: seat.x, z: seat.z, rot: seat.rot, y: sitLift(seat.y, bodyScale, seat.bed), hops: findWalkPath({ x: you.position.x, z: you.position.z }, seat, walkBlocks), mode: "sit" };
+            const parked = sitInChair(seat, bodyScale);
+            sitDest = { x: parked.x, z: parked.z, rot: parked.rot, y: parked.y, hops: findWalkPath({ x: you.position.x, z: you.position.z }, parked, walkBlocks), mode: "sit" };
           } else if (want === "bed") {
             const bed = seats.find((seat) => seat.bed) ?? pickSitTarget({ x: you.position.x, z: you.position.z }, seats) ?? { x: standX, z: standZ - 1.2, rot: 0, bed: true, y: 0.9 };
             sitDest = { x: bed.x, z: bed.z, rot: bed.rot, y: lieLift(bed.y), hops: findWalkPath({ x: you.position.x, z: you.position.z }, bed, walkBlocks), mode: "bed" };
