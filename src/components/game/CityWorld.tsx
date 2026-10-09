@@ -821,15 +821,20 @@ export function CityWorld({
     const polyAt = laid.get("fedpoly-nekede");
     const polyX = polyAt?.x ?? spot(26, 88).x;
     const polyZ = polyAt?.z ?? spot(26, 88).z;
-    // Campus gate and approach are on +X; the isometric camera looks from +X/+Z.
-    // Put the whole rice field behind the poly (far side: -X, -Z).
-    const riceAt = {
-      x: polyX - 130,
-      z: polyZ - 100,
-    };
+    const RICE_SCALE = 2.8;
+    const riceHx = 12 * RICE_SCALE + 2;
+    const riceHz = 9 * RICE_SCALE + 2;
+    const riceAt = { x: polyX - 48 - riceHx - 6, z: polyZ + 8 };
+    for (let step = 0; step < 14; step += 1) {
+      const wet = riverPoint(riceAt.x, riceAt.z, Math.max(riceHx, riceHz) + 4) !== null;
+      const road = hitsRoad(riceAt.x, riceAt.z, riceHx, riceHz);
+      if (!wet && !road) break;
+      if (step % 2 === 0) riceAt.z += 8;
+      else riceAt.x -= 8;
+    }
     const farmBoxes = [
       { x: -320, z: 260, hx: 50, hz: 38 },
-      { x: riceAt.x, z: riceAt.z, hx: 50, hz: 38 },
+      { x: riceAt.x, z: riceAt.z, hx: riceHx, hz: riceHz },
     ];
     function hitsPeer(self: string, x: number, z: number, hx: number, hz: number) {
       if (farmBoxes.some((farm) => boxesClash(x, z, hx, hz, farm.x, farm.z, farm.hx, farm.hz, 10))) return true;
@@ -911,7 +916,7 @@ export function CityWorld({
       const foot = footOf(id);
       keepClear.push({ x: at.x, z: at.z, hx: foot.hx, hz: foot.hz });
     }
-    keepClear.push({ x: riceAt.x, z: riceAt.z, hx: 50, hz: 38 });
+    keepClear.push({ x: riceAt.x, z: riceAt.z, hx: riceHx, hz: riceHz });
     function nearAirport(x: number, z: number) {
       if (!airportAt) return false;
       return Math.abs(x - airportAt.x) < 100 && Math.abs(z - airportAt.z) < 72;
@@ -968,7 +973,7 @@ export function CityWorld({
             if (hotels.has(spot.id)) return Math.abs(x - spot.x) < 10 && Math.abs(z - spot.z) < 6;
             return false;
           });
-          if (onStrip(x, z, 2) || crowded || Math.abs(x - riceAt.x) < 50 && Math.abs(z - riceAt.z) < 38) continue;
+          if (onStrip(x, z, 2) || crowded || Math.abs(x - riceAt.x) < riceHx && Math.abs(z - riceAt.z) < riceHz) continue;
           house(x, z, 0xf4efe4, 1.15, 0x2f6b45);
         }
       }
@@ -1047,7 +1052,7 @@ export function CityWorld({
     byPlace("ikenegbu", 18, -16, -0.2, "Ikenegbu rooms", "The cheap side of town", "#8a5a2a");
     byPlace("eke-ukwu", 40, 22, 0.5, "Ad board", "This face is for sale", "#a9782a");
     placeSign(-320, 312, 0.2, "Egbu farms", "Cassava every Saturday", "#3d6b4f");
-    placeSign(riceAt.x, riceAt.z - 52, 0.1, "Nekede rice", "Behind Federal Polytechnic Nekede", "#143d2c");
+    placeSign(riceAt.x, riceAt.z + riceHz + 6, 0.1, "Nekede rice", "Behind Federal Polytechnic Nekede", "#143d2c");
     const otamiriSign = otamiriPts[52];
     const otamiriBack = otamiriPts[49];
     const otamiriFore = otamiriPts[55];
@@ -1312,7 +1317,7 @@ export function CityWorld({
       return group;
     }
 
-    function field(x: number, z: number, label: string) {
+    function field(x: number, z: number, label: string, scale = 4) {
       const group = new THREE.Group();
       group.add(block(24, 0.08, 18, 0x8a6a32, 0, 0.06, 0));
       group.add(block(24, 0.35, 0.28, 0xc4a574, 0, 0.2, -9));
@@ -1320,13 +1325,13 @@ export function CityWorld({
       group.add(block(0.28, 0.35, 18, 0xc4a574, -12, 0.2, 0));
       group.add(block(0.28, 0.35, 18, 0xc4a574, 12, 0.2, 0));
       for (let row = -7; row <= 7; row += 2) group.add(block(22, 0.32, 0.7, 0x3d8a4a, 0, 0.24, row));
-      group.scale.setScalar(4);
+      group.scale.setScalar(scale);
       group.position.set(x, 0, z);
       scene.add(group);
-      pill(label, new THREE.Vector3(x, 4, z));
+      pill(label, new THREE.Vector3(x, Math.max(3.2, scale), z));
     }
     field(-320, 260, "Egbu farmland · level 3");
-    field(riceAt.x, riceAt.z, "Nekede rice · level 4");
+    field(riceAt.x, riceAt.z, "Nekede rice · level 4", RICE_SCALE);
 
     function palmEstate(x: number, z: number) {
       const group = new THREE.Group();
