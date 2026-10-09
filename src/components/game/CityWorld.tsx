@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { makeRenderer } from "@/lib/game/renderQuality";
 import { PLACES, type Place } from "@/lib/game/content";
 import { buildDetailedCarMesh } from "./carModels";
 import { makeRealCar } from "./realCars";
@@ -50,9 +51,7 @@ export function CityWorld({
     const surface = wrap;
     const board = labelRoot;
 
-    const lite = window.innerWidth < 900 || window.matchMedia("(pointer: coarse)").matches;
-    const renderer = new THREE.WebGLRenderer({ antialias: !lite, powerPreference: "low-power" });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, lite ? 1.15 : 2));
+    const renderer = makeRenderer();
     renderer.setSize(root.clientWidth, root.clientHeight);
     root.appendChild(renderer.domElement);
 
@@ -2355,7 +2354,7 @@ export function CityWorld({
     <div ref={shell} className="absolute inset-0 touch-none">
       <div ref={host} className="absolute inset-0" />
       <div ref={labels} className="pointer-events-none absolute inset-0" />
-      <div className="absolute bottom-28 right-3 z-10 flex flex-col gap-2">
+      <div className="absolute right-2.5 top-1/2 z-10 flex -translate-y-1/2 flex-col gap-2">
         <button type="button" data-city-ui="zoom" data-zoom="in" aria-label="Zoom in" className="grid h-10 w-10 place-items-center rounded-full bg-white text-lg font-semibold shadow">+</button>
         <button type="button" data-city-ui="zoom" data-zoom="out" aria-label="Zoom out" className="grid h-10 w-10 place-items-center rounded-full bg-white text-lg font-semibold shadow">−</button>
       </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
+import { makeRenderer } from "@/lib/game/renderQuality";
 import type { LookId } from "@/lib/game/types";
 import { createRealisticHuman } from "@/lib/game/humanModel";
 import { attachSceneCameraControls } from "./sceneCameraControls";
@@ -216,8 +217,7 @@ export function HeroesStadiumScene({
     const root = host.current;
     if (!root) return;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const renderer = makeRenderer();
     renderer.setSize(root.clientWidth, root.clientHeight);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -740,7 +740,7 @@ export function HeroesStadiumScene({
       ) : null}
 
       {/* Compact Zoom and Orbit Controls (Top-Right) */}
-      <div className="absolute right-2.5 top-3 z-30 flex flex-col gap-1">
+      <div className="absolute right-2.5 top-1/2 z-30 flex -translate-y-1/2 flex-col gap-1">
         <button
           type="button"
           aria-label="Zoom in"

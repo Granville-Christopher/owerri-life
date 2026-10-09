@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { makeRenderer } from "@/lib/game/renderQuality";
 import type { LookId } from "@/lib/game/types";
 import { addPlayerGuests, createRealisticHuman, type CrowdPerson } from "@/lib/game/humanModel";
 import { attachSceneCameraControls } from "./sceneCameraControls";
@@ -35,8 +36,7 @@ export function PoliceStationScene({ look, title, people = [], selfId }: { look:
   useEffect(() => {
     const root = host.current;
     if (!root) return;
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const renderer = makeRenderer();
     renderer.setSize(root.clientWidth, root.clientHeight);
     root.appendChild(renderer.domElement);
 
@@ -179,7 +179,7 @@ export function PoliceStationScene({ look, title, people = [], selfId }: { look:
   return (
     <div className="absolute inset-0 bg-[#d7dde4]">
       <div ref={host} className="absolute inset-0 touch-none" />
-      <div className="absolute left-2 top-1/2 z-30 flex -translate-y-1/2 flex-col gap-1">
+      <div className="absolute right-2.5 top-1/2 z-30 flex -translate-y-1/2 flex-col gap-1">
         <button type="button" aria-label="Zoom in" onClick={() => dolly(1.18)} className="grid h-8 w-8 place-items-center rounded-full bg-white text-base font-semibold text-[#17241e] shadow">+</button>
         <button type="button" aria-label="Zoom out" onClick={() => dolly(1 / 1.18)} className="grid h-8 w-8 place-items-center rounded-full bg-white text-base font-semibold text-[#17241e] shadow">−</button>
       </div>

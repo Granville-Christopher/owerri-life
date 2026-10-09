@@ -1018,6 +1018,7 @@ function MapPanel({
           onHomeShower={() => run(showerAtHome)}
           fill
           extra={
+            place.id === "sam-mbakwe" || place.id === "state-cid" || canWork ? (
             <>
               {place.id === "sam-mbakwe" ? <AirportDesk pending={pending} onFly={onFly} /> : null}
               {place.id === "state-cid" ? <PoliceDesk view={view} run={run} pending={pending} /> : null}
@@ -1039,6 +1040,7 @@ function MapPanel({
                 </div>
               ) : null}
             </>
+            ) : null
           }
           onApply={place.kind === "school" && !view.me.school ? () => setVisit((value) => value + 1) : undefined}
           chat={view.chat}

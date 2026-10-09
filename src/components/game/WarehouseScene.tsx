@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
+import { makeRenderer } from "@/lib/game/renderQuality";
 import type { LookId } from "@/lib/game/types";
 import { addPlayerGuests, createRealisticHuman, type CrowdPerson } from "@/lib/game/humanModel";
 import { naira } from "@/lib/game/format";
@@ -151,8 +152,7 @@ export function WarehouseScene({
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0a0f18);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const renderer = makeRenderer({ alpha: false });
     renderer.setSize(root.clientWidth, root.clientHeight);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -464,7 +464,7 @@ export function WarehouseScene({
       ) : null}
 
       {/* Compact Zoom & Rotate Controls (Top-Right) */}
-      <div className="absolute right-2.5 top-3 z-30 flex flex-col gap-1">
+      <div className="absolute right-2.5 top-1/2 z-30 flex -translate-y-1/2 flex-col gap-1">
         <button
           type="button"
           aria-label="Zoom in"

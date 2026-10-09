@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import * as THREE from "three";
+import { makeRenderer } from "@/lib/game/renderQuality";
 import { CAR_CATALOG, carById } from "@/lib/game/content";
 import { buildCabMesh, buildDetailedCarMesh } from "./carModels";
 import { loadAllRealCars, makeEnvironment, makeRealCar, realKindFor } from "./realCars";
@@ -304,10 +305,8 @@ export function RideScene({ vehicle, carId, onArrive }: { vehicle: RideVehicle; 
   useEffect(() => {
     const root = host.current;
     if (!root) return;
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const renderer = makeRenderer();
     renderer.setSize(root.clientWidth || 1, root.clientHeight || 1);
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.15;
     root.appendChild(renderer.domElement);

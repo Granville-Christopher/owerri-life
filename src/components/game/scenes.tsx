@@ -3,6 +3,7 @@
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import * as THREE from "three";
+import { makeRenderer } from "@/lib/game/renderQuality";
 import { DORIME_AMOUNTS, FURNITURE, FURNITURE_GROUPS, LOOKS, TREATMENT_FEE, canSitAt, carById, clampPlacement, furnitureById, furnitureInstances, homeById, isTripPlace, lookForGender, matchLook, npcsAt, placeActs, placeById, placeClosedNotice, placeIn, roomSize, sprayFloor } from "@/lib/game/content";
 import type { FurnitureGroup, Home, Place } from "@/lib/game/content";
 import { naira } from "@/lib/game/format";
@@ -217,7 +218,7 @@ function ZoomStage({ children }: { children: ReactNode }) {
       >
         {children}
       </div>
-      <div className="absolute bottom-3 right-2 z-30 flex flex-col gap-1">
+      <div className="absolute right-2.5 top-1/2 z-30 flex -translate-y-1/2 flex-col gap-1">
         <button
           type="button"
           aria-label="Zoom in"
@@ -727,8 +728,7 @@ function ClubHall({ name }: { name: string }) {
   useEffect(() => {
     const root = host.current;
     if (!root) return;
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const renderer = makeRenderer();
     renderer.setSize(root.clientWidth, root.clientHeight);
     root.appendChild(renderer.domElement);
     const scene = new THREE.Scene();
@@ -860,7 +860,7 @@ function ClubHall({ name }: { name: string }) {
         ref={host}
         className="absolute inset-0 touch-none"
       />
-      <div className="absolute right-3 top-24 z-30 flex flex-col gap-1">
+      <div className="absolute right-2.5 top-1/2 z-30 flex -translate-y-1/2 flex-col gap-1">
         <button type="button" aria-label="Zoom in" onClick={() => dolly(1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">+</button>
         <button type="button" aria-label="Zoom out" onClick={() => dolly(1 / 1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">−</button>
         <button type="button" aria-label="Rotate left" onClick={() => turn(1)} className="mt-2 grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">↺</button>
@@ -1303,8 +1303,7 @@ function BuildingFront({ placeId, look }: { placeId: string; look: LookId }) {
   useEffect(() => {
     const root = host.current;
     if (!root) return;
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const renderer = makeRenderer();
     renderer.setSize(root.clientWidth, root.clientHeight);
     root.appendChild(renderer.domElement);
     const scene = new THREE.Scene();
@@ -1725,7 +1724,7 @@ function BuildingFront({ placeId, look }: { placeId: string; look: LookId }) {
         ref={host}
         className="absolute inset-0 touch-none"
       />
-      <div className="absolute right-3 top-16 z-30 flex flex-col gap-1">
+      <div className="absolute right-2.5 top-1/2 z-30 flex -translate-y-1/2 flex-col gap-1">
         <button type="button" aria-label="Zoom in" onClick={() => dolly(1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">+</button>
         <button type="button" aria-label="Zoom out" onClick={() => dolly(1 / 1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">−</button>
         <button type="button" aria-label="Rotate left" onClick={() => turn(1)} className="mt-2 grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">↺</button>
@@ -1806,8 +1805,7 @@ function HotelSuite({
   useEffect(() => {
     const root = host.current;
     if (!root) return;
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const renderer = makeRenderer();
     renderer.setSize(root.clientWidth, root.clientHeight);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -2047,7 +2045,7 @@ function HotelSuite({
         ref={host}
         className="absolute inset-0 touch-none"
       />
-      <div className="absolute right-3 top-24 z-30 flex flex-col gap-1">
+      <div className="absolute right-2.5 top-1/2 z-30 flex -translate-y-1/2 flex-col gap-1">
         <button type="button" aria-label="Zoom in" onClick={() => dolly(1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">+</button>
         <button type="button" aria-label="Zoom out" onClick={() => dolly(1 / 1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">−</button>
         <button type="button" aria-label="Rotate left" onClick={() => turn(1)} className="mt-2 grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">↺</button>
@@ -2115,8 +2113,7 @@ function BeachHouse({ look, people = [], selfId }: { look: LookId; people?: Scen
   useEffect(() => {
     const root = host.current;
     if (!root) return;
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const renderer = makeRenderer();
     renderer.setSize(root.clientWidth, root.clientHeight);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -2236,7 +2233,7 @@ function BeachHouse({ look, people = [], selfId }: { look: LookId; people?: Scen
         ref={host}
         className="absolute inset-0 touch-none"
       />
-      <div className="absolute right-3 top-24 z-30 flex flex-col gap-1">
+      <div className="absolute right-2.5 top-1/2 z-30 flex -translate-y-1/2 flex-col gap-1">
         <button type="button" aria-label="Zoom in" onClick={() => dolly(1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">+</button>
         <button type="button" aria-label="Zoom out" onClick={() => dolly(1 / 1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">−</button>
         <button type="button" aria-label="Rotate left" onClick={() => turn(1)} className="mt-2 grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">↺</button>
@@ -2263,8 +2260,7 @@ function OrbitRoom({
   useEffect(() => {
     const root = host.current;
     if (!root) return;
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const renderer = makeRenderer();
     renderer.setSize(root.clientWidth, root.clientHeight);
     root.appendChild(renderer.domElement);
     const scene = new THREE.Scene();
@@ -2324,7 +2320,7 @@ function OrbitRoom({
         ref={host}
         className="absolute inset-0 touch-none"
       />
-      <div className="absolute right-3 top-24 z-30 flex flex-col gap-1">
+      <div className="absolute right-2.5 top-1/2 z-30 flex -translate-y-1/2 flex-col gap-1">
         <button type="button" aria-label="Zoom in" onClick={() => dolly(1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">+</button>
         <button type="button" aria-label="Zoom out" onClick={() => dolly(1 / 1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">−</button>
         <button type="button" aria-label="Rotate left" onClick={() => turn(1)} className="mt-2 grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold text-[#17241e] shadow">↺</button>
@@ -2511,6 +2507,17 @@ export function VenueInterior({
   const partner = guests.find((person) => person.id === (intimacyWith ?? besideId)) ?? guests[0] ?? null;
   const sitHere = canSitAt(place);
   const homeTogether = together && (Boolean(house) || place.kind === "home" || Boolean(acts.hotel) || acts.pickup);
+  const showTray = Boolean(
+    extra ||
+      onApply ||
+      (!house && (sitHere || homeTogether)) ||
+      (homeTogether && partner && onFawwwk) ||
+      (!inRoom && (club || acts.drink || acts.plate || acts.dance || acts.spray)) ||
+      suite ||
+      acts.hotel ||
+      acts.pickup ||
+      (fill && clinic && treatPrice != null),
+  );
 
   const walkers = npcsAt(place.id).slice(0, 2).map((npc) => ({
     name: npc.name,
@@ -2660,6 +2667,7 @@ export function VenueInterior({
           </div>
         ) : null}
       </div>
+      {showTray ? (
       <div className={`grid gap-1 ${fill ? `absolute bottom-24 left-1/2 z-30 max-h-[28%] -translate-x-1/2 overflow-y-auto rounded-2xl bg-white/95 text-[#17241e] shadow-2xl ${club || suite || beach ? "w-[min(16rem,calc(100%-5rem))] p-2" : "w-[min(28rem,calc(100%-1.5rem))] gap-2 p-3"}` : "p-3"}`}>
         {!house && (sitHere || homeTogether) ? (
           <div className="grid grid-cols-2 gap-1">
@@ -2818,6 +2826,7 @@ export function VenueInterior({
           </button>
         ) : null}
       </div>
+      ) : null}
       {onTrip && onFlyHome ? (
         <button
           type="button"
@@ -3056,8 +3065,7 @@ function RoomView({
     const items: PlacedPiece[] = JSON.parse(placedKey);
     const house = spot === "house";
     const lite = typeof window !== "undefined" && (window.innerWidth < 900 || window.matchMedia("(pointer: coarse)").matches);
-    const renderer = new THREE.WebGLRenderer({ antialias: !lite, powerPreference: "low-power" });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, lite ? 1.25 : 2));
+    const renderer = makeRenderer();
     renderer.setSize(root.clientWidth, root.clientHeight);
     renderer.shadowMap.enabled = !lite;
     renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -4065,7 +4073,7 @@ function RoomView({
   return (
     <div className="absolute inset-0">
       <div ref={host} className="absolute inset-0 touch-none" />
-      <div className="absolute right-3 top-32 z-10 flex flex-col gap-1">
+      <div className="absolute right-2.5 top-1/2 z-10 flex -translate-y-1/2 flex-col gap-1">
         <button type="button" aria-label="Zoom in" onClick={() => dolly(1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold shadow">+</button>
         <button type="button" aria-label="Zoom out" onClick={() => dolly(1 / 1.18)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold shadow">−</button>
         <button type="button" aria-label="Rotate left" onClick={() => turn(1)} className="mt-2 grid h-9 w-9 place-items-center rounded-full bg-white text-lg font-semibold shadow">↺</button>

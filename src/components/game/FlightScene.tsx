@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import * as THREE from "three";
+import { makeRenderer } from "@/lib/game/renderQuality";
 import { createRealisticHuman, weakGpu } from "@/lib/game/humanModel";
 import type { LookId } from "@/lib/game/types";
 import { loadRealAirliner } from "@/components/game/realPlane";
@@ -490,10 +491,8 @@ export function FlightScene({
     const lite = weakGpu();
     let renderer: THREE.WebGLRenderer;
     try {
-      renderer = new THREE.WebGLRenderer({ antialias: !lite, powerPreference: "low-power", alpha: false });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, lite ? 1 : 1.5));
+      renderer = makeRenderer({ alpha: false });
       renderer.setSize(root.clientWidth || 1, root.clientHeight || 1);
-      renderer.outputColorSpace = THREE.SRGBColorSpace;
       if (!lite) {
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         renderer.toneMappingExposure = 1.18;
