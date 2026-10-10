@@ -64,8 +64,10 @@ import {
   sendFriendRequest,
   sendMessage,
   sendMoney,
+  dismissGift,
   setWealthPrivacy,
   sitDown,
+  setHouseSpot,
   standUp,
   doFawwwk,
   inviteOver,
@@ -223,6 +225,7 @@ export function GameShell({ view, spaceCode = null }: { view: GameView; spaceCod
   const [openSpace, setOpenSpace] = useState<string | null>(spaceCode);
   const seenAlerts = useRef(new Set<string>());
   const alertsReady = useRef(false);
+  const seenRequests = useRef<number | null>(null);
 
   useEffect(() => {
     if (view.me.pose !== "bed" || !view.me.intimacyWith) return;
@@ -262,27 +265,36 @@ export function GameShell({ view, spaceCode = null }: { view: GameView; spaceCod
       return;
     }
     const fresh = alerts.filter((alert) => !seenAlerts.current.has(alert.id));
+    const requests = view.requests.incoming.length;
+    const requestJump = seenRequests.current != null && requests > seenRequests.current;
+    seenRequests.current = requests;
     for (const alert of alerts) seenAlerts.current.add(alert.id);
-    if (!fresh.length || typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    if (!fresh.length && !requestJump) return;
+    playNotifySound();
+    const line = fresh[0]?.text ?? "Someone sent you a padi request.";
+    flash(line, false);
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
     for (const alert of fresh) {
+      const body = alert.text;
+      const tag = alert.id;
       void (async () => {
         try {
           const registration = await navigator.serviceWorker?.getRegistration();
           if (registration) {
-            await registration.showNotification("Owerri Life", { body: alert.text, tag: alert.id });
+            await registration.showNotification("Owerri Life", { body, tag });
             return;
           }
         } catch {
           /* Fall through to a page notification. */
         }
         try {
-          new Notification("Owerri Life", { body: alert.text, tag: alert.id });
+          new Notification("Owerri Life", { body, tag });
         } catch {
-          /* The red count on the phone still shows. */
+          /* The red count and the sound still happen. */
         }
       })();
     }
-  }, [view.me.alerts]);
+  }, [view.me.alerts, view.requests.incoming.length]);
 
   useEffect(() => {
     const block = (event: WheelEvent) => {
@@ -335,6 +347,15 @@ export function GameShell({ view, spaceCode = null }: { view: GameView; spaceCod
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#d7ebdd] text-[#17241e]">
       <div ref={setPhone} className="relative h-full w-full overflow-hidden">
+        {view.me.gifts[0] ? (
+          <div className="absolute inset-0 z-[90] grid place-items-center bg-[#17241e]/45 px-6" role="dialog" aria-modal="true" aria-label="Money received">
+            <div className="ol-modal w-full max-w-sm rounded-[1.8rem] px-5 py-5 text-center text-[#17241e]">
+              <p className="font-display text-3xl leading-none text-[#143d2c]">Money</p>
+              <p className="mt-3 text-sm">{view.me.gifts[0].fromName} sent them {naira(view.me.gifts[0].amount)} for {view.me.gifts[0].reason}.</p>
+              <button type="button" disabled={pending} className="mt-4 rounded-full bg-[#1f6b45] px-5 py-2 text-sm font-semibold text-white" onClick={() => run(() => dismissGift(view.me.gifts[0].id))}>OK</button>
+            </div>
+          </div>
+        ) : null}
         {toast ? (
           <p
             key={toast.id}
@@ -385,7 +406,9 @@ export function GameShell({ view, spaceCode = null }: { view: GameView; spaceCod
               besideId={me.besideId}
               bubbles={view.bubbles}
               onPickGuest={setPersonId}
-              onSit={() => run(sitDown)}
+              syncSpot={me.houseSpot}
+              onSpot={(spot, roomNo) => run(() => setHouseSpot(spot, roomNo))}
+              onSit={() => run(() => sitDown(false))}
               onStand={() => run(standUp)}
               onFawwwk={(peerId) => run(() => doFawwwk(peerId))}
               pose={me.pose}
@@ -1108,7 +1131,8 @@ function MapPanel({
           bubbles={view.bubbles}
           pose={view.me.pose}
           intimacyWith={view.me.intimacyWith}
-          onSit={() => run(sitDown)}
+          onSit={() => run(() => sitDown(Boolean(view.inside?.homeId && view.inside.homeId !== view.me.homeId)))}
+          onHouseSpot={(spot, roomNo) => run(() => setHouseSpot(spot, roomNo))}
           onStand={() => run(standUp)}
           onFawwwk={(peerId) => run(() => doFawwwk(peerId))}
           onTalk={(peerId, text) => run(() => talkBeside(peerId, text))}
@@ -1141,6 +1165,8 @@ function MapPanel({
                   beds: view.inside.beds,
                   upstairs: view.inside.upstairs,
                   duplex: view.inside.duplex,
+                  cars: view.inside.cars,
+                  houseSpot: view.inside.houseSpot,
                 }
               : place.kind === "home" && place.id === homeById(view.me.homeId).areaId
               ? {
@@ -1151,6 +1177,8 @@ function MapPanel({
                   beds: homeById(view.me.homeId).beds,
                   upstairs: homeById(view.me.homeId).upstairs,
                   duplex: homeById(view.me.homeId).id.includes("duplex"),
+                  cars: view.me.cars ?? [],
+                  houseSpot: view.me.houseSpot,
                 }
               : null
           }
@@ -1249,14 +1277,41 @@ function MapPanel({
 
 type PhoneApp = "jobs" | "messages" | "bets" | "houses" | "properties" | "land" | "wallet" | "bus" | "food" | "campus" | "market" | "night" | "club" | "health" | "fly" | "skills" | "settings" | "spaces" | "invest";
 
+function messageNotes(view: GameView) {
+  const incoming = view.requests.incoming.length;
+  const padi = view.me.alerts.filter((alert) => alert.app === "messages" && alert.text.includes("padi request")).length;
+  const other = view.me.alerts.filter((alert) => alert.app === "messages" && !alert.text.includes("padi request")).length;
+  return Math.max(incoming, padi) + other;
+}
+
 function phoneNoteCount(view: GameView) {
-  return view.requests.incoming.length + view.me.alerts.filter((alert) => alert.app === "invest" || alert.text.includes("invited")).length;
+  return messageNotes(view) + view.me.alerts.filter((alert) => alert.app === "invest").length;
 }
 
 function appNoteCount(view: GameView, app: PhoneApp) {
-  if (app === "messages") return view.requests.incoming.length + view.me.alerts.filter((alert) => alert.app === "messages" && alert.text.includes("invited")).length;
+  if (app === "messages") return messageNotes(view);
   if (app === "invest") return view.me.alerts.filter((alert) => alert.app === "invest").length;
   return 0;
+}
+
+function playNotifySound() {
+  const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!Ctx) return;
+  const ctx = new Ctx();
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.12, ctx.currentTime + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.45);
+  gain.connect(ctx.destination);
+  for (const [freq, at] of [[880, 0], [1175, 0.14]] as const) {
+    const tone = ctx.createOscillator();
+    tone.type = "sine";
+    tone.frequency.value = freq;
+    tone.connect(gain);
+    tone.start(ctx.currentTime + at);
+    tone.stop(ctx.currentTime + at + 0.18);
+  }
+  window.setTimeout(() => void ctx.close(), 800);
 }
 
 function PhoneDeck({
@@ -1443,7 +1498,7 @@ function PhonePanel({
       ) : null}
       {app === "spaces" && spaceCode ? (
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <SpaceRoom code={spaceCode} meId={me.id} onLeave={() => onSpace?.(null)} />
+          <SpaceRoom code={spaceCode} meId={me.id} onLeave={() => onSpace?.(null)} onOpen={onOpen} />
         </div>
       ) : null}
       {app === "spaces" && !spaceCode ? <SpacesPanel onOpen={(code) => onSpace?.(code)} /> : null}
@@ -2284,6 +2339,9 @@ function PeoplePanel({
 }) {
   const [text, setText] = useState("");
   const [handle, setHandle] = useState("");
+  const [payOpen, setPayOpen] = useState(false);
+  const [payAmount, setPayAmount] = useState("5000");
+  const [payFor, setPayFor] = useState("");
   const [reply, setReply] = useState<{ id: string; fromName: string; text: string } | null>(null);
   const [invitePeer, setInvitePeer] = useState<string | null>(null);
   const friends = new Set(view.me.friends);
@@ -2334,12 +2392,32 @@ function PeoplePanel({
               <button type="button" disabled={pending} className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold" onClick={() => onMeet(peer.id)}>Meet</button>
               <button type="button" disabled={pending} className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold" onClick={() => setInvitePeer(invitePeer === peer.id ? null : peer.id)}>Invite over</button>
               <button type="button" disabled={pending} className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold" onClick={() => run(() => visitHouseOf(peer.id)).then((result) => { if (result.ok) onVisit?.(); })}>Visit house</button>
-              <button type="button" disabled={pending} className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold" onClick={() => { const amount = Number(window.prompt("How much naira?", "5000")); if (amount) run(() => sendMoney(peer.id, amount)); }}>Send money</button>
+              <button type="button" disabled={pending} className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold" onClick={() => setPayOpen((open) => !open)}>Send money</button>
               <button type="button" disabled={pending} className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold" onClick={() => run(() => buyThemFood(peer.id))}>Buy food</button>
               <button type="button" disabled={pending} className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold" onClick={() => { const note = window.prompt("Post in this private chat"); if (note) run(() => postToChat(peer.id, note)); }}>Post</button>
               {view.me.friends.includes(peer.id) ? <button type="button" disabled={pending} className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold" onClick={() => run(() => unfriend(peer.id)).then((result) => { if (result.ok) onPeer(null); })}>Unfriend</button> : null}
               <button type="button" disabled={pending} className="rounded-full bg-[#7a2e1e] px-2 py-1 text-[10px] font-semibold" onClick={() => run(() => blockPerson(peer.id))}>Block</button>
             </div>
+          ) : null}
+          {payOpen ? (
+            <form
+              className="mt-2 grid grid-cols-[1fr_1fr_auto] gap-1"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const amount = Number(payAmount);
+                const reason = payFor.trim();
+                run(() => sendMoney(peer.id, amount, reason)).then((result) => {
+                  if (result.ok) {
+                    setPayOpen(false);
+                    setPayFor("");
+                  }
+                });
+              }}
+            >
+              <input value={payAmount} onChange={(event) => setPayAmount(event.target.value.replace(/[^\d]/g, ""))} inputMode="numeric" aria-label="Amount" placeholder="Amount" className="min-w-0 rounded-full bg-white px-3 py-1 text-xs text-[#17241e]" />
+              <input value={payFor} onChange={(event) => setPayFor(event.target.value)} aria-label="What for" placeholder="What for" maxLength={40} className="min-w-0 rounded-full bg-white px-3 py-1 text-xs text-[#17241e]" />
+              <button type="submit" disabled={pending || !payFor.trim()} className="rounded-full bg-[#e0b15a] px-3 py-1 text-[10px] font-semibold text-[#1a140c]">Send</button>
+            </form>
           ) : null}
           {invitePeer === peer.id ? (
             <div className="mt-2 flex flex-wrap gap-1">
@@ -2553,7 +2631,7 @@ function PersonSheet({
   const socialHere = ["nworie-park", "cartel-lounge", "mama-nkechi", "eke-ukwu", "cartel-beach", "heartland-resort"].includes(view.me.locationId);
 
   return (
-    <div className="ol-modal absolute inset-x-0 bottom-0 top-16 z-10 mx-auto flex w-full flex-col rounded-t-[1.8rem] md:top-24 xl:top-16">
+    <div className="ol-modal absolute inset-x-0 bottom-0 top-16 z-[80] mx-auto flex w-full flex-col rounded-t-[1.8rem] md:top-24 xl:top-16">
       <div className="mx-auto mt-2.5 h-1.5 w-12 rounded-full bg-[#e0b15a]" />
       <div className="flex items-start justify-between gap-3 px-4 pt-3">
         <div className="flex items-center gap-3">

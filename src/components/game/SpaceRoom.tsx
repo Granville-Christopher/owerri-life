@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { IAgoraRTCClient, IMicrophoneAudioTrack } from "agora-rtc-sdk-ng";
 import { endSpace, joinSpace, leaveSpace, listenInSpace, setMicInSpace, talkInSpace, type SpaceView } from "@/lib/game/spaces";
 
-export function SpaceRoom({ code, meId, onLeave }: { code: string; meId: string; onLeave: () => void }) {
+export function SpaceRoom({ code, meId, onLeave, onOpen }: { code: string; meId: string; onLeave: () => void; onOpen?: (id: string) => void }) {
   const [space, setSpace] = useState<SpaceView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState("Joining the space…");
@@ -217,7 +217,7 @@ export function SpaceRoom({ code, meId, onLeave }: { code: string; meId: string;
             const letter = member.name.slice(0, 1).toUpperCase();
             return (
               <div key={member.id} className="flex flex-col items-center gap-1">
-                <button type="button" onClick={() => setPicked(member.id)} className="relative" aria-label={member.name}>
+                <button type="button" onClick={() => { setPicked(member.id); if (!self && onOpen) onOpen(member.id); }} className="relative" aria-label={member.name}>
                   <span className={`grid h-16 w-16 place-items-center rounded-full text-xl font-semibold ${self ? "bg-[#e0b15a] text-[#1a140c]" : "bg-[#1f6b45]"}`}>{letter}</span>
                   <span className={`absolute -right-1 -top-1 grid h-6 w-6 place-items-center rounded-full ${quietMic ? "bg-[#7a2e1e] text-white" : "bg-[#e7f6ea] text-[#143d2c]"}`} aria-label={quietMic ? "Microphone off" : "Microphone on"}>
                     <MicMark off={quietMic} />

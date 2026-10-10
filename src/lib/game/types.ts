@@ -113,12 +113,15 @@ export interface Player {
   furniture: string[];
   layout: Record<string, Placement>;
   besideId: string | null;
+  visitingHost?: string | null;
+  houseSpot?: { spot: "parlour" | "kitchen" | "room" | "bathroom" | "landing"; roomNo: number };
   pose: Pose;
   intimacyWith: string | null;
   dmToday: number;
   lastChatKey: string;
   investments?: Investment[];
   alerts?: PhoneAlert[];
+  gifts?: MoneyGift[];
   log: string[];
   createdAt: string;
   banned?: boolean;
@@ -168,6 +171,14 @@ export interface PhoneAlert {
   id: string;
   app: "messages" | "invest";
   text: string;
+}
+
+export interface MoneyGift {
+  id: string;
+  fromId: string;
+  fromName: string;
+  amount: number;
+  reason: string;
 }
 
 export interface Investment {

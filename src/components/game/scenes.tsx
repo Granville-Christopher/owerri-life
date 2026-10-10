@@ -2757,6 +2757,7 @@ export function VenueInterior({
   onTalk,
   pose = "stand",
   intimacyWith = null,
+  onHouseSpot,
 }: {
   place: Place;
   look: LookId;
@@ -2782,7 +2783,8 @@ export function VenueInterior({
   onLeaveRoom: () => void;
   onTreat: () => void;
   sick: "none" | "mild" | "severe";
-  house?: { name: string; homeId: string; furniture: string[]; layout: Record<string, Placement>; beds: number; upstairs: boolean; duplex: boolean } | null;
+  house?: { name: string; homeId: string; furniture: string[]; layout: Record<string, Placement>; beds: number; upstairs: boolean; duplex: boolean; cars?: string[]; houseSpot?: { spot: "parlour" | "kitchen" | "room" | "bathroom" | "landing"; roomNo: number } | null } | null;
+  onHouseSpot?: (spot: "parlour" | "kitchen" | "room" | "bathroom" | "landing", roomNo: number) => void;
   onBuyFurniture?: (itemId: string) => void;
   onMoveFurniture?: (key: string, placement: Placement) => void;
   onSellFurniture?: (key: string) => void;
@@ -2851,7 +2853,7 @@ export function VenueInterior({
 
   function pickPerson(id: string) {
     if (id === selfId) return;
-    setPicked(id);
+    onPickPerson(id);
   }
   return (
     <section className={`relative overflow-hidden bg-[#10140f] text-[#f6f1e6] ${fill ? "h-full" : "rounded-[1.6rem]"}`}>
@@ -2907,7 +2909,7 @@ export function VenueInterior({
             }}
           />
         ) : place.kind === "home" && house ? (
-          <HouseRoom name={house.name} homeId={house.homeId} furniture={house.furniture} layout={house.layout} beds={house.beds} upstairs={house.upstairs} duplex={house.duplex} cars={cars} look={look} pending={pending} onBuy={onBuyFurniture ?? (() => undefined)} onMove={onMoveFurniture ?? (() => undefined)} onSell={onSellFurniture} onSleep={onHomeSleep} onShower={onHomeShower} onToilet={onHomeToilet} guests={people} selfId={selfId} besideId={besideId} bubbles={bubbles} onPickGuest={pickPerson} onSit={() => { setSitting(true); onSit?.(); }} onStand={() => { setSitting(false); onStand?.(); }} onFawwwk={onFawwwk} pose={sitting || pose === "sit" ? "sit" : pose} onOutside={onOutside} />
+          <HouseRoom name={house.name} homeId={house.homeId} furniture={house.furniture} layout={house.layout} beds={house.beds} upstairs={house.upstairs} duplex={house.duplex} cars={house.cars ?? cars} look={look} pending={pending} onBuy={onBuyFurniture ?? (() => undefined)} onMove={onMoveFurniture ?? (() => undefined)} onSell={onSellFurniture} onSleep={onHomeSleep} onShower={onHomeShower} onToilet={onHomeToilet} guests={people} selfId={selfId} besideId={besideId} bubbles={bubbles} onPickGuest={pickPerson} onSit={() => onSit?.()} onStand={() => onStand?.()} onFawwwk={onFawwwk} pose={pose} onOutside={onOutside} syncSpot={house.houseSpot ?? null} onSpot={onHouseSpot} />
         ) : beach ? (
           <BeachHouse look={look} people={people} selfId={selfId} />
         ) : place.id === "assumpta-cathedral" ? (
@@ -4184,7 +4186,7 @@ function RoomView({
     }
 
     const baseDistance = roomDistance;
-    if (!seats.length) seats.push({ x: standX + 1.35, z: standZ - 0.55, rot: Math.PI / 2, y: 0.82 });
+    const chairSeats = () => seats.filter((seat) => !seat.bed);
     const bodyScale = house ? 0.78 : 0.92;
     let you = me;
     let sitVisual: "stand" | "sit" | "bed" = seated ? "sit" : "stand";
@@ -4336,11 +4338,20 @@ function RoomView({
         cbs.current.walked();
       } else if (!atFixture) {
         const want: "stand" | "sit" | "bed" = poseRef.current === "sit" ? "sit" : poseRef.current === "bed" ? "bed" : "stand";
-        if ((!sitDest && want !== sitVisual) || (sitDest && sitDest.mode !== want)) {
+        if (want === "sit" && chairSeats().length === 0) {
+          sitDest = null;
+          if (sitVisual !== "stand") {
+            you = swapHuman(you, createRealisticHuman({ lookId: look, seated: false, scale: bodyScale }));
+            sitVisual = "stand";
+          }
+        } else if ((!sitDest && want !== sitVisual) || (sitDest && sitDest.mode !== want)) {
           if (want === "sit") {
-            const seat = pickSitTarget({ x: you.position.x, z: you.position.z }, seats) ?? { x: standX + 1.35, z: standZ - 0.55, rot: Math.PI / 2, y: 0.82 };
-            const parked = sitInChair(seat, bodyScale);
-            sitDest = { x: parked.x, z: parked.z, rot: parked.rot, y: parked.y, hops: findWalkPath({ x: you.position.x, z: you.position.z }, parked, walkBlocks), mode: "sit" };
+            const seat = nearestSeat({ x: you.position.x, z: you.position.z }, chairSeats());
+            if (!seat) sitDest = null;
+            else {
+              const parked = sitInChair(seat, bodyScale);
+              sitDest = { x: parked.x, z: parked.z, rot: parked.rot, y: parked.y, hops: findWalkPath({ x: you.position.x, z: you.position.z }, parked, walkBlocks), mode: "sit" };
+            }
           } else if (want === "bed") {
             const bed = seats.find((seat) => seat.bed) ?? pickSitTarget({ x: you.position.x, z: you.position.z }, seats) ?? { x: standX, z: standZ - 1.2, rot: 0, bed: true, y: 0.9 };
             sitDest = { x: bed.x, z: bed.z, rot: bed.rot, y: lieLift(bed.y), hops: findWalkPath({ x: you.position.x, z: you.position.z }, bed, walkBlocks), mode: "bed" };
@@ -4545,6 +4556,8 @@ export function HouseRoom({
   onStand,
   onFawwwk,
   pose = "stand",
+  syncSpot = null,
+  onSpot,
 }: {
   name: string;
   homeId: string;
@@ -4575,6 +4588,8 @@ export function HouseRoom({
   onStand?: () => void;
   onFawwwk?: (peerId: string) => void;
   pose?: Pose;
+  syncSpot?: { spot: "parlour" | "kitchen" | "room" | "bathroom" | "landing"; roomNo: number } | null;
+  onSpot?: (spot: "parlour" | "kitchen" | "room" | "bathroom" | "landing", roomNo: number) => void;
 }) {
   const studio = beds <= 1 && !upstairs;
   const [shop, setShop] = useState(entry === "shop");
@@ -4593,14 +4608,28 @@ export function HouseRoom({
     setSpot("room");
     setRoomNo(1);
     setAt({ spot: "room", roomNo: 1 });
+    onSpot?.("room", 1);
+    // The room change is reported once when the pose becomes bed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pose]);
+  useEffect(() => {
+    if (!syncSpot) return;
+    setWalk(null);
+    setSpot(syncSpot.spot);
+    setRoomNo(syncSpot.roomNo);
+    setAt({ spot: syncSpot.spot, roomNo: syncSpot.roomNo });
+  }, [syncSpot]);
   const sameLoc = (a: Loc, b: Loc) => a.spot === b.spot && (a.spot !== "room" || a.roomNo === b.roomNo);
   const placeName = (loc: Loc) => (loc.spot === "door" ? "the front door" : loc.spot === "room" ? (studio ? "the room" : `Room ${loc.roomNo}`) : loc.spot === "landing" ? "the landing" : `the ${loc.spot}`);
+  function reportSpot(s: HomeSpot, no: number) {
+    if (s === "parlour" || s === "kitchen" || s === "room" || s === "bathroom" || s === "landing") onSpot?.(s, no);
+  }
   function lookAt(s: HomeSpot, no = 1) {
     setWalk(null);
     setPosed(null);
     setSpot(s);
     setRoomNo(no);
+    reportSpot(s, no);
   }
   function walkTo(to: Loc, then?: () => void, aim?: "shower" | "toilet") {
     setPosed(aim ?? null);
@@ -4624,6 +4653,7 @@ export function HouseRoom({
     setWalk(null);
     setSpot(done.to.spot as HomeSpot);
     setRoomNo(done.to.roomNo);
+    reportSpot(done.to.spot, done.to.roomNo);
     done.then?.();
   }
   const entrySeen = useRef(entry);

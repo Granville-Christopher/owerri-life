@@ -738,31 +738,49 @@ function pushDirect(
   });
 }
 
-export async function sitDown() {
+const CHAIR_IDS = new Set(["sofa", "armchair", "dining"]);
+
+function chairOwner(player: import("./types").Player, db: import("./types").DB, asGuest: boolean) {
+  if (!asGuest) return player;
+  const hostId = player.visitingHost || player.besideId;
+  const host = hostId ? db.players.find((item) => item.id === hostId) ?? null : null;
+  return host ?? player;
+}
+
+export async function sitDown(asGuest = false) {
   return withPlayer((id) =>
     play(id, (player, db) => {
-      const partner = player.besideId ? db.players.find((item) => item.id === player.besideId) ?? null : null;
-      const moved = setPose(player, "sit", partner);
-      if (partner && moved.partner) {
-        const index = db.players.findIndex((item) => item.id === partner.id);
-        if (index >= 0) db.players[index] = moved.partner;
+      const owner = chairOwner(player, db, asGuest);
+      const chairs = (owner.furniture ?? []).some((item) => CHAIR_IDS.has(item));
+      if (!chairs) {
+        return { ok: false, error: asGuest ? "The person you visited has no chair." : "No chair available. Buy a chair." };
       }
+      const moved = setPose(player, "sit", null);
       return { ok: true, player: moved.player, notice: "You sat down." };
+    }),
+  );
+}
+
+export async function setHouseSpot(spot: "parlour" | "kitchen" | "room" | "bathroom" | "landing", roomNo: number) {
+  return withPlayer((id) =>
+    play(id, (player, db) => {
+      const nextSpot = { spot, roomNo: Math.max(1, Math.round(roomNo) || 1) };
+      const host = player.visitingHost ? db.players.find((item) => item.id === player.visitingHost) ?? null : null;
+      if (host) {
+        host.houseSpot = nextSpot;
+        return { ok: true, player };
+      }
+      const next = structuredClone(player);
+      next.houseSpot = nextSpot;
+      return { ok: true, player: next };
     }),
   );
 }
 
 export async function standUp() {
   return withPlayer((id) =>
-    play(id, (player, db) => {
-      const partner = player.intimacyWith || player.besideId
-        ? db.players.find((item) => item.id === (player.intimacyWith ?? player.besideId)) ?? null
-        : null;
-      const moved = setPose(player, "stand", partner);
-      if (partner && moved.partner) {
-        const index = db.players.findIndex((item) => item.id === partner.id);
-        if (index >= 0) db.players[index] = moved.partner;
-      }
+    play(id, (player) => {
+      const moved = setPose(player, "stand", null);
       return { ok: true, player: moved.player, notice: "You stood up." };
     }),
   );
@@ -822,6 +840,8 @@ export async function inviteOver(peerId: string, homeId: string) {
       if (!step.ok) return { ok: false, error: step.error };
       db.ledger = step.ledger;
       step.player.homeId = home.id;
+      step.player.visitingHost = null;
+      step.player.houseSpot = { spot: home.beds <= 1 && !home.upstairs ? "room" : "parlour", roomNo: 1 };
       if (npc) {
         db.messages.push({
           id: crypto.randomUUID(),
@@ -835,6 +855,7 @@ export async function inviteOver(peerId: string, homeId: string) {
       other!.locationId = home.areaId;
       other!.indoors = true;
       other!.besideId = player.id;
+      other!.visitingHost = player.id;
       other!.pose = "stand";
       other!.intimacyWith = null;
       if (!other!.met.includes(player.id)) other!.met.push(player.id);
@@ -869,7 +890,7 @@ export async function visitHouseOf(peerId: string) {
   );
 }
 
-export async function sendMoney(peerId: string, amount: number) {
+export async function sendMoney(peerId: string, amount: number, reason: string) {
   return withPlayer((id) =>
     play(id, (player, db) => {
       if (peerId === POLICE_ID) return { ok: false, error: "The State CID does not take a transfer here." };
@@ -877,16 +898,29 @@ export async function sendMoney(peerId: string, amount: number) {
       const other = db.players.find((item) => item.id === peerId);
       if (!other) return { ok: false, error: "You can only send money to another resident." };
       if (other.blocked.includes(player.id)) return { ok: false, error: "They are not taking money from you." };
-      const step = payPeer(player, db.ledger, other, amount, `Transfer to ${other.username}`);
+      const purpose = reason.trim().replace(/\s+/g, " ").slice(0, 40);
+      if (!purpose) return { ok: false, error: "Say what the money is for." };
+      const cost = Math.round(amount);
+      const step = payPeer(player, db.ledger, other, cost, `Transfer to ${other.username} for ${purpose}`);
       if (!step.ok) return { ok: false, error: step.error };
       db.ledger = step.ledger;
       const index = db.players.findIndex((item) => item.id === other.id);
       if (index >= 0) db.players[index] = step.other;
-      pushDirect(db, player, peerId, `${player.username} sent you ${naira(Math.round(amount))}.`, {
-        kind: "money",
-        amount: Math.round(amount),
-      });
-      return { ok: true, player: step.player, notice: step.notice };
+      const line = `${player.username} sent them ${naira(cost)} for ${purpose}.`;
+      pushDirect(db, player, peerId, line, { kind: "money", amount: cost });
+      const receiver = db.players[index] ?? step.other;
+      receiver.gifts = [...(receiver.gifts ?? []), { id: crypto.randomUUID(), fromId: player.id, fromName: player.username, amount: cost, reason: purpose }];
+      return { ok: true, player: step.player, notice: `You sent ${other.username} ${naira(cost)} for ${purpose}.` };
+    }),
+  );
+}
+
+export async function dismissGift(giftId: string) {
+  return withPlayer((id) =>
+    play(id, (player) => {
+      const next = structuredClone(player);
+      next.gifts = (next.gifts ?? []).filter((gift) => gift.id !== giftId);
+      return { ok: true, player: next };
     }),
   );
 }

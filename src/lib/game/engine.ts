@@ -424,6 +424,7 @@ export function stepOutside(player: Player, ledger: LedgerEntry[]): Step {
   const next = structuredClone(player);
   next.indoors = false;
   next.besideId = null;
+  next.visitingHost = null;
   return succeed(next, ledger, [`You stepped outside ${placeById(player.locationId).name}.`]);
 }
 

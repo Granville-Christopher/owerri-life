@@ -62,6 +62,7 @@ export interface GameView {
     lastRide: Player["lastRide"];
     friends: string[];
     alerts: Array<{ id: string; app: "messages" | "invest"; text: string }>;
+    gifts: Array<{ id: string; fromId: string; fromName: string; amount: number; reason: string }>;
     investments: Array<{ id: string; amount: number; days: number; dueDay: number; payout: number }>;
     netWorthVisibility: NetWorthVisibility;
     log: string[];
@@ -79,6 +80,7 @@ export interface GameView {
     lands: Array<{ id: string; name: string; area: string; rent: number }>;
     furniture: string[];
     layout: Player["layout"];
+    houseSpot: { spot: "parlour" | "kitchen" | "room" | "bathroom" | "landing"; roomNo: number } | null;
     besideId: string | null;
     pose: Player["pose"];
     intimacyWith: string | null;
@@ -114,6 +116,8 @@ export interface GameView {
     homeId: string;
     furniture: string[];
     layout: Player["layout"];
+    cars: string[];
+    houseSpot: { spot: "parlour" | "kitchen" | "room" | "bathroom" | "landing"; roomNo: number } | null;
     beds: number;
     upstairs: boolean;
     duplex: boolean;
@@ -231,10 +235,29 @@ function insideHouse(me: Player, db: DB): GameView["inside"] {
       homeId: "",
       furniture: [],
       layout: {},
+      cars: [],
+      houseSpot: null,
       beds: 1,
       upstairs: false,
       duplex: false,
       people: resident ? [resident, ...people] : people,
+    };
+  }
+  const invited = me.visitingHost ? db.players.find((person) => person.id === me.visitingHost) ?? null : null;
+  if (invited) {
+    const home = homeById(invited.homeId);
+    const people = db.players.filter((person) => person.id !== me.id && present(person) && (person.id === invited.id || person.besideId === invited.id)).map(card);
+    return {
+      name: `${invited.username}'s house`,
+      homeId: invited.homeId,
+      furniture: invited.furniture ?? [],
+      layout: invited.layout ?? {},
+      cars: invited.cars ?? [],
+      houseSpot: invited.houseSpot ?? null,
+      beds: home.beds,
+      upstairs: home.upstairs,
+      duplex: home.id.includes("duplex"),
+      people,
     };
   }
   const mineHere = livesHere(me);
@@ -252,6 +275,8 @@ function insideHouse(me: Player, db: DB): GameView["inside"] {
     homeId: residence.homeId,
     furniture: residence.furniture ?? [],
     layout: residence.layout ?? {},
+    cars: residence.cars ?? [],
+    houseSpot: residence.houseSpot ?? null,
     beds: home.beds,
     upstairs: home.upstairs,
     duplex: home.id.includes("duplex"),
@@ -366,6 +391,7 @@ export async function buildView(playerId: string): Promise<GameView | null> {
       lastRide: me.lastRide,
       friends: me.friends,
       alerts: me.alerts ?? [],
+      gifts: me.gifts ?? [],
       investments: me.investments ?? [],
       netWorthVisibility: me.netWorthVisibility,
       log: me.log,
@@ -387,6 +413,7 @@ export async function buildView(playerId: string): Promise<GameView | null> {
       room: me.room,
       furniture: me.furniture,
       layout: me.layout,
+      houseSpot: me.houseSpot ?? null,
       lands: me.lands.map((id) => {
         const plot = plotById(id);
         return { id: plot.id, name: plot.name, area: plot.area, rent: plot.rent };
