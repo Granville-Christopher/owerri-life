@@ -338,7 +338,7 @@ function hotelSit(seat: SeatSpot, scale: number) {
 }
 
 function lieLift(cushion: number | undefined) {
-  return Math.max(0.5, (cushion ?? 0.74) - 0.08);
+  return (cushion ?? 0.76) + 0.12;
 }
 
 function seatsFor(entry: { id: string; x: number; z: number; rot: number }): SeatSpot[] {
@@ -359,7 +359,8 @@ function seatsFor(entry: { id: string; x: number; z: number; rot: number }): Sea
   if (entry.id === "desk") return [at(0, 0.9, Math.PI, false, 0.74)];
   if (entry.id === "sofa") return [at(0, 0.05, 0, false, 0.95)];
   if (entry.id === "armchair") return [at(0, 0.05, 0, false, 0.75)];
-  if (entry.id === "bed" || entry.id === "double-bed") return [at(0, 0.62, 0, true, 0.74)];
+  if (entry.id === "bed") return [at(0, 0.62, 0, true, 0.76)];
+  if (entry.id === "double-bed") return [at(0, 0.62, 0, true, 0.8)];
   return [];
 }
 
@@ -2265,7 +2266,7 @@ function HotelSuite({
       { x: -3.3, z: 1.5, rot: -Math.PI / 2, y: 0.54 },
       { x: -1.6, z: -0.55, rot: 0, bed: true, y: 0.69 },
     ];
-    const hotelBed = { x: -1.6, z: -1.38, rot: 0, y: 0.62 };
+    const hotelBed = { x: -1.6, z: -1.38, rot: 0, y: 0.82 };
     const hotelBlocks: WalkBlock[] = [
       { x: -1.6, z: -2.05, w: 1.9, d: 2.45, rot: 0 },
       { x: 1.05, z: 0.95, w: 0.85, d: 2.1, rot: 0 },
