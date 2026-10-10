@@ -117,6 +117,8 @@ export interface Player {
   intimacyWith: string | null;
   dmToday: number;
   lastChatKey: string;
+  investments?: Investment[];
+  alerts?: PhoneAlert[];
   log: string[];
   createdAt: string;
   banned?: boolean;
@@ -159,6 +161,21 @@ export interface DirectMessage {
   placeId?: string | null;
   voiceId?: string | null;
   meet?: MeetState;
+  deleted?: boolean;
+}
+
+export interface PhoneAlert {
+  id: string;
+  app: "messages" | "invest";
+  text: string;
+}
+
+export interface Investment {
+  id: string;
+  amount: number;
+  days: number;
+  dueDay: number;
+  payout: number;
 }
 
 export interface Report {

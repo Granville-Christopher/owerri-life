@@ -8,6 +8,7 @@ import { InstallButton } from "@/components/InstallApp";
 import { CityWorld } from "@/components/game/CityWorld";
 import { ArrivalScene, HouseRoom, VenueInterior } from "@/components/game/scenes";
 import { RideScene } from "@/components/game/RideScene";
+import { SpaceRoom } from "@/components/game/SpaceRoom";
 import { SpacesPanel } from "@/components/game/SpacesPanel";
 import { VoiceNoteButton } from "@/components/game/VoiceNote";
 import { FlightScene } from "@/components/game/FlightScene";
@@ -80,12 +81,15 @@ import {
   takeJob,
   takeRoom,
   unblockPerson,
+  unfriend,
+  startInvestment,
+  clearPhoneAlerts,
   useRestroom,
   go,
 } from "@/lib/game/actions";
 import { BET_STAKES, CAREERS, DREAMS, HOMES, LANDS, NPCS, PLACES, TOP_UPS, TRAITS, TREATMENT_FEE, TRIPS, careerById, carById, coursesAt, homeAreaId, homeById, isTripPlace, lectureLabel, meetSpots, placeActs, placeById, placeClosedNotice, tripById, tripFromPlace, type Course } from "@/lib/game/content";
 import { photoForVehicle } from "@/components/game/photoVehicles";
-import { POLICE_ID, multiplyOdds, travelOptions } from "@/lib/game/engine";
+import { INVEST_TERMS, POLICE_ID, multiplyOdds, travelOptions } from "@/lib/game/engine";
 import { clockLabel, dreamProgress, jobTitle, levelPay, moodLabel, naira, skillLabel, skillNeeded, weekday } from "@/lib/game/format";
 import type { GameView, PersonCard } from "@/lib/game/queries";
 import { NEED_KEYS, type BetPick, type NeedKey, type TravelMode, type WorkStyle } from "@/lib/game/types";
@@ -112,7 +116,7 @@ function driven(mode: TravelMode) {
   return mode === "bus" || mode === "keke" || mode === "car" || mode === "cab" || mode === "okada";
 }
 
-export function GameShell({ view }: { view: GameView }) {
+export function GameShell({ view, spaceCode = null }: { view: GameView; spaceCode?: string | null }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>(view.me.indoors ? "map" : "home");
   const [ride, setRide] = useState<null | { placeId: string; mode: TravelMode; vehicle: "car" | "bus" | "cab" | "okada" | "keke"; carId?: string; then: "map" | "home" | "room" }>(null);
@@ -183,6 +187,12 @@ export function GameShell({ view }: { view: GameView }) {
     return () => window.clearInterval(timer);
   }, [router, view.me.indoors, view.me.locationId]);
 
+  useEffect(() => {
+    if (view.me.indoors) return;
+    const timer = window.setInterval(() => router.refresh(), 12000);
+    return () => window.clearInterval(timer);
+  }, [router, view.me.indoors]);
+
   const person = [...view.nearby, ...view.known, ...view.city].find((item) => item.id === personId) ?? null;
   const me = view.me;
   const onTrip = isTripPlace(me.locationId);
@@ -209,7 +219,41 @@ export function GameShell({ view }: { view: GameView }) {
   const [phone, setPhone] = useState<HTMLDivElement | null>(null);
   const [roomEntry, setRoomEntry] = useState<"look" | "shop">("look");
   const [shopNonce, setShopNonce] = useState(0);
-  const [phoneStart, setPhoneStart] = useState<PhoneApp | null>(null);
+  const [phoneStart, setPhoneStart] = useState<PhoneApp | null>(spaceCode ? "spaces" : null);
+  const [openSpace, setOpenSpace] = useState<string | null>(spaceCode);
+  const seenAlerts = useRef(new Set<string>());
+  const alertsReady = useRef(false);
+
+  useEffect(() => {
+    if (!spaceCode) return;
+    setTab("phone");
+    setPhoneStart("spaces");
+    setOpenSpace(spaceCode);
+  }, [spaceCode]);
+
+  useEffect(() => {
+    if (tab !== "phone" || typeof Notification === "undefined" || Notification.permission !== "default") return;
+    void Notification.requestPermission().catch(() => undefined);
+  }, [tab]);
+
+  useEffect(() => {
+    const alerts = view.me.alerts ?? [];
+    if (!alertsReady.current) {
+      for (const alert of alerts) seenAlerts.current.add(alert.id);
+      alertsReady.current = true;
+      return;
+    }
+    const fresh = alerts.filter((alert) => !seenAlerts.current.has(alert.id));
+    for (const alert of alerts) seenAlerts.current.add(alert.id);
+    if (!fresh.length || typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    for (const alert of fresh) {
+      try {
+        new Notification("Owerri Life", { body: alert.text, tag: alert.id });
+      } catch {
+        /* The phone can block a banner. The red count on the phone still shows. */
+      }
+    }
+  }, [view.me.alerts]);
 
   useEffect(() => {
     const block = (event: WheelEvent) => {
@@ -368,6 +412,8 @@ export function GameShell({ view }: { view: GameView }) {
             <PhonePanel
               view={view}
               start={phoneStart}
+              spaceCode={openSpace}
+              onSpace={(code) => setOpenSpace(code)}
               onStarted={() => setPhoneStart(null)}
               run={run}
               pending={pending}
@@ -474,7 +520,10 @@ export function GameShell({ view }: { view: GameView }) {
             setRoomEntry("look");
             setTab("room");
           }}><span className="text-base leading-none">⌂</span>Home</button>
-          <button type="button" className={`flex w-16 flex-col items-center gap-0.5 rounded-2xl px-2 py-1.5 ${!account && tab === "phone" ? "bg-[#17241e] text-white" : "text-[#5d6b62]"}`} onClick={() => { setAccount(false); setTab("phone"); }}><span className="text-base leading-none">▢</span>Phone</button>
+          <button type="button" className={`relative flex w-16 flex-col items-center gap-0.5 rounded-2xl px-2 py-1.5 ${!account && tab === "phone" ? "bg-[#17241e] text-white" : "text-[#5d6b62]"}`} onClick={() => { setAccount(false); setTab("phone"); }}>
+            <span className="text-base leading-none">▢</span>Phone
+            {phoneNoteCount(view) > 0 ? <span className="absolute right-1 top-0 grid h-4 min-w-4 place-items-center rounded-full bg-[#b5523a] px-1 text-[9px] font-semibold text-white">{phoneNoteCount(view)}</span> : null}
+          </button>
         </nav>
         {ride ? <RideScene vehicle={ride.vehicle} carId={ride.carId} onArrive={finishRide} /> : null}
         {flight ? (
@@ -1159,7 +1208,17 @@ function MapPanel({
   );
 }
 
-type PhoneApp = "jobs" | "messages" | "bets" | "houses" | "properties" | "land" | "wallet" | "bus" | "food" | "campus" | "market" | "night" | "club" | "health" | "fly" | "skills" | "settings" | "spaces";
+type PhoneApp = "jobs" | "messages" | "bets" | "houses" | "properties" | "land" | "wallet" | "bus" | "food" | "campus" | "market" | "night" | "club" | "health" | "fly" | "skills" | "settings" | "spaces" | "invest";
+
+function phoneNoteCount(view: GameView) {
+  return view.requests.incoming.length + view.me.alerts.filter((alert) => alert.app === "invest" || alert.text.includes("invited")).length;
+}
+
+function appNoteCount(view: GameView, app: PhoneApp) {
+  if (app === "messages") return view.requests.incoming.length + view.me.alerts.filter((alert) => alert.app === "messages" && alert.text.includes("invited")).length;
+  if (app === "invest") return view.me.alerts.filter((alert) => alert.app === "invest").length;
+  return 0;
+}
 
 function PhoneDeck({
   view,
@@ -1177,6 +1236,7 @@ function PhoneDeck({
     { name: "Properties", icon: "🔑", tone: "bg-[#143d2c]", pick: "properties" },
     { name: "Plots", icon: "🌿", tone: "bg-[#3d6b4f]", pick: "land" },
     { name: "Wallet", icon: "💰", tone: "bg-[#c48a2a]", pick: "wallet" },
+    { name: "Invest", icon: "📈", tone: "bg-[#143d2c]", pick: "invest" },
     { name: "Food", icon: "🍲", tone: "bg-[#b5523a]", pick: "food" },
     { name: "Campus", icon: "🎓", tone: "bg-[#5a3d7a]", pick: "campus" },
     { name: "Market", icon: "🛍", tone: "bg-[#8a5a2a]", pick: "market" },
@@ -1211,7 +1271,10 @@ function PhoneDeck({
                 onClick={() => onPick(app.pick)}
                 className="flex flex-col items-center gap-1"
               >
-                <span className={`grid h-14 w-14 place-items-center rounded-2xl text-2xl shadow ${app.tone}`}>{app.icon}</span>
+                <span className="relative">
+                  <span className={`grid h-14 w-14 place-items-center rounded-2xl text-2xl shadow ${app.tone}`}>{app.icon}</span>
+                  {appNoteCount(view, app.pick) > 0 ? <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-[#b5523a] px-1 text-[10px] font-semibold text-white">{appNoteCount(view, app.pick)}</span> : null}
+                </span>
                 <span className="text-[11px] font-medium">{app.name}</span>
               </button>
             ))}
@@ -1246,6 +1309,8 @@ function PhonePanel({
   onMeet,
   start = null,
   onStarted,
+  spaceCode = null,
+  onSpace,
 }: {
   view: GameView;
   run: Run;
@@ -1256,14 +1321,27 @@ function PhonePanel({
   onMeet: (id: string) => void;
   start?: PhoneApp | null;
   onStarted?: () => void;
+  spaceCode?: string | null;
+  onSpace?: (code: string | null) => void;
 }) {
   const me = view.me;
   const [app, setApp] = useState<PhoneApp | null>(start);
   const [picked, setPicked] = useState<string | null>(null);
   const [peer, setPeer] = useState<string | null>(null);
+  const cleared = useRef<PhoneApp | null>(null);
   useEffect(() => {
     onStarted?.();
   }, [onStarted]);
+  useEffect(() => {
+    if (app !== "messages" && app !== "invest") {
+      cleared.current = null;
+      return;
+    }
+    if (cleared.current === app) return;
+    if (!view.me.alerts.some((alert) => alert.app === app)) return;
+    cleared.current = app;
+    run(() => clearPhoneAlerts(app));
+  }, [app, run, view.me.alerts]);
   if (!app) return <PhoneDeck view={view} onPick={setApp} />;
   const titles: Record<PhoneApp, string> = {
     jobs: "Jobs",
@@ -1284,8 +1362,13 @@ function PhonePanel({
     fly: "Fly",
     skills: "Skills",
     settings: "Settings",
+    invest: "Invest",
   };
   function close() {
+    if (app === "spaces" && spaceCode) {
+      onSpace?.(null);
+      return;
+    }
     if (picked) {
       setPicked(null);
       return;
@@ -1305,7 +1388,7 @@ function PhonePanel({
         <p className="text-sm font-semibold text-[#f6f1e6]">{titles[app]}</p>
         <button type="button" aria-label="Close" onClick={close} className="grid h-8 w-8 place-items-center rounded-full bg-white text-lg leading-none text-[#17241e]">×</button>
       </div>
-      <div className={`min-h-0 flex-1 bg-[#f4efe4] ${app === "messages" ? "flex flex-col overflow-hidden" : "space-y-4 overflow-y-auto p-3"}`}>
+      <div className={`min-h-0 flex-1 bg-[#f4efe4] ${app === "messages" || (app === "spaces" && spaceCode) ? "flex flex-col overflow-hidden" : "space-y-4 overflow-y-auto p-3"}`}>
       {app === "bus" ? (
         <section className="rounded-3xl bg-white p-4 text-sm leading-6">
           <h2 className="font-display text-2xl">Busimo</h2>
@@ -1317,7 +1400,13 @@ function PhonePanel({
               <PeoplePanel view={view} run={run} pending={pending} peerId={peer} onPeer={setPeer} onOpen={onOpen} onMeet={onMeet} onVisit={onArrived} />
         </div>
       ) : null}
-      {app === "spaces" ? <SpacesPanel /> : null}
+      {app === "spaces" && spaceCode ? (
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <SpaceRoom code={spaceCode} meId={me.id} onLeave={() => onSpace?.(null)} />
+        </div>
+      ) : null}
+      {app === "spaces" && !spaceCode ? <SpacesPanel onOpen={(code) => onSpace?.(code)} /> : null}
+      {app === "invest" ? <InvestPanel view={view} run={run} pending={pending} /> : null}
       {app === "bets" ? <BetsPanel view={view} run={run} pending={pending} /> : null}
       {app === "wallet" ? <LedgerPanel view={view} /> : null}
       {app === "settings" ? (
@@ -2090,6 +2179,45 @@ function BetsPanel({ view, run, pending }: { view: GameView; run: Run; pending: 
   );
 }
 
+function InvestPanel({ view, run, pending }: { view: GameView; run: Run; pending: boolean }) {
+  const [amount, setAmount] = useState("100000");
+  const open = view.me.investments ?? [];
+  return (
+    <section className="space-y-3 text-sm">
+      <h2 className="font-display text-2xl">Invest</h2>
+      <p className="text-[#5d6b62]">Pick how long the money stays out. It pays back into your wallet on the due day.</p>
+      <label className="block rounded-3xl bg-white p-3 font-semibold">
+        Amount
+        <input value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="numeric" className="mt-1 w-full rounded-2xl border border-[#e4d8c4] px-3 py-2 font-normal" />
+      </label>
+      <div className="grid gap-2">
+        {INVEST_TERMS.map((term) => (
+          <button
+            key={term.days}
+            type="button"
+            disabled={pending}
+            className="rounded-3xl bg-white px-3 py-3 text-left disabled:opacity-40"
+            onClick={() => run(() => startInvestment(Number(amount), term.days))}
+          >
+            <span className="font-semibold">{term.label}</span>
+            <span className="mt-1 block text-xs text-[#5d6b62]">Pays {Math.round(term.rate * 100)}% on top when the day comes.</span>
+          </button>
+        ))}
+      </div>
+      {open.length === 0 ? <p className="text-[#5d6b62]">Nothing is out right now. The smallest stake is {naira(100000)}.</p> : null}
+      {open.map((item) => {
+        const left = Math.max(0, item.dueDay - view.me.day);
+        return (
+          <article key={item.id} className="rounded-3xl bg-white px-3 py-3">
+            <p className="font-semibold">{naira(item.amount)} · {item.days} day{item.days === 1 ? "" : "s"}</p>
+            <p className="text-xs text-[#5d6b62]">{left === 0 ? "Pays today" : `${left} day${left === 1 ? "" : "s"} left`} · comes back as {naira(item.payout)}</p>
+          </article>
+        );
+      })}
+    </section>
+  );
+}
+
 function PeoplePanel({
   view,
   run,
@@ -2114,18 +2242,18 @@ function PeoplePanel({
   const [text, setText] = useState("");
   const [handle, setHandle] = useState("");
   const [reply, setReply] = useState<{ id: string; fromName: string; text: string } | null>(null);
+  const friends = new Set(view.me.friends);
   const contacts = new Map<string, { id: string; name: string; look: GameView["me"]["look"] | null; preview: string; at: string }>();
   for (const person of [...view.city, ...view.known, ...view.nearby]) {
+    if (person.isNpc || !person.friend) continue;
     contacts.set(person.id, { id: person.id, name: person.name, look: person.look, preview: "", at: "" });
   }
-  for (const npc of NPCS) {
-    if (!contacts.has(npc.id)) contacts.set(npc.id, { id: npc.id, name: npc.name, look: null, preview: "", at: "" });
-  }
   for (const thread of view.threads) {
+    if (!friends.has(thread.peerId)) continue;
     const last = thread.lines[thread.lines.length - 1];
     const current = contacts.get(thread.peerId) ?? { id: thread.peerId, name: thread.peerName, look: null, preview: "", at: "" };
     current.name = thread.peerName;
-    current.preview = last?.text ?? "";
+    current.preview = last?.deleted ? "Deleted a message" : (last?.text ?? "");
     current.at = last?.at ?? "";
     contacts.set(thread.peerId, current);
   }
@@ -2164,6 +2292,7 @@ function PeoplePanel({
               <button type="button" disabled={pending} className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold" onClick={() => { const amount = Number(window.prompt("How much naira?", "5000")); if (amount) run(() => sendMoney(peer.id, amount)); }}>Send money</button>
               <button type="button" disabled={pending} className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold" onClick={() => run(() => buyThemFood(peer.id))}>Buy food</button>
               <button type="button" disabled={pending} className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold" onClick={() => { const note = window.prompt("Post in this private chat"); if (note) run(() => postToChat(peer.id, note)); }}>Post</button>
+              {view.me.friends.includes(peer.id) ? <button type="button" disabled={pending} className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold" onClick={() => run(() => unfriend(peer.id)).then((result) => { if (result.ok) onPeer(null); })}>Unfriend</button> : null}
               <button type="button" disabled={pending} className="rounded-full bg-[#7a2e1e] px-2 py-1 text-[10px] font-semibold" onClick={() => run(() => blockPerson(peer.id))}>Block</button>
             </div>
           ) : null}
@@ -2173,19 +2302,23 @@ function PeoplePanel({
           {thread?.lines.map((line) => {
             const mine = line.fromId === view.me.id;
             const fromName = mine ? view.me.username : peer.name;
+            const kept = line.kind === "money" || line.kind === "food";
             return (
               <div key={line.id} className={`max-w-[80%] ${mine ? "self-end" : "self-start"}`}>
                 <SwipeMessage
                   mine={mine}
-                  onReply={() => setReply({ id: line.id, fromName, text: line.text })}
+                  canDelete={mine && !line.deleted && !kept}
+                  onReply={() => setReply({ id: line.id, fromName, text: line.deleted ? "Deleted a message" : line.text })}
                   onDelete={() => run(() => deleteDirectLine(line.id))}
                 >
-                  <div className={`rounded-2xl px-3 py-2 ${line.kind === "money" || line.kind === "food" || line.kind === "invite" || line.kind === "meet" ? "bg-[#fff4d6] text-[#5a3d12]" : mine ? "rounded-br-sm bg-[#d8f3dc] text-[#143d2c]" : "rounded-bl-sm bg-white"}`}>
+                  <div className={`rounded-2xl px-3 py-2 ${kept || line.kind === "invite" || line.kind === "meet" ? "bg-[#fff4d6] text-[#5a3d12]" : mine ? "rounded-br-sm bg-[#d8f3dc] text-[#143d2c]" : "rounded-bl-sm bg-white"}`}>
                     {line.replyTo ? <Quote from={line.replyTo.fromName} text={line.replyTo.text} /> : null}
-                    {line.kind === "voice" && line.voiceId ? (
+                    {line.deleted ? (
+                      <p className="text-xs italic text-[#5d6b62]">{mine ? "You deleted a message" : `${fromName} deleted a message`}</p>
+                    ) : line.kind === "voice" && line.voiceId ? (
                       <audio controls preload="none" src={`/api/voice/${line.voiceId}`} className="h-8 max-w-full" />
-                    ) : line.kind === "money" || line.kind === "food" ? (
-                      <p className="text-sm font-semibold">{line.text}</p>
+                    ) : kept ? (
+                      <p className="text-xs font-semibold">{line.text}</p>
                     ) : line.kind === "meet" ? (
                       <div>
                         <p className="text-sm font-semibold">{line.text}</p>
@@ -2241,7 +2374,7 @@ function PeoplePanel({
           <p className="bg-[#fffaf2] px-3 py-3 text-xs text-[#5d6b62]">The State CID does not take chat. Honour the invite inside the station.</p>
         ) : (
           <div className="shrink-0 border-t border-[#e4d8c4] bg-[#fffaf2] p-2 pb-3">
-            <p className="px-1 pb-2 text-[10px] text-[#5d6b62]">Swipe left to reply. Swipe right to delete a message you sent.</p>
+            <p className="px-1 pb-2 text-[10px] text-[#5d6b62]">Swipe left to reply. Swipe right to delete a message you sent. Money and food stay.</p>
             {reply ? <ReplyBar reply={reply} onClear={() => setReply(null)} /> : null}
             {mentionQuery(text) != null ? (
               <button type="button" className="mb-2 rounded-full bg-[#efe4d2] px-3 py-1 text-xs font-semibold" onClick={() => setText((current) => current.replace(/@[^\s@]*$/, `@${peer.name} `))}>@{peer.name}</button>
@@ -2270,7 +2403,7 @@ function PeoplePanel({
   return (
     <div className="h-full space-y-2 overflow-y-auto p-3">
       <h2 className="font-display text-2xl">Chats</h2>
-      <p className="text-sm text-[#5d6b62]">Message anyone in the city. It stays free. A padi request needs their username.</p>
+      <p className="text-sm text-[#5d6b62]">Only your padi are in this list. A request needs their username.</p>
       <form
         className="flex gap-2"
         onSubmit={(event) => {
@@ -2295,7 +2428,7 @@ function PeoplePanel({
       {view.requests.outgoing.map((request) => (
         <p key={request.toId} className="rounded-2xl bg-white px-3 py-3 text-sm text-[#5d6b62]">Waiting on {request.username}</p>
       ))}
-      {rows.length === 0 ? <p className="text-sm">Nobody else is in the city yet.</p> : null}
+      {rows.length === 0 ? <p className="text-sm">No padi yet. Send a request with their username.</p> : null}
       {rows.map((person) => (
         <button key={person.id} className="flex w-full items-center gap-3 rounded-2xl bg-white px-3 py-3 text-left" onClick={() => onPeer(person.id)}>
           <Avatar look={person.look} name={person.name} size={42} />
@@ -2473,11 +2606,13 @@ function ReplyBar({ reply, onClear }: { reply: { fromName: string; text: string 
 
 function SwipeMessage({
   mine,
+  canDelete = true,
   onReply,
   onDelete,
   children,
 }: {
   mine: boolean;
+  canDelete?: boolean;
   onReply: () => void;
   onDelete: () => void;
   children: ReactNode;
@@ -2489,7 +2624,7 @@ function SwipeMessage({
 
   function finish() {
     if (shift.current <= -56) onReply();
-    else if (shift.current >= 56) onDelete();
+    else if (canDelete && shift.current >= 56) onDelete();
     origin.current = null;
     locked.current = false;
     shift.current = 0;
@@ -2498,7 +2633,7 @@ function SwipeMessage({
 
   return (
     <div className="relative overflow-hidden rounded-2xl">
-      <span className="absolute inset-y-0 left-2 grid items-center text-[10px] font-semibold text-[#b5523a]">Delete</span>
+      {canDelete ? <span className="absolute inset-y-0 left-2 grid items-center text-[10px] font-semibold text-[#b5523a]">Delete</span> : null}
       <span className="absolute inset-y-0 right-2 grid items-center text-[10px] font-semibold text-[#1f6b45]">Reply</span>
       <div
         className="relative bg-[#efe4d2]"

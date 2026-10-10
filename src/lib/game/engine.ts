@@ -261,6 +261,19 @@ export function advance(player: Player, ledger: LedgerEntry[], hours: number) {
       next.hour = 0;
       next.day += 1;
       next.dmToday = 0;
+      const open = next.investments ?? [];
+      const still: NonNullable<Player["investments"]> = [];
+      for (const item of open) {
+        if (next.day < item.dueDay) {
+          still.push(item);
+          continue;
+        }
+        book = credit(book, next, item.payout, "earned", `Investment paid after ${item.days} day${item.days === 1 ? "" : "s"}`, stamp(next.day, next.hour));
+        const text = `Your ${item.days}-day investment paid ${naira(item.payout)}.`;
+        notes.push(text);
+        next.alerts = [...(next.alerts ?? []), { id: nid(), app: "invest", text }];
+      }
+      next.investments = still;
       if (next.pendingJob && next.day >= next.pendingJob.startsOnDay && !next.job) {
         next.job = {
           careerId: next.pendingJob.careerId,
@@ -286,6 +299,26 @@ export function advance(player: Player, ledger: LedgerEntry[], hours: number) {
     }
   }
   return { player: next, ledger: book, notes };
+}
+
+export const INVEST_TERMS = [
+  { days: 1, rate: 0.08, label: "1 day" },
+  { days: 3, rate: 0.18, label: "3 days" },
+  { days: 7, rate: 0.4, label: "7 days" },
+] as const;
+
+export function openInvestment(player: Player, ledger: LedgerEntry[], amount: number, days: number): Step {
+  const term = INVEST_TERMS.find((item) => item.days === days);
+  if (!term) return fail(player, ledger, "Pick 1 day, 3 days, or 7 days.");
+  const cost = Math.round(amount);
+  if (!Number.isFinite(cost) || cost < 100_000) return fail(player, ledger, "The smallest investment is ₦100,000.");
+  const at = stamp(player.day, player.hour);
+  const charged = debit(ledger, player, cost, `Invested for ${term.label}`, at);
+  if (!charged) return fail(player, ledger, "Your wallet cannot cover that investment.");
+  const payout = Math.round(cost * (1 + term.rate));
+  const next = structuredClone(player);
+  next.investments = [...(next.investments ?? []), { id: nid(), amount: cost, days: term.days, dueDay: player.day + term.days, payout }];
+  return succeed(next, charged, [`Locked for ${term.label}. It pays ${naira(payout)} when it matures.`]);
 }
 
 export function distanceKm(fromId: string, toId: string) {

@@ -1,11 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { createSpace, listSpaces, type SpaceView } from "@/lib/game/spaces";
 
-export function SpacesPanel() {
-  const router = useRouter();
+export function SpacesPanel({ onOpen }: { onOpen: (code: string) => void }) {
   const [title, setTitle] = useState("");
   const [code, setCode] = useState("");
   const [spaces, setSpaces] = useState<SpaceView[]>([]);
@@ -33,13 +31,13 @@ export function SpacesPanel() {
       setError(result.error);
       return;
     }
-    router.push(`/space/${result.space.code}`);
+    onOpen(result.space.code);
   }
 
   return (
     <section className="space-y-3 text-sm">
       <h2 className="font-display text-2xl">Spaces</h2>
-      <p className="text-[#5d6b62]">Open a room, share the link, and talk. People join as listeners, then take a turn on the mic.</p>
+      <p className="text-[#5d6b62]">Open a room and talk. Everyone sits in a circle. Tap the mic under your face to speak.</p>
       {error ? <p className="rounded-2xl bg-[#f3d6cc] px-3 py-2 text-[#7a2e1e]">{error}</p> : null}
       <form
         className="space-y-2 rounded-3xl bg-white p-3"
@@ -65,7 +63,7 @@ export function SpacesPanel() {
             setError("Paste the 8-character space code.");
             return;
           }
-          router.push(`/space/${next}`);
+          onOpen(next);
         }}
       >
         <input value={code} onChange={(event) => setCode(event.target.value)} placeholder="Space code" className="min-w-0 flex-1 rounded-full border border-[#e4d8c4] bg-white px-3 py-2" />
@@ -74,7 +72,7 @@ export function SpacesPanel() {
       <div className="space-y-2">
         {spaces.length === 0 ? <p className="text-[#5d6b62]">No live spaces yet. Start one.</p> : null}
         {spaces.map((space) => (
-          <button key={space.code} type="button" onClick={() => router.push(`/space/${space.code}`)} className="block w-full rounded-3xl bg-white p-3 text-left">
+          <button key={space.code} type="button" onClick={() => onOpen(space.code)} className="block w-full rounded-3xl bg-white p-3 text-left">
             <p className="font-semibold">{space.title}</p>
             <p className="text-xs text-[#5d6b62]">{space.hostName} · {space.members.length} here</p>
           </button>

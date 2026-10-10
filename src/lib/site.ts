@@ -1,6 +1,9 @@
 export function spaceReturn(value: string | null | undefined) {
-  if (!value || !/^\/space\/[a-z0-9]{8}$/.test(value)) return null;
-  return value;
+  if (!value) return null;
+  const legacy = value.match(/^\/space\/([a-z0-9]{8})$/);
+  if (legacy) return `/play?space=${legacy[1]}`;
+  if (/^\/play\?space=[a-z0-9]{8}$/.test(value)) return value;
+  return null;
 }
 
 export function siteUrl() {

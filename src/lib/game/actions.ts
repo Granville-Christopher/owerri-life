@@ -63,6 +63,7 @@ import {
   payPeer,
   giftPlate,
   FOOD_GIFT,
+  openInvestment,
 } from "./engine";
 import { naira, stamp } from "./format";
 import { authBlocked, authCleared, authFailed, burnPasswordCheck, clearSession, hashPassword, needsUpgrade, sessionPlayerId, setSession, verifyPassword } from "./auth";
@@ -708,7 +709,11 @@ export async function deleteDirectLine(messageId: string) {
       const message = db.messages.find((item) => item.id === messageId);
       if (!message || !message.box.split("|").includes(player.id)) return { ok: false, error: "That message is gone." };
       if (message.fromId !== player.id) return { ok: false, error: "You can only delete a message you sent." };
-      db.messages = db.messages.filter((item) => item.id !== messageId);
+      if (message.kind === "money" || message.kind === "food") return { ok: false, error: "Money and food stay in the chat. You can reply to them." };
+      if (message.deleted) return { ok: true, player, notice: "Already deleted." };
+      message.deleted = true;
+      message.text = "";
+      message.voiceId = null;
       return { ok: true, player, notice: "Deleted." };
     }),
   );
@@ -820,6 +825,7 @@ export async function inviteOver(peerId: string) {
         });
         return { ok: true, player: step.player, notice: `${npc.name} is coming over.` };
       }
+      other!.alerts = [...(other!.alerts ?? []), { id: crypto.randomUUID(), app: "messages", text: `${player.username} invited you over.` }];
       return { ok: true, player, notice: `Invite sent to ${other!.username}.` };
     }),
   );
@@ -1026,6 +1032,7 @@ export async function sendFriendRequest(username: string) {
         return { ok: true, player: next, notice: `${other.username} is your padi now.` };
       }
       db.requests.push({ id: crypto.randomUUID(), fromId: player.id, toId: other.id });
+      other.alerts = [...(other.alerts ?? []), { id: crypto.randomUUID(), app: "messages", text: `${player.username} sent you a padi request.` }];
       return { ok: true, player, notice: `Request sent to ${other.username}.` };
     }),
   );
@@ -1069,6 +1076,41 @@ export async function addFriend(peerId: string) {
       next.friends = [...next.friends, peerId];
       if (!next.met.includes(peerId)) next.met.push(peerId);
       return { ok: true, player: next, notice: `${name} is your padi now.` };
+    }),
+  );
+}
+
+export async function unfriend(peerId: string) {
+  return withPlayer((id) =>
+    play(id, (player, db) => {
+      if (!player.friends.includes(peerId)) return { ok: false, error: "They are not your padi." };
+      const next = structuredClone(player);
+      next.friends = next.friends.filter((friend) => friend !== peerId);
+      const other = db.players.find((item) => item.id === peerId);
+      if (other) other.friends = other.friends.filter((friend) => friend !== player.id);
+      const name = other?.username ?? "Them";
+      return { ok: true, player: next, notice: `${name} is no longer your padi.` };
+    }),
+  );
+}
+
+export async function startInvestment(amount: number, days: number) {
+  return withPlayer((id) =>
+    play(id, (player, db) => {
+      const step = openInvestment(player, db.ledger, amount, days);
+      if (!step.ok) return { ok: false, error: step.error };
+      db.ledger = step.ledger;
+      return { ok: true, player: step.player, notice: step.notice };
+    }),
+  );
+}
+
+export async function clearPhoneAlerts(app: "messages" | "invest") {
+  return withPlayer((id) =>
+    play(id, (player) => {
+      const next = structuredClone(player);
+      next.alerts = (next.alerts ?? []).filter((alert) => alert.app !== app);
+      return { ok: true, player: next };
     }),
   );
 }

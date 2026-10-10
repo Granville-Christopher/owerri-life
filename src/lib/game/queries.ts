@@ -61,6 +61,8 @@ export interface GameView {
     indoors: boolean;
     lastRide: Player["lastRide"];
     friends: string[];
+    alerts: Array<{ id: string; app: "messages" | "invest"; text: string }>;
+    investments: Array<{ id: string; amount: number; days: number; dueDay: number; payout: number }>;
     netWorthVisibility: NetWorthVisibility;
     log: string[];
     policeInvite: { note: string; deadline: string } | null;
@@ -102,6 +104,7 @@ export interface GameView {
       voiceId: string | null;
       placeId: string | null;
       meet: "ask" | "yes" | "no" | "spot" | null;
+      deleted: boolean;
     }>;
   }>;
   bubbles: Array<{ fromId: string; name: string; text: string }>;
@@ -315,6 +318,7 @@ export async function buildView(playerId: string): Promise<GameView | null> {
       voiceId: message.voiceId ?? null,
       placeId: message.placeId ?? null,
       meet: message.meet ?? null,
+      deleted: Boolean(message.deleted),
     });
   }
   const bubbles: GameView["bubbles"] = [];
@@ -361,6 +365,8 @@ export async function buildView(playerId: string): Promise<GameView | null> {
       indoors: me.indoors,
       lastRide: me.lastRide,
       friends: me.friends,
+      alerts: me.alerts ?? [],
+      investments: me.investments ?? [],
       netWorthVisibility: me.netWorthVisibility,
       log: me.log,
       policeInvite: me.policeInvite
