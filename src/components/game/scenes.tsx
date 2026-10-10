@@ -338,7 +338,7 @@ function hotelSit(seat: SeatSpot, scale: number) {
 }
 
 function lieLift(cushion: number | undefined) {
-  return (cushion ?? 0.9) + 0.2;
+  return Math.max(0.5, (cushion ?? 0.74) - 0.08);
 }
 
 function seatsFor(entry: { id: string; x: number; z: number; rot: number }): SeatSpot[] {
@@ -359,7 +359,7 @@ function seatsFor(entry: { id: string; x: number; z: number; rot: number }): Sea
   if (entry.id === "desk") return [at(0, 0.9, Math.PI, false, 0.74)];
   if (entry.id === "sofa") return [at(0, 0.05, 0, false, 0.95)];
   if (entry.id === "armchair") return [at(0, 0.05, 0, false, 0.75)];
-  if (entry.id === "bed" || entry.id === "double-bed") return [at(0, 0.35, 0, true, 0.9)];
+  if (entry.id === "bed" || entry.id === "double-bed") return [at(0, 0.62, 0, true, 0.74)];
   return [];
 }
 
@@ -532,7 +532,6 @@ function walkToward(body: THREE.Object3D, dest: { x: number; z: number; y?: numb
   const dz = hop.z - body.position.z;
   const dist = Math.hypot(dx, dz);
   const last = !dest.hops || dest.hops.length <= 1;
-  const restY = last ? (dest.y ?? 0) : 0;
   if (dist < (last ? 0.1 : 0.16)) {
     if (dest.hops && dest.hops.length) dest.hops.shift();
     if (dest.hops && dest.hops.length) return false;
@@ -545,7 +544,7 @@ function walkToward(body: THREE.Object3D, dest: { x: number; z: number; y?: numb
   const step = Math.min(dist, speed * dt);
   body.position.x += (dx / dist) * step;
   body.position.z += (dz / dist) * step;
-  body.position.y = restY + Math.abs(Math.sin(performance.now() / 140)) * 0.07;
+  body.position.y = Math.abs(Math.sin(performance.now() / 140)) * 0.06;
   body.rotation.y = Math.atan2(dx, dz);
   swingWalk(body, dist, false);
   return false;
@@ -2266,7 +2265,7 @@ function HotelSuite({
       { x: -3.3, z: 1.5, rot: -Math.PI / 2, y: 0.54 },
       { x: -1.6, z: -0.55, rot: 0, bed: true, y: 0.69 },
     ];
-    const hotelBed = { x: -1.6, z: -1.05, rot: 0, y: lieLift(0.69) };
+    const hotelBed = { x: -1.6, z: -1.38, rot: 0, y: 0.62 };
     const hotelBlocks: WalkBlock[] = [
       { x: -1.6, z: -2.05, w: 1.9, d: 2.45, rot: 0 },
       { x: 1.05, z: 0.95, w: 0.85, d: 2.1, rot: 0 },
@@ -2332,7 +2331,7 @@ function HotelSuite({
       if (mode === "lie") {
         you.rotation.x = -Math.PI / 2;
         you.rotation.y = 0;
-        you.position.y = y ?? lieLift(0.69);
+        you.position.y = y ?? hotelBed.y;
       } else {
         you.rotation.x = 0;
         you.rotation.y = rot;
@@ -2345,7 +2344,8 @@ function HotelSuite({
         const parked = hotelSit(seat, 0.92);
         dest = { x: parked.x, z: parked.z, rot: parked.rot, y: parked.y, hops: findWalkPath({ x: you.position.x, z: you.position.z }, parked, hotelBlocks), mode: "sit" };
       } else if (want === "lie") {
-        dest = { ...hotelBed, hops: findWalkPath({ x: you.position.x, z: you.position.z }, hotelBed, hotelBlocks), mode: "lie" };
+        const approach = { x: hotelBed.x, z: -0.4 };
+        dest = { ...hotelBed, hops: findWalkPath({ x: you.position.x, z: you.position.z }, approach, hotelBlocks), mode: "lie" };
       } else {
         dest = { ...hotelStand, hops: findWalkPath({ x: you.position.x, z: you.position.z }, hotelStand, hotelBlocks), mode: "stand" };
       }
