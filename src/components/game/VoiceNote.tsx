@@ -3,6 +3,68 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
+const RATES = [1, 1.5, 2] as const;
+let currentNote: HTMLAudioElement | null = null;
+
+export function VoiceNotePlayer({ src }: { src: string }) {
+  const audio = useRef<HTMLAudioElement | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [rate, setRate] = useState<(typeof RATES)[number]>(1);
+  const [progress, setProgress] = useState(0);
+
+  function toggle() {
+    const el = audio.current;
+    if (!el) return;
+    if (el.paused) {
+      if (currentNote && currentNote !== el) currentNote.pause();
+      currentNote = el;
+      el.playbackRate = rate;
+      void el.play();
+      return;
+    }
+    el.pause();
+  }
+
+  function cycle() {
+    const next = RATES[(RATES.indexOf(rate) + 1) % RATES.length];
+    setRate(next);
+    if (audio.current) audio.current.playbackRate = next;
+  }
+
+  const label = rate === 1 ? "1×" : rate === 1.5 ? "1.5×" : "2×";
+
+  return (
+    <div className="flex min-w-[11rem] items-center gap-2">
+      <audio
+        ref={audio}
+        preload="metadata"
+        src={src}
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onEnded={() => {
+          setPlaying(false);
+          setProgress(0);
+          if (currentNote === audio.current) currentNote = null;
+        }}
+        onTimeUpdate={() => {
+          const el = audio.current;
+          if (!el || !Number.isFinite(el.duration) || el.duration <= 0) return;
+          setProgress(el.currentTime / el.duration);
+        }}
+      />
+      <button type="button" aria-label={playing ? "Pause voice note" : "Play voice note"} onClick={toggle} className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#143d2c] text-[11px] font-semibold text-white">
+        {playing ? "II" : "▶"}
+      </button>
+      <span className="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-[#143d2c]/15">
+        <span className="block h-full rounded-full bg-[#1f6b45]" style={{ width: `${Math.min(100, progress * 100)}%` }} />
+      </span>
+      <button type="button" aria-label={`Speed ${label}`} onClick={cycle} className="shrink-0 rounded-full bg-[#143d2c]/10 px-2 py-1 text-[10px] font-semibold text-[#143d2c]">
+        {label}
+      </button>
+    </div>
+  );
+}
+
 export function VoiceNoteButton({ peerId, disabled }: { peerId: string; disabled: boolean }) {
   const router = useRouter();
   const [recording, setRecording] = useState(false);

@@ -10,7 +10,7 @@ import { ArrivalScene, HouseRoom, VenueInterior } from "@/components/game/scenes
 import { RideScene } from "@/components/game/RideScene";
 import { SpaceRoom } from "@/components/game/SpaceRoom";
 import { SpacesPanel } from "@/components/game/SpacesPanel";
-import { VoiceNoteButton } from "@/components/game/VoiceNote";
+import { VoiceNoteButton, VoiceNotePlayer } from "@/components/game/VoiceNote";
 import { FlightScene } from "@/components/game/FlightScene";
 import { GameSound } from "@/components/game/GameSound";
 import { MAP_TRACK, pickAmapiano, placeRate, placeSound } from "@/lib/game/music";
@@ -2486,7 +2486,7 @@ function PeoplePanel({
                     {line.deleted ? (
                       <p className="text-xs italic text-[#5d6b62]">{mine ? "You deleted a message" : `${fromName} deleted a message`}</p>
                     ) : line.kind === "voice" && line.voiceId ? (
-                      <audio controls preload="none" src={`/api/voice/${line.voiceId}`} className="h-8 max-w-full" />
+                      <VoiceNotePlayer src={`/api/voice/${line.voiceId}`} />
                     ) : kept ? (
                       <p className="text-xs font-semibold">{line.text}</p>
                     ) : line.kind === "meet" ? (
