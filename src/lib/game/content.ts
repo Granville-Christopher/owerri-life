@@ -1964,13 +1964,14 @@ export function parsePlaceHours(hours: string): { always: boolean; open: number;
 }
 
 export function placeHoursLabel(place: Place) {
+  if (place.kind === "food") return "Always open";
   const spec = parsePlaceHours(place.hours);
   return spec.always ? place.hours : `${place.hours} WAT`;
 }
 
 export function placeIsOpen(place: Place, date = new Date()) {
   const spec = parsePlaceHours(place.hours);
-  if (spec.always) return true;
+  if (place.kind === "food" || spec.always) return true;
   const now = westAfricanMinutes(date);
   if (spec.open === spec.close) return true;
   if (spec.open < spec.close) return now >= spec.open && now < spec.close;
