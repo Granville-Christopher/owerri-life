@@ -12,7 +12,7 @@ export type SpaceView = {
   hostName: string;
   ended: boolean;
   link: string;
-  members: Array<{ id: string; name: string; role: SpaceRole }>;
+  members: Array<{ id: string; name: string; role: SpaceRole; muted: boolean }>;
 };
 
 function freshCode() {
@@ -37,7 +37,7 @@ function viewOf(space: SpaceDoc): SpaceView {
     hostName: space.hostName,
     ended: space.ended,
     link: `${siteUrl()}/space/${space._id}`,
-    members: space.members.map((member) => ({ id: member.id, name: member.name, role: member.role })),
+    members: space.members.map((member) => ({ id: member.id, name: member.name, role: member.role, muted: Boolean(member.muted) })),
   };
 }
 
@@ -88,7 +88,7 @@ export async function createSpace(titleRaw: string) {
     hostName: player.username,
     createdAt: now,
     ended: false,
-    members: [{ id: player.id, name: player.username, role: "host", seenAt: now }],
+    members: [{ id: player.id, name: player.username, role: "host", seenAt: now, muted: false }],
   };
   await col.insertOne(doc);
   return { ok: true as const, space: viewOf(doc) };
@@ -117,7 +117,7 @@ export async function joinSpace(codeRaw: string) {
   } else if (space.members.length >= ROOM_CAP) {
     return { ok: false as const, error: "This space is full." };
   } else {
-    space.members.push({ id: player.id, name: player.username, role: "listener", seenAt: now });
+    space.members.push({ id: player.id, name: player.username, role: "listener", seenAt: now, muted: false });
   }
   await col.updateOne({ _id: code, ended: false }, { $set: { members: space.members } });
   return { ok: true as const, space: viewOf(space) };
@@ -137,6 +137,7 @@ export async function talkInSpace(codeRaw: string) {
   const speakers = space.members.filter((item) => item.role === "host" || item.role === "speaker").length;
   if (member.role === "listener" && speakers >= SPEAKER_CAP) return { ok: false as const, error: "Speakers are full. Listen for now." };
   if (member.role === "listener") member.role = "speaker";
+  member.muted = false;
   member.seenAt = new Date().toISOString();
   await col.updateOne({ _id: code }, { $set: { members: space.members, ended: space.ended } });
   return { ok: true as const, space: viewOf(space) };
@@ -153,6 +154,24 @@ export async function listenInSpace(codeRaw: string) {
   const member = space.members.find((item) => item.id === player.id);
   if (!member) return { ok: false as const, error: "Join the space first." };
   if (member.role !== "host") member.role = "listener";
+  member.muted = false;
+  member.seenAt = new Date().toISOString();
+  await col.updateOne({ _id: code }, { $set: { members: space.members } });
+  return { ok: true as const, space: viewOf(space) };
+}
+
+export async function setMicInSpace(codeRaw: string, muted: boolean) {
+  const player = await signedIn();
+  if (!player) return { ok: false as const, error: "Sign in first." };
+  const code = codeOf(codeRaw);
+  if (!code) return { ok: false as const, error: "That space link is not valid." };
+  const col = await spaceCollection();
+  const space = await col.findOne({ _id: code });
+  if (!space || space.ended) return { ok: false as const, error: "That space has ended." };
+  const member = space.members.find((item) => item.id === player.id);
+  if (!member) return { ok: false as const, error: "Join the space first." };
+  if (member.role === "listener") return { ok: false as const, error: "Tap the mic under your face to talk." };
+  member.muted = muted;
   member.seenAt = new Date().toISOString();
   await col.updateOne({ _id: code }, { $set: { members: space.members } });
   return { ok: true as const, space: viewOf(space) };

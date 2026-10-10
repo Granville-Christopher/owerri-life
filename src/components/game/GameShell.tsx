@@ -232,9 +232,17 @@ export function GameShell({ view, spaceCode = null }: { view: GameView; spaceCod
   }, [spaceCode]);
 
   useEffect(() => {
-    if (tab !== "phone" || typeof Notification === "undefined" || Notification.permission !== "default") return;
+    if (typeof Notification === "undefined" || Notification.permission !== "default") return;
     void Notification.requestPermission().catch(() => undefined);
-  }, [tab]);
+  }, []);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") router.refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [router]);
 
   useEffect(() => {
     const alerts = view.me.alerts ?? [];
@@ -247,11 +255,22 @@ export function GameShell({ view, spaceCode = null }: { view: GameView; spaceCod
     for (const alert of alerts) seenAlerts.current.add(alert.id);
     if (!fresh.length || typeof Notification === "undefined" || Notification.permission !== "granted") return;
     for (const alert of fresh) {
-      try {
-        new Notification("Owerri Life", { body: alert.text, tag: alert.id });
-      } catch {
-        /* The phone can block a banner. The red count on the phone still shows. */
-      }
+      void (async () => {
+        try {
+          const registration = await navigator.serviceWorker?.getRegistration();
+          if (registration) {
+            await registration.showNotification("Owerri Life", { body: alert.text, tag: alert.id });
+            return;
+          }
+        } catch {
+          /* Fall through to a page notification. */
+        }
+        try {
+          new Notification("Owerri Life", { body: alert.text, tag: alert.id });
+        } catch {
+          /* The red count on the phone still shows. */
+        }
+      })();
     }
   }, [view.me.alerts]);
 
@@ -2248,8 +2267,9 @@ function PeoplePanel({
     if (person.isNpc || !person.friend) continue;
     contacts.set(person.id, { id: person.id, name: person.name, look: person.look, preview: "", at: "" });
   }
+  const npcIds = new Set(NPCS.map((npc) => npc.id));
   for (const thread of view.threads) {
-    if (!friends.has(thread.peerId)) continue;
+    if (!friends.has(thread.peerId) || npcIds.has(thread.peerId)) continue;
     const last = thread.lines[thread.lines.length - 1];
     const current = contacts.get(thread.peerId) ?? { id: thread.peerId, name: thread.peerName, look: null, preview: "", at: "" };
     current.name = thread.peerName;

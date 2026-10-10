@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { IAgoraRTCClient, IMicrophoneAudioTrack } from "agora-rtc-sdk-ng";
-import { endSpace, joinSpace, leaveSpace, listenInSpace, talkInSpace, type SpaceView } from "@/lib/game/spaces";
+import { endSpace, joinSpace, leaveSpace, listenInSpace, setMicInSpace, talkInSpace, type SpaceView } from "@/lib/game/spaces";
 
 export function SpaceRoom({ code, meId, onLeave }: { code: string; meId: string; onLeave: () => void }) {
   const [space, setSpace] = useState<SpaceView | null>(null);
@@ -15,25 +15,35 @@ export function SpaceRoom({ code, meId, onLeave }: { code: string; meId: string;
   const micRef = useRef<IMicrophoneAudioTrack | null>(null);
   const roleRef = useRef<string>("");
   const mutedRef = useRef(false);
+  const beatRef = useRef<(() => void) | null>(null);
+  const micLife = useRef(0);
 
   useEffect(() => {
     let stop = false;
     async function beat() {
-      const result = await joinSpace(code);
-      if (stop) return;
-      if (!result.ok) {
-        setError(result.error);
-        setSpace(null);
-        void hangUp();
-        return;
+      try {
+        const result = await joinSpace(code);
+        if (stop) return;
+        if (!result.ok) {
+          if (result.error === "That space has ended." || result.error === "That space link is not valid.") {
+            setError(result.error);
+            setSpace(null);
+            void hangUp();
+          }
+          return;
+        }
+        setError(null);
+        setSpace(result.space);
+      } catch {
+        /* A sleep or a dropped network must not close the mic. */
       }
-      setError(null);
-      setSpace(result.space);
     }
+    beatRef.current = () => void beat();
     void beat();
     const timer = window.setInterval(() => void beat(), 4000);
     return () => {
       stop = true;
+      beatRef.current = null;
       window.clearInterval(timer);
       void leaveSpace(code);
       void hangUp();
@@ -42,7 +52,7 @@ export function SpaceRoom({ code, meId, onLeave }: { code: string; meId: string;
 
   useEffect(() => {
     let lock: WakeLockSentinel | null = null;
-    let stop = false;
+    let gone = false;
     async function hold() {
       try {
         lock = await navigator.wakeLock?.request("screen");
@@ -54,19 +64,22 @@ export function SpaceRoom({ code, meId, onLeave }: { code: string; meId: string;
     const onVisible = () => {
       if (document.visibilityState !== "visible") return;
       void hold();
+      beatRef.current?.();
+      void import("agora-rtc-sdk-ng").then((mod) => mod.default.resumeAudioContext?.()).catch(() => undefined);
       const mic = micRef.current;
       if (mic && !mutedRef.current) void mic.setEnabled(true);
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => {
-      stop = true;
+      gone = true;
       document.removeEventListener("visibilitychange", onVisible);
-      if (!stop) lock?.release().catch(() => undefined);
+      if (!gone) return;
       lock?.release().catch(() => undefined);
     };
   }, [code]);
 
   async function hangUp() {
+    micLife.current += 1;
     micRef.current?.close();
     micRef.current = null;
     const client = clientRef.current;
@@ -97,6 +110,11 @@ export function SpaceRoom({ code, meId, onLeave }: { code: string; meId: string;
     clientRef.current = client;
     if (publish) {
       const mic = await AgoraRTC.createMicrophoneAudioTrack();
+      const life = micLife.current;
+      mic.on("track-ended", () => {
+        if (mutedRef.current || micLife.current !== life) return;
+        void connect(true).catch(() => setStatus("The mic could not connect."));
+      });
       micRef.current = mic;
       await mic.setEnabled(!mutedRef.current);
       await client.publish([mic]);
@@ -133,6 +151,15 @@ export function SpaceRoom({ code, meId, onLeave }: { code: string; meId: string;
     mutedRef.current = next;
     setMuted(next);
     await micRef.current?.setEnabled(!next);
+    const result = await setMicInSpace(code, next);
+    if (!result.ok) {
+      mutedRef.current = !next;
+      setMuted(!next);
+      await micRef.current?.setEnabled(next);
+      setError(result.error);
+      return;
+    }
+    setSpace(result.space);
     setStatus(next ? "Mic off." : "You are talking.");
   }
 
@@ -186,32 +213,25 @@ export function SpaceRoom({ code, meId, onLeave }: { code: string; meId: string;
           {space?.members.map((member) => {
             const self = member.id === meId;
             const speaking = member.role === "host" || member.role === "speaker";
-            const quietMic = !speaking || (self && muted);
+            const quietMic = !speaking || (self ? muted : member.muted);
             const letter = member.name.slice(0, 1).toUpperCase();
             return (
-              <button key={member.id} type="button" onClick={() => setPicked(member.id)} className="flex flex-col items-center gap-1">
-                <span className="relative">
+              <div key={member.id} className="flex flex-col items-center gap-1">
+                <button type="button" onClick={() => setPicked(member.id)} className="relative" aria-label={member.name}>
                   <span className={`grid h-16 w-16 place-items-center rounded-full text-xl font-semibold ${self ? "bg-[#e0b15a] text-[#1a140c]" : "bg-[#1f6b45]"}`}>{letter}</span>
-                  <span className="absolute -right-1 -top-1 grid h-6 w-6 place-items-center rounded-full bg-[#0c1a14] text-sm" aria-label={quietMic ? "Microphone off" : "Microphone on"}>
-                    {quietMic ? "🎤🚫" : "🎤"}
+                  <span className={`absolute -right-1 -top-1 grid h-6 w-6 place-items-center rounded-full ${quietMic ? "bg-[#7a2e1e] text-white" : "bg-[#e7f6ea] text-[#143d2c]"}`} aria-label={quietMic ? "Microphone off" : "Microphone on"}>
+                    <MicMark off={quietMic} />
                   </span>
-                </span>
+                </button>
                 <span className="max-w-full truncate text-xs font-semibold">{member.name}</span>
                 {self ? (
-                  <span
-                    role="presentation"
-                    className="grid h-8 w-8 place-items-center rounded-full bg-white text-sm text-[#143d2c]"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      void pressMic();
-                    }}
-                  >
-                    {muted || !speaking ? "🎤🚫" : "🎤"}
-                  </span>
+                  <button type="button" aria-label={muted || !speaking ? "Turn the microphone on" : "Turn the microphone off"} className="grid h-8 w-8 place-items-center rounded-full bg-white text-[#143d2c]" onClick={() => void pressMic()}>
+                    <MicMark off={muted || !speaking} />
+                  </button>
                 ) : (
                   <span className="text-[10px] uppercase tracking-[0.12em] text-[#e0b15a]">{member.role}</span>
                 )}
-              </button>
+              </div>
             );
           })}
         </div>
@@ -245,5 +265,14 @@ export function SpaceRoom({ code, meId, onLeave }: { code: string; meId: string;
         ) : null}
       </div>
     </div>
+  );
+}
+
+function MicMark({ off }: { off: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden>
+      <path fill="currentColor" d="M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM8 11a4 4 0 0 0 8 0h2a6 6 0 0 1-5 5.91V20h-2v-3.09A6 6 0 0 1 6 11h2z" />
+      {off ? <path d="M4 4l16 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /> : null}
+    </svg>
   );
 }

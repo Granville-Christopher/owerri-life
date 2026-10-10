@@ -47,6 +47,7 @@ export type SpaceMember = {
   name: string;
   role: SpaceRole;
   seenAt: string;
+  muted?: boolean;
 };
 
 export type SpaceDoc = {
@@ -70,8 +71,8 @@ export async function spaceCollection() {
   return col;
 }
 
-const STALE_MS = 45_000;
-const HOST_STALE_MS = 120_000;
+const STALE_MS = 10 * 60 * 1000;
+const HOST_STALE_MS = 10 * 60 * 1000;
 
 export function sweepSpace(space: SpaceDoc, now = Date.now()) {
   space.members = space.members.filter((member) => {
