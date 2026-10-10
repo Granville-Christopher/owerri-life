@@ -76,54 +76,141 @@ function limb(radius: number, length: number, mat: THREE.Material, segs: number)
 
 function faceTexture(skin: THREE.Color, hair: string, female: boolean) {
   const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 256;
+  canvas.width = 512;
+  canvas.height = 512;
   const pen = canvas.getContext("2d");
   if (!pen) return null;
-  const skinHex = `#${skin.getHexString()}`;
-  const deep = `#${skin.clone().multiplyScalar(0.7).getHexString()}`;
-  const lip = female ? "#8a3038" : "#6a3830";
+  const hex = (color: THREE.Color) => `#${color.getHexString()}`;
+  const skinHex = hex(skin);
+  const shade = hex(skin.clone().multiplyScalar(0.62));
+  const blush = hex(skin.clone().offsetHSL(0.02, 0.12, 0.03));
+  const lip = female ? "#a3484c" : "#7c4038";
+  const lipDeep = female ? "#6d2830" : "#542824";
   pen.fillStyle = skinHex;
-  pen.fillRect(0, 0, 256, 256);
+  pen.fillRect(0, 0, 512, 512);
+
+  const jaw = pen.createRadialGradient(256, 360, 30, 256, 330, 170);
+  jaw.addColorStop(0, shade);
+  jaw.addColorStop(1, "rgba(0,0,0,0)");
+  pen.fillStyle = jaw;
+  pen.globalAlpha = 0.28;
+  pen.fillRect(0, 0, 512, 512);
+  pen.globalAlpha = 1;
+
+  const cheek = (x: number) => {
+    const glow = pen.createRadialGradient(x, 292, 6, x, 292, 42);
+    glow.addColorStop(0, blush);
+    glow.addColorStop(1, "rgba(0,0,0,0)");
+    pen.fillStyle = glow;
+    pen.globalAlpha = 0.55;
+    pen.beginPath();
+    pen.arc(x, 292, 42, 0, Math.PI * 2);
+    pen.fill();
+    pen.globalAlpha = 1;
+  };
+  cheek(176);
+  cheek(336);
+
   pen.fillStyle = hair;
-  pen.fillRect(28, 18, 200, 36);
-  const eye = (x: number) => {
-    pen.fillStyle = "#f7f4ee";
-    pen.beginPath();
-    pen.ellipse(x, 112, 14, 9, 0, 0, Math.PI * 2);
-    pen.fill();
-    pen.fillStyle = "#3a2418";
-    pen.beginPath();
-    pen.arc(x, 113, 6, 0, Math.PI * 2);
-    pen.fill();
-    pen.fillStyle = "#0c0a08";
-    pen.beginPath();
-    pen.arc(x, 113, 2.6, 0, Math.PI * 2);
-    pen.fill();
+  pen.beginPath();
+  pen.ellipse(256, 48, 168, 78, 0, 0, Math.PI * 2);
+  pen.fill();
+
+  const brow = (x: number, lift: number) => {
     pen.strokeStyle = hair;
-    pen.lineWidth = 3;
+    pen.lineWidth = female ? 8 : 10;
     pen.lineCap = "round";
     pen.beginPath();
-    pen.moveTo(x - 16, 98);
-    pen.quadraticCurveTo(x, female ? 90 : 94, x + 16, 98);
+    pen.moveTo(x - 30, 198 + lift);
+    pen.quadraticCurveTo(x, female ? 176 : 186, x + 28, 194);
     pen.stroke();
   };
-  eye(96);
-  eye(160);
-  pen.fillStyle = deep;
-  pen.globalAlpha = 0.35;
+  brow(208, 0);
+  brow(304, female ? 0 : 2);
+
+  const eye = (x: number) => {
+    pen.fillStyle = shade;
+    pen.globalAlpha = 0.22;
+    pen.beginPath();
+    pen.ellipse(x, 228, 36, 20, 0, 0, Math.PI * 2);
+    pen.fill();
+    pen.globalAlpha = 1;
+    pen.fillStyle = "#f6f3ec";
+    pen.beginPath();
+    pen.ellipse(x, 230, female ? 24 : 21, female ? 14 : 12, 0, 0, Math.PI * 2);
+    pen.fill();
+    pen.fillStyle = "#5a3218";
+    pen.beginPath();
+    pen.arc(x, 231, female ? 9 : 8, 0, Math.PI * 2);
+    pen.fill();
+    pen.strokeStyle = "#2c160e";
+    pen.lineWidth = 2;
+    pen.stroke();
+    pen.fillStyle = "#100c0a";
+    pen.beginPath();
+    pen.arc(x + 0.5, 231, 3.6, 0, Math.PI * 2);
+    pen.fill();
+    pen.fillStyle = "#ffffff";
+    pen.beginPath();
+    pen.arc(x - 3.5, 228, 2, 0, Math.PI * 2);
+    pen.fill();
+    pen.strokeStyle = "#1a120e";
+    pen.lineWidth = female ? 3 : 2;
+    pen.lineCap = "round";
+    pen.beginPath();
+    pen.moveTo(x - 22, 220);
+    pen.quadraticCurveTo(x, female ? 206 : 212, x + 22, 220);
+    pen.stroke();
+    pen.strokeStyle = shade;
+    pen.lineWidth = 2.5;
+    pen.beginPath();
+    pen.moveTo(x - 20, 242);
+    pen.quadraticCurveTo(x, 250, x + 20, 242);
+    pen.stroke();
+  };
+  eye(208);
+  eye(304);
+
+  pen.strokeStyle = "rgba(255,255,255,0.35)";
+  pen.lineWidth = 5;
+  pen.lineCap = "round";
   pen.beginPath();
-  pen.moveTo(128, 124);
-  pen.lineTo(116, 150);
-  pen.lineTo(140, 150);
+  pen.moveTo(256, 236);
+  pen.quadraticCurveTo(260, 268, 256, 292);
+  pen.stroke();
+  pen.fillStyle = shade;
+  pen.globalAlpha = 0.7;
+  pen.beginPath();
+  pen.ellipse(240, 304, 8, 5.5, 0.5, 0, Math.PI * 2);
+  pen.fill();
+  pen.beginPath();
+  pen.ellipse(272, 304, 8, 5.5, -0.5, 0, Math.PI * 2);
   pen.fill();
   pen.globalAlpha = 1;
+
+  pen.fillStyle = lipDeep;
+  pen.beginPath();
+  pen.moveTo(224, 338);
+  pen.quadraticCurveTo(240, 330, 256, 334);
+  pen.quadraticCurveTo(272, 330, 288, 338);
+  pen.quadraticCurveTo(256, female ? 348 : 344, 224, 338);
+  pen.fill();
   pen.fillStyle = lip;
   pen.beginPath();
-  pen.ellipse(128, 176, 18, female ? 8 : 6, 0, 0, Math.PI);
+  pen.moveTo(222, 342);
+  pen.quadraticCurveTo(256, female ? 368 : 360, 290, 342);
+  pen.quadraticCurveTo(256, 350, 222, 342);
   pen.fill();
+  pen.strokeStyle = lipDeep;
+  pen.lineWidth = 2;
+  pen.beginPath();
+  pen.moveTo(230, 340);
+  pen.quadraticCurveTo(256, 346, 282, 340);
+  pen.stroke();
+
   const map = new THREE.CanvasTexture(canvas);
   map.colorSpace = THREE.SRGBColorSpace;
+  map.anisotropy = 4;
   map.needsUpdate = true;
   return map;
 }
@@ -183,20 +270,29 @@ export function createRealisticHuman(options: HumanOptions = {}): THREE.Group {
   const shoulderX = female ? 0.2 : 0.23;
 
   const head = new THREE.Group();
-  const skull = mesh(new THREE.SphereGeometry(female ? 0.15 : 0.155, segs, segs), skinMat);
-  skull.scale.set(0.92, 1.08, 0.96);
-  head.add(skull);
   const faceMap = typeof document !== "undefined" ? faceTexture(skin, pal.hair, female) : null;
-  if (faceMap) {
-    const face = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.2, 0.24),
-      new THREE.MeshBasicMaterial({ map: faceMap, transparent: true }),
-    );
-    face.position.set(0, 0.01, 0.145);
-    head.add(face);
+  const headMat = faceMap
+    ? new THREE.MeshPhongMaterial({ color: 0xffffff, map: faceMap, shininess: 16, specular: 0x2a2218 })
+    : skinMat;
+  const skull = mesh(new THREE.SphereGeometry(female ? 0.15 : 0.155, segs, segs, -Math.PI / 2), headMat);
+  skull.scale.set(0.94, 1.1, 1.02);
+  head.add(skull);
+  const earGeo = new THREE.SphereGeometry(0.032, 8, 6);
+  const earInner = new THREE.MeshPhongMaterial({ color: skin.clone().multiplyScalar(0.78), shininess: 8, specular: 0x221810 });
+  for (const side of [-1, 1]) {
+    const ear = mesh(earGeo, skinMat);
+    ear.scale.set(0.42, 0.9, 0.55);
+    ear.position.set(side * 0.145, -0.01, 0);
+    const bowl = mesh(new THREE.SphereGeometry(0.012, 6, 5), earInner);
+    bowl.position.set(side * 0.158, -0.01, 0.004);
+    head.add(ear, bowl);
   }
-  const hair = mesh(new THREE.SphereGeometry(female ? 0.162 : 0.158, segs, 10, 0, Math.PI * 2, 0, Math.PI * 0.55), hairMat);
-  hair.position.set(0, 0.04, -0.02);
+  const nose = mesh(new THREE.SphereGeometry(0.022, 8, 6), skinMat);
+  nose.scale.set(0.7, 0.55, 0.9);
+  nose.position.set(0, -0.038, female ? 0.15 : 0.156);
+  head.add(nose);
+  const hair = mesh(new THREE.SphereGeometry(female ? 0.162 : 0.158, segs, 10, 0, Math.PI * 2, 0, Math.PI * 0.34), hairMat);
+  hair.position.set(0, 0.055, -0.02);
   head.add(hair);
   if (female && (lookId === "ada" || lookId === "ngozi")) {
     for (const side of [-1, 1]) {
