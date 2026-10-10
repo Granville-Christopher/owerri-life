@@ -4725,7 +4725,7 @@ export function HouseRoom({
         onBring={bring}
         onDone={() => setEdit(false)}
         onSell={(key) => onSell?.(key)}
-        onEdit={() => setEdit(true)}
+        onEdit={() => { if (!follow) setEdit(true); }}
         at={at}
         walkTo={walk ? walk.to : null}
         aim={walk?.aim ?? posed}
@@ -4849,16 +4849,18 @@ export function HouseRoom({
             <button type="button" onClick={onHouses} className="rounded-full bg-[#1f6b45] px-4 py-2.5 text-sm font-semibold text-white shadow-lg">Houses</button>
           ) : null}
           <button type="button" onClick={() => setShop(true)} className="rounded-full bg-[#17241e] px-4 py-2.5 text-sm font-semibold text-white shadow-lg">Shop</button>
-          <button
-            type="button"
-            onClick={() => {
-              if (!furnishable) setSpot(studio ? "room" : "parlour");
-              setEdit(true);
-            }}
-            className="rounded-full bg-[#a9782a] px-4 py-2.5 text-sm font-semibold text-white shadow-lg"
-          >
-            Move furniture
-          </button>
+          {follow ? null : (
+            <button
+              type="button"
+              onClick={() => {
+                if (!furnishable) setSpot(studio ? "room" : "parlour");
+                setEdit(true);
+              }}
+              className="rounded-full bg-[#a9782a] px-4 py-2.5 text-sm font-semibold text-white shadow-lg"
+            >
+              Move furniture
+            </button>
+          )}
         </div>
       ) : null}
       {shop && typeof document !== "undefined" ? createPortal(
