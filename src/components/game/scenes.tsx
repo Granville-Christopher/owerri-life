@@ -327,6 +327,16 @@ function sitInChair(seat: SeatSpot, scale: number) {
   };
 }
 
+function hotelSit(seat: SeatSpot, scale: number) {
+  const cushion = seat.y ?? 0.54;
+  return {
+    x: seat.x,
+    z: seat.z,
+    rot: seat.rot,
+    y: cushion - 0.92 * scale,
+  };
+}
+
 function lieLift(cushion: number | undefined) {
   return (cushion ?? 0.9) + 0.2;
 }
@@ -2274,7 +2284,7 @@ function HotelSuite({
       you.rotation.x = -Math.PI / 2;
       you.position.set(hotelBed.x, hotelBed.y, hotelBed.z);
     } else if (startSeat) {
-      const parked = sitInChair(startSeat, 0.92);
+      const parked = hotelSit(startSeat, 0.92);
       you.rotation.y = parked.rot;
       you.position.set(parked.x, parked.y, parked.z);
     } else {
@@ -2292,7 +2302,7 @@ function HotelSuite({
         scale: 0.9,
       });
       if (guestSit) {
-        const parked = sitInChair({ x: 1.05, z: 0.15 - index * 0.7, rot: Math.PI / 2, y: 0.59 }, 0.9);
+        const parked = hotelSit({ x: 1.05, z: 0.15 - index * 0.7, rot: Math.PI / 2, y: 0.59 }, 0.9);
         body.rotation.y = parked.rot;
         body.position.set(parked.x, parked.y, parked.z);
       } else {
@@ -2326,13 +2336,13 @@ function HotelSuite({
       } else {
         you.rotation.x = 0;
         you.rotation.y = rot;
-        you.position.y = mode === "sit" ? (y ?? sitLift(0.59, 0.92)) : 0;
+        you.position.y = mode === "sit" ? (y ?? hotelSit({ x: 0, z: 0, rot: 0, y: 0.54 }, 0.92).y) : 0;
       }
     };
     const aimFor = (want: "stand" | "sit" | "lie") => {
       if (want === "sit") {
         const seat = pickSitTarget({ x: you.position.x, z: you.position.z }, hotelSeats) ?? hotelSeats[0];
-        const parked = sitInChair(seat, 0.92);
+        const parked = hotelSit(seat, 0.92);
         dest = { x: parked.x, z: parked.z, rot: parked.rot, y: parked.y, hops: findWalkPath({ x: you.position.x, z: you.position.z }, parked, hotelBlocks), mode: "sit" };
       } else if (want === "lie") {
         dest = { ...hotelBed, hops: findWalkPath({ x: you.position.x, z: you.position.z }, hotelBed, hotelBlocks), mode: "lie" };
