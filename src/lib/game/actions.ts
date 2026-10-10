@@ -763,13 +763,9 @@ export async function sitDown(asGuest = false) {
 
 export async function setHouseSpot(spot: "parlour" | "kitchen" | "room" | "bathroom" | "landing", roomNo: number) {
   return withPlayer((id) =>
-    play(id, (player, db) => {
+    play(id, (player) => {
       const nextSpot = { spot, roomNo: Math.max(1, Math.round(roomNo) || 1) };
-      const host = player.visitingHost ? db.players.find((item) => item.id === player.visitingHost) ?? null : null;
-      if (host) {
-        host.houseSpot = nextSpot;
-        return { ok: true, player };
-      }
+      if (player.visitingHost) return { ok: true, player };
       const next = structuredClone(player);
       next.houseSpot = nextSpot;
       return { ok: true, player: next };
@@ -883,8 +879,14 @@ export async function visitHouseOf(peerId: string) {
       pushDirect(db, step.player, peerId, `I am at your house.`, { kind: "text", placeId: where.placeId });
       if (other) {
         other.besideId = player.id;
+        other.visitingHost = null;
+        if (!other.houseSpot) {
+          const home = homeById(other.homeId);
+          other.houseSpot = { spot: home.beds <= 1 && !home.upstairs ? "room" : "parlour", roomNo: 1 };
+        }
         if (!other.met.includes(player.id)) other.met.push(player.id);
       }
+      step.player.visitingHost = other ? other.id : null;
       return { ok: true, player: step.player, notice: step.notice };
     }),
   );

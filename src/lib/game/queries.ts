@@ -118,6 +118,7 @@ export interface GameView {
     layout: Player["layout"];
     cars: string[];
     houseSpot: { spot: "parlour" | "kitchen" | "room" | "bathroom" | "landing"; roomNo: number } | null;
+    hostId: string;
     beds: number;
     upstairs: boolean;
     duplex: boolean;
@@ -224,15 +225,35 @@ function insideHouse(me: Player, db: DB): GameView["inside"] {
   const livesHere = (person: Player) => homeAreaId(person.homeId) === area;
   const present = (person: Player) => person.indoors && person.locationId === area;
   const card = (person: Player) => cardForPlayer(person, me, wallet(db.ledger, person.id));
-  const visitorsOf = (hostId: string) => db.players.filter((person) => person.id !== me.id && present(person) && person.besideId === hostId);
   const pointed = me.besideId ? db.players.find((person) => person.id === me.besideId) ?? null : null;
   const npc = me.besideId && !pointed ? npcById(me.besideId) : null;
+  const pack = (residence: Player) => {
+    const home = homeById(residence.homeId);
+    const people = db.players
+      .filter((person) => person.id !== me.id && present(person) && (person.id === residence.id || person.visitingHost === residence.id || person.besideId === residence.id))
+      .map(card);
+    const studio = home.beds <= 1 && !home.upstairs;
+    return {
+      name: residence.id === me.id ? home.name : `${residence.username}'s house`,
+      homeId: residence.homeId,
+      hostId: residence.id,
+      furniture: residence.furniture ?? [],
+      layout: residence.layout ?? {},
+      cars: residence.cars ?? [],
+      houseSpot: residence.houseSpot ?? { spot: studio ? "room" as const : "parlour" as const, roomNo: 1 },
+      beds: home.beds,
+      upstairs: home.upstairs,
+      duplex: home.id.includes("duplex"),
+      people,
+    };
+  };
   if (npc) {
     const resident = cardForNpc(npc.id, me, wallet(db.ledger, npc.id));
     const people = db.players.filter((person) => person.id !== me.id && present(person) && person.besideId === npc.id).map(card);
     return {
       name: `${npc.name}'s place`,
       homeId: "",
+      hostId: npc.id,
       furniture: [],
       layout: {},
       cars: [],
@@ -244,44 +265,25 @@ function insideHouse(me: Player, db: DB): GameView["inside"] {
     };
   }
   const invited = me.visitingHost ? db.players.find((person) => person.id === me.visitingHost) ?? null : null;
-  if (invited) {
-    const home = homeById(invited.homeId);
-    const people = db.players.filter((person) => person.id !== me.id && present(person) && (person.id === invited.id || person.besideId === invited.id)).map(card);
-    return {
-      name: `${invited.username}'s house`,
-      homeId: invited.homeId,
-      furniture: invited.furniture ?? [],
-      layout: invited.layout ?? {},
-      cars: invited.cars ?? [],
-      houseSpot: invited.houseSpot ?? null,
-      beds: home.beds,
-      upstairs: home.upstairs,
-      duplex: home.id.includes("duplex"),
-      people,
-    };
+  if (invited) return pack(invited);
+  if (livesHere(me) && db.players.some((person) => person.visitingHost === me.id && present(person))) return pack(me);
+  if (pointed && present(pointed)) {
+    const box = [me.id, pointed.id].sort().join("|");
+    let hostId: string | null = null;
+    for (const message of db.messages) {
+      if (message.box !== box) continue;
+      if (message.kind === "invite") hostId = message.fromId;
+      else if (message.fromId === me.id && message.text.includes("I am at your house.")) hostId = pointed.id;
+    }
+    if (hostId && hostId !== me.id) {
+      const host = db.players.find((person) => person.id === hostId);
+      if (host) return pack(host);
+    }
   }
-  const mineHere = livesHere(me);
-  const myVisitors = visitorsOf(me.id);
-  let host: Player | null = null;
-  if (mineHere && (myVisitors.length > 0 || !pointed || !livesHere(pointed))) host = me;
-  else if (pointed && livesHere(pointed)) host = pointed;
-  else if (mineHere) host = me;
-  if (!host) return null;
-  const residence = host;
-  const home = homeById(residence.homeId);
-  const people = (residence.id === me.id ? myVisitors : db.players.filter((person) => person.id !== me.id && present(person) && (person.id === residence.id || person.besideId === residence.id))).map(card);
-  return {
-    name: residence.id === me.id ? home.name : `${residence.username}'s house`,
-    homeId: residence.homeId,
-    furniture: residence.furniture ?? [],
-    layout: residence.layout ?? {},
-    cars: residence.cars ?? [],
-    houseSpot: residence.houseSpot ?? null,
-    beds: home.beds,
-    upstairs: home.upstairs,
-    duplex: home.id.includes("duplex"),
-    people,
-  };
+  if (pointed && livesHere(pointed) && !livesHere(me)) return pack(pointed);
+  if (livesHere(me)) return pack(me);
+  if (pointed && livesHere(pointed)) return pack(pointed);
+  return null;
 }
 
 export async function buildView(playerId: string): Promise<GameView | null> {

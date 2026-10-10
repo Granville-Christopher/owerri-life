@@ -1131,8 +1131,8 @@ function MapPanel({
           bubbles={view.bubbles}
           pose={view.me.pose}
           intimacyWith={view.me.intimacyWith}
-          onSit={() => run(() => sitDown(Boolean(view.inside?.homeId && view.inside.homeId !== view.me.homeId)))}
-          onHouseSpot={(spot, roomNo) => run(() => setHouseSpot(spot, roomNo))}
+          onSit={() => run(() => sitDown(Boolean(view.inside?.hostId && view.inside.hostId !== view.me.id)))}
+          onHouseSpot={view.inside?.hostId && view.inside.hostId !== view.me.id ? undefined : (spot, roomNo) => run(() => setHouseSpot(spot, roomNo))}
           onStand={() => run(standUp)}
           onFawwwk={(peerId) => run(() => doFawwwk(peerId))}
           onTalk={(peerId, text) => run(() => talkBeside(peerId, text))}
@@ -1160,6 +1160,7 @@ function MapPanel({
               ? {
                   name: view.inside.name,
                   homeId: view.inside.homeId,
+                  hostId: view.inside.hostId,
                   furniture: view.inside.furniture,
                   layout: view.inside.layout,
                   beds: view.inside.beds,
@@ -1172,6 +1173,7 @@ function MapPanel({
               ? {
                   name: homeById(view.me.homeId).name,
                   homeId: view.me.homeId,
+                  hostId: view.me.id,
                   furniture: view.me.furniture,
                   layout: view.me.layout,
                   beds: homeById(view.me.homeId).beds,
