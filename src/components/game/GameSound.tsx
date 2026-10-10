@@ -1,0 +1,74 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+
+const MUTE_KEY = "ol-sound";
+
+export function GameSound({ track, club }: { track: string | null; club: boolean }) {
+  const [muted, setMuted] = useState(false);
+  const [heard, setHeard] = useState(false);
+  const audio = useRef<HTMLAudioElement | null>(null);
+  const unlocked = useRef(false);
+
+  useEffect(() => {
+    setMuted(window.localStorage.getItem(MUTE_KEY) === "off");
+    const el = new Audio();
+    el.loop = true;
+    el.preload = "auto";
+    audio.current = el;
+    const unlock = () => {
+      unlocked.current = true;
+      setHeard(true);
+      const node = audio.current;
+      if (!node?.src || window.localStorage.getItem(MUTE_KEY) === "off") return;
+      void node.play().catch(() => undefined);
+    };
+    window.addEventListener("pointerdown", unlock);
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      el.pause();
+      el.src = "";
+      if (audio.current === el) audio.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const el = audio.current;
+    if (!el) return;
+    if (!track) {
+      el.pause();
+      return;
+    }
+    el.volume = club ? 0.72 : 0.4;
+    const next = new URL(track, window.location.origin).href;
+    if (el.src !== next) {
+      el.src = next;
+      el.load();
+    }
+    if (!unlocked.current || muted) {
+      el.pause();
+      return;
+    }
+    void el.play().catch(() => undefined);
+  }, [track, club, muted]);
+
+  function toggle() {
+    const next = !muted;
+    setMuted(next);
+    unlocked.current = true;
+    setHeard(true);
+    window.localStorage.setItem(MUTE_KEY, next ? "off" : "on");
+  }
+
+  return (
+    <button
+      type="button"
+      aria-label={muted ? "Turn sound on" : "Turn sound off"}
+      title={muted ? "Sound off" : club ? "Club beat" : "City sound"}
+      onClick={toggle}
+      className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-base shadow-lg ${muted || !heard ? "bg-white text-[#5d6b62]" : "bg-[#17241e] text-white"}`}
+    >
+      {muted ? "🔇" : "🔊"}
+    </button>
+  );
+}

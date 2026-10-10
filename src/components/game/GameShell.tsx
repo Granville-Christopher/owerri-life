@@ -11,6 +11,8 @@ import { RideScene } from "@/components/game/RideScene";
 import { SpacesPanel } from "@/components/game/SpacesPanel";
 import { VoiceNoteButton } from "@/components/game/VoiceNote";
 import { FlightScene } from "@/components/game/FlightScene";
+import { GameSound } from "@/components/game/GameSound";
+import { soundtrack } from "@/lib/game/music";
 import {
   acceptFriendRequest,
   addFriend,
@@ -392,6 +394,10 @@ export function GameShell({ view }: { view: GameView }) {
             <button type="button" aria-label="Your account" onClick={() => setAccount(true)} className="rounded-full bg-white p-0.5 shadow-lg">
               <Avatar look={me.look} name={me.username} size={28} />
             </button>
+            <GameSound
+              club={me.indoors && placeActs(placeById(me.locationId)).dance && !flight}
+              track={soundtrack(me.indoors, me.locationId, placeActs(placeById(me.locationId)).dance, tab === "map" && !flight)}
+            />
             <div className="grid grid-cols-3 gap-0.5 rounded-full bg-white px-2 py-1 shadow-lg">
               {(
                 [
