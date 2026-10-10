@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 const MUTE_KEY = "ol-sound";
 
-export function GameSound({ track, club }: { track: string | null; club: boolean }) {
+export function GameSound({ track, club, rate = 1 }: { track: string | null; club: boolean; rate?: number }) {
   const [muted, setMuted] = useState(false);
   const [heard, setHeard] = useState(false);
   const audio = useRef<HTMLAudioElement | null>(null);
@@ -39,7 +39,8 @@ export function GameSound({ track, club }: { track: string | null; club: boolean
       el.pause();
       return;
     }
-    el.volume = club ? 0.72 : 0.4;
+    el.volume = club ? 0.72 : 0.42;
+    el.playbackRate = rate;
     const next = new URL(track, window.location.origin).href;
     if (el.src !== next) {
       el.src = next;
@@ -50,7 +51,7 @@ export function GameSound({ track, club }: { track: string | null; club: boolean
       return;
     }
     void el.play().catch(() => undefined);
-  }, [track, club, muted]);
+  }, [track, club, muted, rate]);
 
   function toggle() {
     const next = !muted;

@@ -12,7 +12,7 @@ import { SpacesPanel } from "@/components/game/SpacesPanel";
 import { VoiceNoteButton } from "@/components/game/VoiceNote";
 import { FlightScene } from "@/components/game/FlightScene";
 import { GameSound } from "@/components/game/GameSound";
-import { soundtrack } from "@/lib/game/music";
+import { MAP_TRACK, pickAmapiano, placeRate, placeSound } from "@/lib/game/music";
 import {
   acceptFriendRequest,
   addFriend,
@@ -121,6 +121,7 @@ export function GameShell({ view }: { view: GameView }) {
   const [account, setAccount] = useState(false);
   const [topUpOpen, setTopUpOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+  const clubTune = useRef<{ id: string; src: string } | null>(null);
 
   function run(work: Parameters<Run>[0]) {
     return new Promise<{ ok: true; notice?: string } | { ok: false; error: string }>((resolve) => {
@@ -239,6 +240,23 @@ export function GameShell({ view }: { view: GameView }) {
     else lowNeeds.current.add("sick");
     if (messages.length) flash(messages.join(" "), true);
   }, [me.needs, me.sick]);
+
+  const here = placeById(me.locationId);
+  const inClub = me.indoors && !flight && placeActs(here).dance;
+  if (!inClub) clubTune.current = null;
+  else if (clubTune.current?.id !== here.id) clubTune.current = { id: here.id, src: pickAmapiano() };
+  const sound = flight
+    ? null
+    : inClub
+      ? (clubTune.current?.src ?? null)
+      : me.indoors
+        ? placeSound(here.id)
+        : tab === "room"
+          ? placeSound("home")
+          : tab === "map"
+            ? MAP_TRACK
+            : null;
+  const soundRate = inClub || sound === MAP_TRACK || !sound ? 1 : me.indoors ? placeRate(here.id) : placeRate("home");
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#d7ebdd] text-[#17241e]">
@@ -394,10 +412,7 @@ export function GameShell({ view }: { view: GameView }) {
             <button type="button" aria-label="Your account" onClick={() => setAccount(true)} className="rounded-full bg-white p-0.5 shadow-lg">
               <Avatar look={me.look} name={me.username} size={28} />
             </button>
-            <GameSound
-              club={me.indoors && placeActs(placeById(me.locationId)).dance && !flight}
-              track={soundtrack(me.indoors, me.locationId, placeActs(placeById(me.locationId)).dance, tab === "map" && !flight)}
-            />
+            <GameSound track={sound} club={inClub} rate={soundRate} />
             <div className="grid grid-cols-3 gap-0.5 rounded-full bg-white px-2 py-1 shadow-lg">
               {(
                 [
