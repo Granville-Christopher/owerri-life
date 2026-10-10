@@ -412,7 +412,7 @@ export function GameShell({ view }: { view: GameView }) {
             <button type="button" aria-label="Your account" onClick={() => setAccount(true)} className="rounded-full bg-white p-0.5 shadow-lg">
               <Avatar look={me.look} name={me.username} size={28} />
             </button>
-            <GameSound track={sound} club={inClub} rate={soundRate} />
+            <GameSound track={sound} club={inClub} rate={soundRate} wind={Boolean(flight && skyReady)} />
             <div className="grid grid-cols-3 gap-0.5 rounded-full bg-white px-2 py-1 shadow-lg">
               {(
                 [
