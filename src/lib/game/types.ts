@@ -41,7 +41,8 @@ export type TravelMode = "trek" | "bus" | "keke" | "okada" | "cab" | "car";
 export type WorkStyle = "steady" | "jaguda" | "gist" | "oga" | "easy" | "leave";
 export type NetWorthVisibility = "public" | "friends" | "hidden";
 export type Pose = "stand" | "sit" | "bed";
-export type DirectKind = "text" | "money" | "food" | "invite" | "post" | "voice";
+export type DirectKind = "text" | "money" | "food" | "invite" | "post" | "voice" | "meet";
+export type MeetState = "ask" | "yes" | "no" | "spot";
 
 export interface Job {
   careerId: string;
@@ -157,6 +158,7 @@ export interface DirectMessage {
   amount?: number;
   placeId?: string | null;
   voiceId?: string | null;
+  meet?: MeetState;
 }
 
 export interface Report {

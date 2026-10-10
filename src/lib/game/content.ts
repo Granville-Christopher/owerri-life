@@ -1920,6 +1920,18 @@ export function placeById(id: string) {
   return found;
 }
 
+const MEET_HOTEL_IDS = ["concord-hotel", "rockview-hotel", "earls-court", "ibis-royale", "protea-hotel", "oxygen-resort"];
+
+export function meetSpots() {
+  return PLACES.filter(
+    (place) =>
+      place.kind === "food" ||
+      place.id === "cartel-beach" ||
+      place.id === "heartland-resort" ||
+      MEET_HOTEL_IDS.includes(place.id),
+  );
+}
+
 export function clockFace(hour: number) {
   return `${String(((hour % 24) + 24) % 24).padStart(2, "0")}:00`;
 }

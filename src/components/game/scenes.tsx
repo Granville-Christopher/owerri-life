@@ -2283,7 +2283,7 @@ function HotelSuite({
     }
     add(you);
     add(blob(you.position.x, you.position.z, 0.7, 0.45, 0.4));
-    const others = people.filter((person) => person.id !== selfId).slice(0, 4);
+    const others = (selfId ? people.filter((person) => person.id !== selfId) : []).slice(0, 4);
     others.forEach((person, index) => {
       const guestSit = person.pose === "sit";
       const body = createRealisticHuman({
@@ -3017,7 +3017,7 @@ export function VenueInterior({
       </div>
       {showTray ? (
       <div className={`grid gap-1 ${fill ? `absolute bottom-24 left-1/2 z-30 max-h-[28%] -translate-x-1/2 overflow-y-auto rounded-2xl bg-white/95 text-[#17241e] shadow-2xl ${club || suite || beach ? "w-[min(16rem,calc(100%-5rem))] p-2" : "w-[min(28rem,calc(100%-1.5rem))] gap-2 p-3"}` : "p-3"}`}>
-        {!house && (sitHere || homeTogether) ? (
+        {!house && !suite && (sitHere || homeTogether) ? (
           <div className="grid grid-cols-2 gap-1">
             <button type="button" disabled={pending || pose === "sit"} onClick={() => { setSitting(true); onSit?.(); }} className="rounded-full border border-[#e4d8c4] px-2 py-1 text-[10px] font-semibold disabled:opacity-40">
               Sit

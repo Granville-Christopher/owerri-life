@@ -1,6 +1,6 @@
 "use server";
 
-import { LOOKS, npcsAt, npcById, placeById, homeById, homeAreaId, areaFromHomeName } from "./content";
+import { LOOKS, npcsAt, npcById, placeById, homeById, homeAreaId, areaFromHomeName, meetSpots } from "./content";
 import {
   applyCourse,
   applyForJob,
@@ -44,7 +44,8 @@ import {
   shower,
   sleep,
   buyLand,
-  meetPerson,
+  poolsOf,
+  travelOptions,
   normalizeBet,
   sleepInRoom,
   travel,
@@ -340,6 +341,24 @@ export async function buyPlot(plotId: string) {
   return withPlayer((id) => simple(id, (player, ledger) => buyLand(player, ledger, plotId)));
 }
 
+function rideToMeet(player: import("./types").Player, ledger: import("./types").LedgerEntry[], placeId: string) {
+  if (player.locationId === placeId) return { ok: true as const, player, ledger };
+  const pools = poolsOf(ledger, player.id);
+  const spendable = Math.max(0, pools.earned) + Math.max(0, pools.gifted);
+  const options = travelOptions(player.locationId, placeId, player.hasCar, spendable).filter(
+    (option) => option.available && option.affordable && option.cost <= spendable,
+  );
+  const ride =
+    options.find((option) => option.mode === "keke") ??
+    options.find((option) => option.mode === "bus") ??
+    options.find((option) => option.mode === "trek") ??
+    options[0];
+  if (!ride) return { ok: false as const, error: "A meet-up ride comes from earned or gifted naira, not a top-up." };
+  const moved = travel(player, ledger, placeId, ride.mode);
+  if (!moved.ok) return { ok: false as const, error: moved.error };
+  return { ok: true as const, player: moved.player, ledger: moved.ledger };
+}
+
 export async function goMeet(peerId: string) {
   return withPlayer((id) =>
     play(id, (player, db) => {
@@ -349,31 +368,128 @@ export async function goMeet(peerId: string) {
       const other = db.players.find((item) => item.id === peerId);
       if (!npc && !other) return { ok: false, error: "That person is not in the city." };
       if (other?.blocked.includes(player.id)) return { ok: false, error: "They are not taking messages from you." };
-      const where = npc
-        ? { placeId: npc.placeId, indoors: true, name: npc.name }
-        : { placeId: other!.locationId, indoors: other!.indoors, name: other!.username };
-      const step = meetPerson(player, db.ledger, peerId, where);
-      if (!step.ok) return { ok: false, error: step.error };
-      db.ledger = step.ledger;
-      const at = stamp(step.player.day, step.player.hour);
       const box = boxFor(player.id, peerId);
+      const open = db.messages.some(
+        (message) =>
+          message.box === box &&
+          message.kind === "meet" &&
+          message.fromId === player.id &&
+          (message.meet === "ask" || (message.meet === "yes" && !message.placeId)),
+      );
+      if (open) return { ok: false, error: "You already have a meet open in this chat." };
+      const at = stamp(player.day, player.hour);
       db.messages.push({
         id: crypto.randomUUID(),
         box,
         fromId: player.id,
-        text: `I want to meet. I am coming to you at ${placeById(where.placeId).name}.`,
+        text: npc ? "Wants to meet. Pick a place below." : "Wants to meet.",
         at,
+        kind: "meet",
+        meet: npc ? "yes" : "ask",
       });
-      if (npc) {
-        db.messages.push({
-          id: crypto.randomUUID(),
-          box,
-          fromId: npc.id,
-          text: `I am here, at ${placeById(where.placeId).name}. Come stand with me.`,
-          at,
-        });
+      const next = structuredClone(player);
+      if (!next.met.includes(peerId)) next.met.push(peerId);
+      return {
+        ok: true,
+        player: next,
+        notice: npc ? "Pick a place in this chat." : `You asked ${other!.username} to meet.`,
+      };
+    }),
+  );
+}
+
+export async function acceptMeet(messageId: string) {
+  return withPlayer((id) =>
+    play(id, (player, db) => {
+      const message = db.messages.find((item) => item.id === messageId);
+      if (!message || message.kind !== "meet" || message.meet !== "ask") return { ok: false, error: "That meet request is gone." };
+      if (!message.box.split("|").includes(player.id) || message.fromId === player.id) return { ok: false, error: "This request is not for you." };
+      message.meet = "yes";
+      message.text = "Accepted. Pick a place in this chat.";
+      db.messages.push({
+        id: crypto.randomUUID(),
+        box: message.box,
+        fromId: player.id,
+        text: "I accept. Pick a place.",
+        at: stamp(player.day, player.hour),
+      });
+      const next = structuredClone(player);
+      if (!next.met.includes(message.fromId)) next.met.push(message.fromId);
+      return { ok: true, player: next, notice: "You accepted. They can pick the place." };
+    }),
+  );
+}
+
+export async function declineMeet(messageId: string) {
+  return withPlayer((id) =>
+    play(id, (player, db) => {
+      const message = db.messages.find((item) => item.id === messageId);
+      if (!message || message.kind !== "meet" || message.meet !== "ask") return { ok: false, error: "That meet request is gone." };
+      if (!message.box.split("|").includes(player.id) || message.fromId === player.id) return { ok: false, error: "This request is not for you." };
+      message.meet = "no";
+      message.text = "Not this time.";
+      return { ok: true, player, notice: "You declined." };
+    }),
+  );
+}
+
+export async function chooseMeetSpot(peerId: string, placeId: string) {
+  return withPlayer((id) =>
+    play(id, (player, db) => {
+      const spot = meetSpots().find((place) => place.id === placeId);
+      if (!spot) return { ok: false, error: "Pick a place from the list." };
+      const box = boxFor(player.id, peerId);
+      const ask = [...db.messages].reverse().find(
+        (message) =>
+          message.box === box &&
+          message.kind === "meet" &&
+          message.meet === "yes" &&
+          message.fromId === player.id &&
+          !message.placeId,
+      );
+      if (!ask) return { ok: false, error: "They have not accepted a meet yet." };
+      const mine = rideToMeet(player, db.ledger, spot.id);
+      if (!mine.ok) return { ok: false, error: mine.error };
+      let book = mine.ledger;
+      const here = structuredClone(mine.player);
+      here.locationId = spot.id;
+      here.indoors = true;
+      const other = db.players.find((item) => item.id === peerId) ?? null;
+      let together = false;
+      let miss = "";
+      if (other) {
+        const theirs = rideToMeet(other, book, spot.id);
+        if (!theirs.ok) {
+          miss = ` ${other.username} could not cover the ride.`;
+        } else {
+          book = theirs.ledger;
+          const joined = structuredClone(theirs.player);
+          joined.locationId = spot.id;
+          joined.indoors = true;
+          joined.besideId = player.id;
+          if (!joined.met.includes(player.id)) joined.met.push(player.id);
+          const index = db.players.findIndex((item) => item.id === other.id);
+          if (index >= 0) db.players[index] = joined;
+          here.besideId = other.id;
+          together = true;
+        }
       }
-      return { ok: true, player: step.player, notice: step.notice };
+      if (!here.met.includes(peerId)) here.met.push(peerId);
+      db.ledger = book;
+      ask.meet = "spot";
+      ask.placeId = spot.id;
+      ask.text = `Meet at ${spot.name}.`;
+      db.messages.push({
+        id: crypto.randomUUID(),
+        box,
+        fromId: player.id,
+        text: `Let's meet at ${spot.name}.`,
+        at: stamp(here.day, here.hour),
+        kind: "meet",
+        meet: "spot",
+        placeId: spot.id,
+      });
+      return { ok: true, player: here, notice: together ? `You are both at ${spot.name}.` : `You are at ${spot.name}.${miss}` };
     }),
   );
 }

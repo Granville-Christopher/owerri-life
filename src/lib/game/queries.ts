@@ -97,9 +97,11 @@ export interface GameView {
       text: string;
       at: string;
       replyTo: { id: string; fromName: string; text: string } | null;
-      kind: "text" | "money" | "food" | "invite" | "post" | "voice";
+      kind: "text" | "money" | "food" | "invite" | "post" | "voice" | "meet";
       amount: number | null;
       voiceId: string | null;
+      placeId: string | null;
+      meet: "ask" | "yes" | "no" | "spot" | null;
     }>;
   }>;
   bubbles: Array<{ fromId: string; name: string; text: string }>;
@@ -311,6 +313,8 @@ export async function buildView(playerId: string): Promise<GameView | null> {
       kind: message.kind ?? "text",
       amount: message.amount ?? null,
       voiceId: message.voiceId ?? null,
+      placeId: message.placeId ?? null,
+      meet: message.meet ?? null,
     });
   }
   const bubbles: GameView["bubbles"] = [];

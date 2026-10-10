@@ -45,6 +45,9 @@ import {
   moveFurniture,
   buyPlot,
   goMeet,
+  acceptMeet,
+  declineMeet,
+  chooseMeetSpot,
   logout,
   makeOffer,
   orderFood,
@@ -80,7 +83,7 @@ import {
   useRestroom,
   go,
 } from "@/lib/game/actions";
-import { BET_STAKES, CAREERS, DREAMS, HOMES, LANDS, NPCS, PLACES, TOP_UPS, TRAITS, TREATMENT_FEE, TRIPS, careerById, carById, coursesAt, homeAreaId, homeById, isTripPlace, lectureLabel, placeActs, placeById, placeClosedNotice, tripById, tripFromPlace, type Course } from "@/lib/game/content";
+import { BET_STAKES, CAREERS, DREAMS, HOMES, LANDS, NPCS, PLACES, TOP_UPS, TRAITS, TREATMENT_FEE, TRIPS, careerById, carById, coursesAt, homeAreaId, homeById, isTripPlace, lectureLabel, meetSpots, placeActs, placeById, placeClosedNotice, tripById, tripFromPlace, type Course } from "@/lib/game/content";
 import { photoForVehicle } from "@/components/game/photoVehicles";
 import { POLICE_ID, multiplyOdds, travelOptions } from "@/lib/game/engine";
 import { clockLabel, dreamProgress, jobTitle, levelPay, moodLabel, naira, skillLabel, skillNeeded, weekday } from "@/lib/game/format";
@@ -373,7 +376,10 @@ export function GameShell({ view }: { view: GameView }) {
               onOpen={setPersonId}
               onMeet={(id) => {
                 run(() => goMeet(id)).then((result) => {
-                  if (result.ok) setTab("map");
+                  if (result.ok) {
+                    setChatWith(id);
+                    setTab("people");
+                  }
                 });
               }}
             />
@@ -389,13 +395,9 @@ export function GameShell({ view }: { view: GameView }) {
                 onPeer={setChatWith}
                 onOpen={setPersonId}
                 onMeet={(id) => {
-                  run(() => goMeet(id)).then((result) => {
-                    if (result.ok) {
-                      setChatWith(null);
-                      setTab("map");
-                    }
-                  });
+                  run(() => goMeet(id));
                 }}
+                onJoined={() => setTab("map")}
                 onVisit={() => {
                   setChatWith(null);
                   setTab("map");
@@ -560,8 +562,9 @@ export function GameShell({ view }: { view: GameView }) {
             onMeet={(id) => {
               run(() => goMeet(id)).then((result) => {
                 if (result.ok) {
+                  setChatWith(id);
+                  setTab("people");
                   setPersonId(null);
-                  setTab("map");
                 }
               });
             }}
@@ -1005,7 +1008,11 @@ function MapPanel({
             { id: view.me.id, name: view.me.username, look: view.me.look, gender: view.me.gender, pose: view.me.pose },
             ...(view.inside && place.kind === "home"
               ? view.inside.people
-              : view.nearby.filter((person) => !person.isNpc && person.indoors && person.locationId === place.id)
+              : view.nearby.filter((person) => {
+                  if (person.isNpc || !person.indoors || person.locationId !== place.id) return false;
+                  if (place.kind !== "hotel") return true;
+                  return person.besideId === view.me.id || view.me.besideId === person.id;
+                })
             ).map(faceOf),
           ]}
           besideId={view.me.besideId}
@@ -2092,6 +2099,7 @@ function PeoplePanel({
   onOpen,
   onMeet,
   onVisit,
+  onJoined,
 }: {
   view: GameView;
   run: Run;
@@ -2101,6 +2109,7 @@ function PeoplePanel({
   onOpen: (id: string) => void;
   onMeet: (id: string) => void;
   onVisit?: () => void;
+  onJoined?: () => void;
 }) {
   const [text, setText] = useState("");
   const [handle, setHandle] = useState("");
@@ -2123,6 +2132,15 @@ function PeoplePanel({
   const rows = [...contacts.values()].sort((a, b) => Number(Boolean(b.preview)) - Number(Boolean(a.preview)) || a.name.localeCompare(b.name));
   const peer = rows.find((row) => row.id === peerId) ?? null;
   const thread = view.threads.find((item) => item.peerId === peerId);
+  const picking = Boolean(
+    thread?.lines.some((line) => line.kind === "meet" && line.meet === "yes" && line.fromId === view.me.id && !line.placeId),
+  );
+  const spots = meetSpots();
+  const meetGroups = [
+    ["Eateries", spots.filter((place) => place.kind === "food")],
+    ["Beach", spots.filter((place) => place.id === "cartel-beach" || place.id === "heartland-resort")],
+    ["Hotels", spots.filter((place) => place.kind === "hotel")],
+  ] as const;
 
   if (peer) {
     return (
@@ -2162,12 +2180,23 @@ function PeoplePanel({
                   onReply={() => setReply({ id: line.id, fromName, text: line.text })}
                   onDelete={() => run(() => deleteDirectLine(line.id))}
                 >
-                  <div className={`rounded-2xl px-3 py-2 ${line.kind === "money" || line.kind === "food" || line.kind === "invite" ? "bg-[#fff4d6] text-[#5a3d12]" : mine ? "rounded-br-sm bg-[#d8f3dc] text-[#143d2c]" : "rounded-bl-sm bg-white"}`}>
+                  <div className={`rounded-2xl px-3 py-2 ${line.kind === "money" || line.kind === "food" || line.kind === "invite" || line.kind === "meet" ? "bg-[#fff4d6] text-[#5a3d12]" : mine ? "rounded-br-sm bg-[#d8f3dc] text-[#143d2c]" : "rounded-bl-sm bg-white"}`}>
                     {line.replyTo ? <Quote from={line.replyTo.fromName} text={line.replyTo.text} /> : null}
                     {line.kind === "voice" && line.voiceId ? (
                       <audio controls preload="none" src={`/api/voice/${line.voiceId}`} className="h-8 max-w-full" />
                     ) : line.kind === "money" || line.kind === "food" ? (
                       <p className="text-sm font-semibold">{line.text}</p>
+                    ) : line.kind === "meet" ? (
+                      <div>
+                        <p className="text-sm font-semibold">{line.text}</p>
+                        {line.meet === "ask" && !mine ? (
+                          <div className="mt-2 flex gap-2">
+                            <button type="button" disabled={pending} className="rounded-full bg-[#1f6b45] px-3 py-1 text-xs font-semibold text-white" onClick={() => run(() => acceptMeet(line.id))}>Accept</button>
+                            <button type="button" disabled={pending} className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#143d2c]" onClick={() => run(() => declineMeet(line.id))}>Decline</button>
+                          </div>
+                        ) : null}
+                        {line.meet === "ask" && mine ? <p className="mt-1 text-[11px]">Waiting for them to accept.</p> : null}
+                      </div>
                     ) : line.kind === "post" ? (
                       <p className="text-sm"><span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#a9782a]">Post</span> <MentionText text={line.text} names={[peer.name, view.me.username]} /></p>
                     ) : (
@@ -2181,6 +2210,33 @@ function PeoplePanel({
           })}
           </div>
         </div>
+        {picking && peer.id !== POLICE_ID ? (
+          <div className="max-h-48 shrink-0 overflow-y-auto border-t border-[#e4d8c4] bg-[#fffaf2] px-3 py-2">
+            <p className="pb-2 text-xs font-semibold text-[#143d2c]">Pick a place to meet</p>
+            {meetGroups.map(([label, places]) => (
+              <div key={label} className="mb-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#5d6b62]">{label}</p>
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {places.map((place) => (
+                    <button
+                      key={place.id}
+                      type="button"
+                      disabled={pending}
+                      className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#143d2c]"
+                      onClick={() => {
+                        run(() => chooseMeetSpot(peer.id, place.id)).then((result) => {
+                          if (result.ok) onJoined?.();
+                        });
+                      }}
+                    >
+                      {place.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
         {peer.id === POLICE_ID ? (
           <p className="bg-[#fffaf2] px-3 py-3 text-xs text-[#5d6b62]">The State CID does not take chat. Honour the invite inside the station.</p>
         ) : (
