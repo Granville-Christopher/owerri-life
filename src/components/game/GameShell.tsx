@@ -1003,7 +1003,10 @@ function MapPanel({
           username={view.me.username}
           people={[
             { id: view.me.id, name: view.me.username, look: view.me.look, gender: view.me.gender, pose: view.me.pose },
-            ...(view.inside && place.kind === "home" ? view.inside.people : view.nearby).map(faceOf),
+            ...(view.inside && place.kind === "home"
+              ? view.inside.people
+              : view.nearby.filter((person) => !person.isNpc && person.indoors && person.locationId === place.id)
+            ).map(faceOf),
           ]}
           besideId={view.me.besideId}
           selfId={view.me.id}
