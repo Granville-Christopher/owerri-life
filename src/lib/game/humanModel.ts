@@ -340,8 +340,10 @@ export function createRealisticHuman(options: HumanOptions = {}): THREE.Group {
     elbow.add(fore, palm);
     arm.add(upper, elbow);
     if (cheering) arm.rotation.z = side * -1.2;
-    else if (seated) elbow.rotation.x = 1.05;
-    else arm.rotation.z = side * 0.08;
+    else if (seated) {
+      arm.rotation.x = -0.35;
+      elbow.rotation.x = -1.2;
+    } else arm.rotation.z = side * 0.08;
     arm.position.set(side * shoulderX, torsoY + 0.18, 0);
     person.add(arm);
     limbs.arms.push(arm);
