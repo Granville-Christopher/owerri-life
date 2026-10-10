@@ -1,57 +1,56 @@
 import * as THREE from "three";
 
-const TITLE_FONT: Record<string, string[]> = {
-  O: ["01110", "10001", "10001", "10001", "10001", "10001", "01110"],
-  W: ["10001", "10001", "10001", "10101", "10101", "01010", "01010"],
-  E: ["11111", "10000", "10000", "11110", "10000", "10000", "11111"],
-  R: ["11110", "10001", "10001", "11110", "10100", "10010", "10001"],
-  I: ["11111", "00100", "00100", "00100", "00100", "00100", "11111"],
-  L: ["10000", "10000", "10000", "10000", "10000", "10000", "11111"],
-  F: ["11111", "10000", "10000", "11110", "10000", "10000", "10000"],
-};
+const TITLE_W = 2048;
+const TITLE_H = 420;
 
-export function paintOwerriTitle(): THREE.CanvasTexture {
+function titleTexture(draw: (ctx: CanvasRenderingContext2D, w: number, h: number) => void, w: number, h: number) {
   const canvas = document.createElement("canvas");
-  canvas.width = 2048;
-  canvas.height = 512;
+  canvas.width = w;
+  canvas.height = h;
   const ctx = canvas.getContext("2d");
-  if (ctx) {
-    ctx.fillStyle = "#0e1c16";
-    ctx.fillRect(0, 0, 2048, 512);
-    ctx.fillStyle = "#143d2c";
-    ctx.fillRect(28, 28, 1992, 456);
-    ctx.strokeStyle = "#e0b15a";
-    ctx.lineWidth = 18;
-    ctx.strokeRect(48, 48, 1952, 416);
-    const word = "OWERRI LIFE";
-    const cellW = 34;
-    const cellH = 52;
-    const letterW = 5 * cellW;
-    const gap = 14;
-    let total = 0;
-    for (const ch of word) total += ch === " " ? letterW * 0.42 : letterW + gap;
-    let x = (2048 - total) / 2;
-    const y = (512 - 7 * cellH) / 2;
-    ctx.fillStyle = "#e0b15a";
-    for (const ch of word) {
-      if (ch === " ") {
-        x += letterW * 0.42;
-        continue;
-      }
-      const rows = TITLE_FONT[ch];
-      for (let r = 0; r < 7; r += 1) {
-        for (let c = 0; c < 5; c += 1) {
-          if (rows[r][c] === "1") ctx.fillRect(x + c * cellW + 3, y + r * cellH + 3, cellW - 6, cellH - 6);
-        }
-      }
-      x += letterW + gap;
-    }
-  }
+  if (ctx) draw(ctx, w, h);
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 8;
   tex.needsUpdate = true;
   return tex;
+}
+
+function goldWord(ctx: CanvasRenderingContext2D, word: string, x: number, y: number, size: number) {
+  ctx.font = `900 ${size}px Arial, Helvetica, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = "#06281a";
+  ctx.lineWidth = size * 0.12;
+  ctx.strokeText(word, x, y);
+  ctx.fillStyle = "#e0b15a";
+  ctx.fillText(word, x, y);
+}
+
+/** Gold OWERRI LIFE on the green band painted along the fuselage. */
+export function paintOwerriTitle(): THREE.CanvasTexture {
+  return titleTexture((ctx, w, h) => {
+    ctx.fillStyle = "#1f6b45";
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = "#e0b15a";
+    ctx.fillRect(0, 0, w, h * 0.08);
+    ctx.fillRect(0, h * 0.92, w, h * 0.08);
+    goldWord(ctx, "OWERRI LIFE", w / 2, h * 0.52, h * 0.62);
+  }, TITLE_W, TITLE_H);
+}
+
+/** Two-line mark for the tail fin. */
+export function paintTailTitle(): THREE.CanvasTexture {
+  return titleTexture((ctx, w, h) => {
+    ctx.fillStyle = "#143d2c";
+    ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = "#e0b15a";
+    ctx.lineWidth = 28;
+    ctx.strokeRect(24, 24, w - 48, h - 48);
+    goldWord(ctx, "OWERRI", w / 2, h * 0.36, h * 0.22);
+    goldWord(ctx, "LIFE", w / 2, h * 0.68, h * 0.26);
+  }, 1024, 768);
 }
 
 export function paintCabinDoor(): THREE.CanvasTexture {
@@ -128,9 +127,12 @@ export function addAirlinerLivery(
   const skin = R * 1.035;
   const winY = y0 + Math.sin(phi) * skin;
   const winOut = Math.cos(phi) * skin;
-  const titlePhi = -0.22;
-  const titleY = y0 + Math.sin(titlePhi) * skin;
-  const titleOut = Math.cos(titlePhi) * skin;
+  const titleAlong = L * 0.02;
+  const decalH = Math.max(0.95 * s, R * 1.02);
+  const decalW = Math.min(decalH * (TITLE_W / TITLE_H), L * 0.55);
+  const titlePhi = 0.55;
+  const titleY = y0 + Math.sin(titlePhi) * R;
+  const titleOut = Math.cos(titlePhi) * R + 0.05 * s;
 
   const glass = new THREE.MeshLambertMaterial({ color: 0x12344c, emissive: 0x5ec4f0, emissiveIntensity: 0.9 });
   const rimMat = new THREE.MeshLambertMaterial({ color: 0x1a2430 });
@@ -153,7 +155,8 @@ export function addAirlinerLivery(
   const z1 = L * 0.3;
   const frontDoor = L * 0.34;
   const rearDoor = -L * 0.32;
-  const skip = (along: number) => Math.abs(along - frontDoor) < L * 0.055 || Math.abs(along - rearDoor) < L * 0.05;
+  const skip = (along: number) =>
+    Math.abs(along - frontDoor) < L * 0.055 || Math.abs(along - rearDoor) < L * 0.05 || Math.abs(along - titleAlong) < decalW * 0.52;
 
   for (const side of [-1, 1]) {
     const yaw = axis === "z" ? (side > 0 ? Math.PI / 2 : -Math.PI / 2) : side > 0 ? 0 : Math.PI;
@@ -193,26 +196,29 @@ export function addAirlinerLivery(
       parent.add(frame, leaf);
     }
 
-    const decalW = Math.min(L * 0.72, 12 * s);
-    const decalH = Math.max(0.55 * s, R * 0.72);
     const decal = new THREE.Mesh(new THREE.PlaneGeometry(decalW, decalH), titleMat);
-    place(decal, axis, L * 0.02, titleY, side * (titleOut + 0.1 * s), yaw);
+    const normal = new THREE.Vector3(axis === "z" ? side * Math.cos(titlePhi) : 0, Math.sin(titlePhi), axis === "z" ? 0 : side * Math.cos(titlePhi)).normalize();
+    const along = new THREE.Vector3(axis === "z" ? 0 : 1, 0, axis === "z" ? 1 : 0);
+    const up = new THREE.Vector3().crossVectors(along, normal);
+    if (up.y < 0) up.negate();
+    up.normalize();
+    const right = new THREE.Vector3().crossVectors(up, normal).normalize();
+    decal.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(right, up, normal));
+    place(decal, axis, titleAlong, titleY, side * titleOut);
     parent.add(decal);
   }
 
-  const crown = new THREE.Mesh(
-    axis === "z" ? new THREE.PlaneGeometry(decalBandH(), decalBandW()) : new THREE.PlaneGeometry(decalBandW(), decalBandH()),
-    titleMat,
-  );
-  crown.rotation.x = -Math.PI / 2;
-  if (axis === "z") crown.position.set(0, y0 + R * 1.14, L * 0.02);
-  else crown.position.set(L * 0.02, y0 + R * 1.14, 0);
+  const topW = Math.min(L * 0.42, 8.6 * s);
+  const topH = topW / (TITLE_W / TITLE_H);
+  const crown = new THREE.Mesh(titleAlongTop(topW, topH), titleMat);
+  if (axis === "z") crown.position.set(0, y0 + R * 1.045, titleAlong);
+  else crown.position.set(titleAlong, y0 + R * 1.045, 0);
   parent.add(crown);
+}
 
-  function decalBandW() {
-    return Math.min(L * 0.72, 12 * s);
-  }
-  function decalBandH() {
-    return Math.max(0.55 * s, R * 0.72);
-  }
+function titleAlongTop(width: number, height: number) {
+  const geo = new THREE.PlaneGeometry(width, height);
+  geo.rotateX(-Math.PI / 2);
+  geo.rotateY(Math.PI / 2);
+  return geo;
 }

@@ -7,7 +7,7 @@ import { makeRenderer } from "@/lib/game/renderQuality";
 import { createRealisticHuman, weakGpu } from "@/lib/game/humanModel";
 import type { LookId } from "@/lib/game/types";
 import { loadRealAirliner } from "@/components/game/realPlane";
-import { addAirlinerLivery, paintCabinDoor, paintOwerriTitle } from "@/components/game/airlinerLivery";
+import { addAirlinerLivery, paintCabinDoor, paintOwerriTitle, paintTailTitle } from "@/components/game/airlinerLivery";
 import { attachSceneCameraControls, clampViewZoom, VIEW_ZOOM } from "@/components/game/sceneCameraControls";
 
 const FLIGHT_MS = 22000;
@@ -260,6 +260,13 @@ function buildFallbackAirliner() {
   fin.position.set(0, 2.2, -7.4);
   fin.rotation.x = -0.38;
   plane.add(fin);
+  const tailMat = new THREE.MeshBasicMaterial({ map: paintTailTitle(), side: THREE.DoubleSide });
+  for (const side of [-1, 1]) {
+    const mark = new THREE.Mesh(new THREE.PlaneGeometry(2.15, 1.55), tailMat);
+    mark.position.set(side * 0.12, 0.2, 0.05);
+    mark.rotation.y = side > 0 ? Math.PI / 2 : -Math.PI / 2;
+    fin.add(mark);
+  }
   const stab = new THREE.Mesh(new THREE.BoxGeometry(6.4, 0.1, 1.5), white);
   stab.position.set(0, 0.55, -8.1);
   plane.add(stab);
