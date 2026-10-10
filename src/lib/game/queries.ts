@@ -28,6 +28,7 @@ export interface PersonCard {
   locationId: string | null;
   indoors: boolean;
   besideId: string | null;
+  visitingHost: string | null;
   homeId: string;
 }
 
@@ -185,6 +186,7 @@ function cardForNpc(id: string, viewer: Player, balance = 0): PersonCard | null 
     locationId: npc.placeId,
     indoors: true,
     besideId: null,
+    visitingHost: null,
     homeId: "",
   };
 }
@@ -214,6 +216,7 @@ function cardForPlayer(other: Player, viewer: Player, balance: number): PersonCa
     locationId: other.locationId,
     indoors: other.indoors,
     besideId: other.besideId ?? null,
+    visitingHost: other.visitingHost ?? null,
     homeId: other.homeId,
   };
 }
@@ -230,7 +233,7 @@ function insideHouse(me: Player, db: DB): GameView["inside"] {
   const pack = (residence: Player) => {
     const home = homeById(residence.homeId);
     const people = db.players
-      .filter((person) => person.id !== me.id && present(person) && (person.id === residence.id || person.visitingHost === residence.id || person.besideId === residence.id))
+      .filter((person) => person.id !== me.id && present(person) && (person.id === residence.id || person.visitingHost === residence.id))
       .map(card);
     const studio = home.beds <= 1 && !home.upstairs;
     return {

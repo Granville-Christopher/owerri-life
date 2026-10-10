@@ -6,8 +6,6 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
 
-self.addEventListener("fetch", () => {});
-
 self.addEventListener("message", (event) => {
   const data = event.data;
   if (!data) return;

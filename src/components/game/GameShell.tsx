@@ -411,10 +411,10 @@ export function GameShell({ view, spaceCode = null }: { view: GameView; spaceCod
               guests={[
                 { id: me.id, name: me.username, look: me.look, gender: me.gender, pose: me.pose },
                 ...view.city
-                  .filter((person) => person.indoors && person.locationId === homeAreaId(me.homeId) && (person.besideId === me.id || person.id === me.besideId || person.id === me.intimacyWith))
+                  .filter((person) => person.visitingHost === me.id && person.indoors && person.locationId === homeAreaId(me.homeId))
                   .map(faceOf),
                 ...NPCS.filter((npc) => npc.id === me.besideId || npc.id === me.intimacyWith).map((npc) => ({ id: npc.id, name: npc.name, look: null, gender: null, pose: me.pose })),
-              ]}
+              ].filter((person, index, list) => list.findIndex((item) => item.id === person.id) === index)}
               selfId={me.id}
               besideId={me.besideId}
               bubbles={view.bubbles}

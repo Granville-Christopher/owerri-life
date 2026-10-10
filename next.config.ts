@@ -7,13 +7,11 @@ const securityHeaders = [
   { key: "Permissions-Policy", value: "camera=(), microphone=(self), geolocation=(), payment=()" },
   { key: "X-DNS-Prefetch-Control", value: "off" },
   { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
-  { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
-  { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
   ...(process.env.NODE_ENV === "production"
     ? [
-        // One day, this host only. preload + includeSubDomains locked phones for two years
-        // whenever HTTPS failed, which is the "uses HSTS / usually temporary" error.
-        { key: "Strict-Transport-Security", value: "max-age=86400" },
+        // Clear any saved HSTS pin. A pinned phone shows "couldn't establish a secure connection"
+        // and will not open the site again until the pin is gone.
+        { key: "Strict-Transport-Security", value: "max-age=0" },
         {
           key: "Content-Security-Policy",
           value: [

@@ -527,7 +527,22 @@ export async function enterDoor() {
   return withPlayer((id) => simple(id, enterPlace));
 }
 export async function goOutside() {
-  return withPlayer((id) => simple(id, stepOutside));
+  return withPlayer((id) =>
+    play(id, (player, db) => {
+      const host = player.visitingHost ? db.players.find((item) => item.id === player.visitingHost) ?? null : null;
+      const step = stepOutside(player, db.ledger);
+      if (!step.ok) return { ok: false, error: step.error };
+      db.ledger = step.ledger;
+      if (host) {
+        if (host.besideId === player.id) host.besideId = null;
+        if (host.intimacyWith === player.id) host.intimacyWith = null;
+        if (step.player.intimacyWith === host.id) step.player.intimacyWith = null;
+        host.alerts = [...(host.alerts ?? []), { id: crypto.randomUUID(), app: "messages", text: `${player.username} left your house.` }];
+        return { ok: true, player: step.player, notice: `You left ${host.username}'s house.` };
+      }
+      return { ok: true, player: step.player, notice: step.notice };
+    }),
+  );
 }
 export async function takeDrink() {
   return withPlayer((id) => simple(id, buyDrink));

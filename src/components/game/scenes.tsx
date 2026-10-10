@@ -3730,7 +3730,7 @@ function RoomView({
     };
     const seated = pose === "sit";
     const me = createRealisticHuman({ lookId: look, scale: 0.92, seated });
-    const company = guests.filter((person) => person.id !== selfId).slice(0, 24);
+    const company = guests.filter((person, index, list) => person.id !== selfId && list.findIndex((item) => item.id === person.id) === index).slice(0, 24);
     let partnerMesh: THREE.Object3D | null = null;
     const placeGuest = (parent: THREE.Object3D, ox: number, oz: number, faceY: number, lift: number) => {
       company.forEach((person, index) => {
