@@ -184,16 +184,28 @@ export function GameShell({ view, spaceCode = null }: { view: GameView; spaceCod
   }
 
   useEffect(() => {
-    if (!view.me.indoors) return;
-    const timer = window.setInterval(() => router.refresh(), 4000);
-    return () => window.clearInterval(timer);
-  }, [router, view.me.indoors, view.me.locationId]);
-
-  useEffect(() => {
-    if (view.me.indoors) return;
-    const timer = window.setInterval(() => router.refresh(), 12000);
-    return () => window.clearInterval(timer);
-  }, [router, view.me.indoors]);
+    let stop = false;
+    const arm = () => {
+      if (stop || !("serviceWorker" in navigator)) return;
+      void navigator.serviceWorker.ready.then((registration) => {
+        registration.active?.postMessage({ type: "watch" });
+      }).catch(() => undefined);
+    };
+    arm();
+    const timer = window.setInterval(() => {
+      router.refresh();
+      arm();
+    }, 5000);
+    const onHide = () => {
+      if (document.visibilityState === "hidden") arm();
+    };
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      stop = true;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onHide);
+    };
+  }, [router]);
 
   const person = [...view.nearby, ...view.known, ...view.city].find((item) => item.id === personId) ?? null;
   const me = view.me;
@@ -261,6 +273,7 @@ export function GameShell({ view, spaceCode = null }: { view: GameView; spaceCod
     const alerts = view.me.alerts ?? [];
     if (!alertsReady.current) {
       for (const alert of alerts) seenAlerts.current.add(alert.id);
+      seenRequests.current = view.requests.incoming.length;
       alertsReady.current = true;
       return;
     }
@@ -540,6 +553,7 @@ export function GameShell({ view, spaceCode = null }: { view: GameView; spaceCod
           </div>
           <div className="pointer-events-auto flex min-w-0 max-w-[58%] items-center gap-1 overflow-x-auto rounded-full bg-white px-2 py-1 text-[10px] shadow-lg sm:max-w-none sm:gap-3 sm:px-4 sm:py-2 sm:text-sm">
             <span className="shrink-0 font-semibold">{clockLabel(me.day, me.hour)}</span>
+            <button type="button" aria-label="Refresh" title="Refresh" onClick={() => router.refresh()} className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[#eef6ea] text-xs leading-none text-[#143d2c]">↻</button>
             <span className="hidden shrink-0 text-[#5d6b62] sm:inline">{moodLabel(me.needs, me.sick)}</span>
             <span className="hidden shrink-0 text-[#5d6b62] md:inline">{view.city.length} online</span>
             <span className="hidden sm:inline"><InstallButton /></span>
@@ -2341,6 +2355,7 @@ function PeoplePanel({
 }) {
   const [text, setText] = useState("");
   const [handle, setHandle] = useState("");
+  const scroller = useRef<HTMLDivElement>(null);
   const [payOpen, setPayOpen] = useState(false);
   const [payAmount, setPayAmount] = useState("5000");
   const [payFor, setPayFor] = useState("");
@@ -2374,6 +2389,17 @@ function PeoplePanel({
     ["Beach", spots.filter((place) => place.id === "cartel-beach" || place.id === "heartland-resort")],
     ["Hotels", spots.filter((place) => place.kind === "hotel")],
   ] as const;
+  const lastLineId = thread?.lines.at(-1)?.id ?? "";
+  useEffect(() => {
+    const box = scroller.current;
+    if (!box) return;
+    const go = () => {
+      box.scrollTop = box.scrollHeight;
+    };
+    go();
+    const frame = window.requestAnimationFrame(go);
+    return () => window.cancelAnimationFrame(frame);
+  }, [peerId, lastLineId, thread?.lines.length]);
 
   if (peer) {
     return (
@@ -2442,7 +2468,7 @@ function PeoplePanel({
             </div>
           ) : null}
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+        <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
           <div className="flex min-h-full flex-col justify-end gap-2">
           {thread?.lines.map((line) => {
             const mine = line.fromId === view.me.id;
