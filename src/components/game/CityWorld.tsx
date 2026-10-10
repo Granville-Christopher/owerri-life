@@ -7,6 +7,7 @@ import { PLACES, type Place } from "@/lib/game/content";
 import { buildDetailedCarMesh } from "./carModels";
 import { makeRealCar } from "./realCars";
 import { addAirlinerLivery } from "./airlinerLivery";
+import { buildOwerriAirliner, OWERRI_AIRLINER_RADIUS } from "./owerriAirliner";
 
 const SPAN = 5.6;
 const LIMIT = 480;
@@ -1249,8 +1250,13 @@ export function CityWorld({
         group.add(heli);
       }
 
-      craft(14, 2, Math.PI / 2, 1, 0xf7fbfc, true);
-      craft(-10, 6.5, 0.15, 0.85, 0xe7eef2, true);
+      for (const [px, pz, rot, fit] of [[10, 1.5, Math.PI / 2, 0.34], [-8, 6.2, 0.2, 0.28]] as const) {
+        const liner = buildOwerriAirliner();
+        liner.scale.setScalar(fit);
+        liner.position.set(px, OWERRI_AIRLINER_RADIUS * fit, pz);
+        liner.rotation.y = rot;
+        group.add(liner);
+      }
       craft(-6, 9.2, -0.2, 0.48, 0xf2c14e, false);
       craft(-12, 10, 0.35, 0.42, 0xf4f7fb, false);
       helicopter(16, -12);

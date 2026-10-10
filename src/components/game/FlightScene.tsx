@@ -6,9 +6,9 @@ import * as THREE from "three";
 import { makeRenderer } from "@/lib/game/renderQuality";
 import { createRealisticHuman, weakGpu } from "@/lib/game/humanModel";
 import type { LookId } from "@/lib/game/types";
-import { loadRealAirliner } from "@/components/game/realPlane";
-import { addAirlinerLivery, paintCabinDoor, paintOwerriTitle, paintTailTitle } from "@/components/game/airlinerLivery";
-import { attachSceneCameraControls, clampViewZoom, VIEW_ZOOM } from "@/components/game/sceneCameraControls";
+import { paintCabinDoor } from "@/components/game/airlinerLivery";
+import { buildOwerriAirliner } from "@/components/game/owerriAirliner";
+import { attachSceneCameraControls } from "@/components/game/sceneCameraControls";
 
 const FLIGHT_MS = 22000;
 
@@ -225,80 +225,6 @@ function buildCabin(lite: boolean, doorTex: THREE.Texture) {
   return cabin;
 }
 
-function buildFallbackAirliner() {
-  const plane = new THREE.Group();
-  const white = cloth(0xf4f6f8);
-  const green = cloth(0x15803d);
-  const dark = cloth(0x334155);
-  const glass = cloth(0x0f172a);
-  const fuse = new THREE.Mesh(new THREE.CylinderGeometry(1.22, 1.22, 16.5, 20), white);
-  fuse.rotation.x = Math.PI / 2;
-  plane.add(fuse);
-  const nose = new THREE.Mesh(new THREE.ConeGeometry(1.22, 3.2, 20), white);
-  nose.rotation.x = -Math.PI / 2;
-  nose.position.z = 9.85;
-  plane.add(nose);
-  const tail = new THREE.Mesh(new THREE.ConeGeometry(1.22, 2.8, 16), white);
-  tail.rotation.x = Math.PI / 2;
-  tail.position.z = -9.65;
-  plane.add(tail);
-  const cock = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.42, 1.3), glass);
-  cock.position.set(0, 0.72, 8.2);
-  plane.add(cock);
-  for (const side of [-1, 1]) {
-    const wing = new THREE.Mesh(new THREE.BoxGeometry(8.4, 0.14, 2.6), white);
-    wing.position.set(side * 5.1, -0.15, 0.2);
-    wing.rotation.y = side * 0.22;
-    wing.rotation.z = side * -0.05;
-    plane.add(wing);
-    const eng = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.58, 2.4, 14), dark);
-    eng.rotation.x = Math.PI / 2;
-    eng.position.set(side * 3.4, -0.95, 0.4);
-    plane.add(eng);
-  }
-  const fin = new THREE.Mesh(new THREE.BoxGeometry(0.16, 3.2, 2.6), green);
-  fin.position.set(0, 2.2, -7.4);
-  fin.rotation.x = -0.38;
-  plane.add(fin);
-  const tailMat = new THREE.MeshBasicMaterial({ map: paintTailTitle(), side: THREE.DoubleSide });
-  for (const side of [-1, 1]) {
-    const mark = new THREE.Mesh(new THREE.PlaneGeometry(2.15, 1.55), tailMat);
-    mark.position.set(side * 0.12, 0.2, 0.05);
-    mark.rotation.y = side > 0 ? Math.PI / 2 : -Math.PI / 2;
-    fin.add(mark);
-  }
-  const stab = new THREE.Mesh(new THREE.BoxGeometry(6.4, 0.1, 1.5), white);
-  stab.position.set(0, 0.55, -8.1);
-  plane.add(stab);
-  addAirlinerLivery(plane, { radius: 1.22, height: 0, length: 16.5, axis: "z" });
-  return plane;
-}
-
-function dressAirliner(plane: THREE.Group, title: THREE.Texture, doorTex: THREE.Texture) {
-  plane.updateMatrixWorld(true);
-  const box = new THREE.Box3().setFromObject(plane);
-  const size = box.getSize(new THREE.Vector3());
-  const centre = box.getCenter(new THREE.Vector3());
-  addAirlinerLivery(plane, {
-    radius: Math.min(1.5, Math.max(0.95, size.y * 0.155)),
-    height: centre.y - size.y * 0.12,
-    length: size.z * 0.62,
-    axis: "z",
-    title,
-    door: doorTex,
-  });
-  const red = new THREE.PointLight(0xff2a2a, 2.4, 8);
-  red.position.set(box.min.x, centre.y, centre.z);
-  const green = new THREE.PointLight(0x22c55e, 2.4, 8);
-  green.position.set(box.max.x, centre.y, centre.z);
-  const strobe = new THREE.PointLight(0xffffff, 0, 14);
-  strobe.position.set(centre.x, box.max.y, box.min.z);
-  const nose = new THREE.PointLight(0xfff1c8, 1.1, 12);
-  nose.position.set(centre.x, centre.y, box.max.z);
-  plane.add(red, green, strobe, nose);
-  plane.userData.strobe = strobe;
-}
-
 export function FlightScene({
   city,
   look,
@@ -401,23 +327,15 @@ export function FlightScene({
     );
     scene.add(stars);
 
-    const title = paintOwerriTitle();
     const doorTex = paintCabinDoor();
     let alive = true;
     const flight = new THREE.Group();
     scene.add(flight);
     const exterior = new THREE.Group();
     flight.add(exterior);
-    const fallbackPlane = buildFallbackAirliner();
-    exterior.add(fallbackPlane);
-    void loadRealAirliner().then((model) => {
-      if (!alive || !model) return;
-      dressAirliner(model, title, doorTex);
-      exterior.remove(fallbackPlane);
-      exterior.add(model);
-    });
+    exterior.add(buildOwerriAirliner());
 
-    lookRig.current = { yaw: 0, pitch: 0, zoom: 1 };
+    lookRig.current = { yaw: 0.2, pitch: 0, zoom: 0.62 };
     const cabin = buildCabin(lite, doorTex);
     const you = createRealisticHuman({ lookId: look, seated: true, scale: 0.8, lite });
     you.position.set(-1.14, 0.12, 4.7 - 2 * 1.28);
@@ -446,11 +364,11 @@ export function FlightScene({
     };
     fit();
     const detachControls = attachSceneCameraControls(root, lookRig, {
-      minZoom: VIEW_ZOOM.min,
-      maxZoom: VIEW_ZOOM.max,
+      minZoom: 0.28,
+      maxZoom: 3.2,
       minPitch: -0.5,
       maxPitch: 0.55,
-      zoomSpeed: VIEW_ZOOM.speed,
+      zoomSpeed: 0.28,
     });
 
     let frame = 0;
@@ -487,18 +405,16 @@ export function FlightScene({
         flight.updateMatrixWorld(true);
         const yaw = lookRig.current.yaw;
         const pitch = lookRig.current.pitch ?? 0;
-        const zoom = lookRig.current.zoom;
-        const eye = new THREE.Vector3(-0.58, 1.42, 1.85);
+        const zoom = Math.min(3.2, Math.max(0.28, lookRig.current.zoom));
+        const seatZ = 4.7 - 2 * 1.28;
+        const dist = Math.min(6.4, 2.2 / zoom);
+        const eye = new THREE.Vector3(-0.35 + Math.sin(yaw) * 0.7, 1.25 + Math.max(0, 1 - zoom) * 0.55, seatZ - dist);
         cabin.localToWorld(eye);
         camera.position.copy(eye);
-        const gaze = new THREE.Vector3(
-          -0.58 + Math.sin(yaw) * 3.4,
-          1.42 + pitch * 2.4,
-          1.85 + Math.cos(yaw) * 3.4,
-        );
+        const gaze = new THREE.Vector3(-1.05, 0.92 + pitch * 0.9, seatZ + 0.15);
         cabin.localToWorld(gaze);
         camera.lookAt(gaze);
-        camera.fov = Math.max(28, Math.min(82, 68 / zoom));
+        camera.fov = 46;
         camera.updateProjectionMatrix();
         camReady = false;
       } else {
@@ -541,7 +457,6 @@ export function FlightScene({
       renderer.domElement.removeEventListener("webglcontextlost", onLost);
       cityMap.dispose();
       cloudTex.dispose();
-      title.dispose();
       doorTex.dispose();
       envMap?.dispose();
       renderer.dispose();
@@ -597,7 +512,7 @@ export function FlightScene({
             type="button"
             aria-label="Zoom in"
             onClick={() => {
-              lookRig.current.zoom = clampViewZoom(lookRig.current.zoom, 1.22);
+              lookRig.current.zoom = Math.min(3.2, Math.max(0.28, lookRig.current.zoom * 1.22));
             }}
             className="grid h-8 w-8 place-items-center rounded-full bg-white text-base font-bold text-[#17241e] shadow-lg"
           >
@@ -607,7 +522,7 @@ export function FlightScene({
             type="button"
             aria-label="Zoom out"
             onClick={() => {
-              lookRig.current.zoom = clampViewZoom(lookRig.current.zoom, 1 / 1.22);
+              lookRig.current.zoom = Math.min(3.2, Math.max(0.28, lookRig.current.zoom / 1.22));
             }}
             className="grid h-8 w-8 place-items-center rounded-full bg-white text-base font-bold text-[#17241e] shadow-lg"
           >

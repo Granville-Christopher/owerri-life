@@ -7,7 +7,7 @@ import type { LookId } from "@/lib/game/types";
 import { addPlayerGuests, createRealisticHuman, type CrowdPerson } from "@/lib/game/humanModel";
 import { naira } from "@/lib/game/format";
 import { attachSceneCameraControls } from "./sceneCameraControls";
-import { addAirlinerLivery } from "./airlinerLivery";
+import { buildOwerriAirliner, OWERRI_AIRLINER_RADIUS } from "./owerriAirliner";
 
 // Flight Information Display System Canvas Texture
 function createFIDSTexture(): THREE.CanvasTexture {
@@ -175,72 +175,12 @@ export function AirportTerminalScene({
     // ─────────────────────────────────────────────────────────────
     // 2. DETAILED 3D AIRPLANE ON TARMAC (Visible through glass)
     // ─────────────────────────────────────────────────────────────
-    const planeGroup = new THREE.Group();
-    planeGroup.position.set(0, 0, -18);
-    planeGroup.rotation.y = -0.95;
+    const planeGroup = buildOwerriAirliner();
+    const apron = 0.72;
+    planeGroup.scale.setScalar(apron);
+    planeGroup.position.set(1.4, OWERRI_AIRLINER_RADIUS * apron, -13.4);
+    planeGroup.rotation.y = 0.62;
     airport.add(planeGroup);
-
-    const planeWhiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2, metalness: 0.4 });
-    const planeGreenMat = new THREE.MeshStandardMaterial({ color: 0x15803d }); // Nigerian flag green
-    const jetEngineMat = new THREE.MeshLambertMaterial({ color: 0x334155 });
-    const cockpitGlassMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.05, metalness: 0.95 });
-
-    // Fuselage / Main Body
-    const fuseGeom = new THREE.CylinderGeometry(1.2, 1.2, 12.0, 24);
-    fuseGeom.rotateX(Math.PI / 2);
-    const fuselage = new THREE.Mesh(fuseGeom, planeWhiteMat);
-    fuselage.position.set(0, 2.2, 0);
-    fuselage.castShadow = true;
-    planeGroup.add(fuselage);
-
-    // Nose Cone
-    const noseGeom = new THREE.ConeGeometry(1.2, 2.4, 24);
-    noseGeom.rotateX(-Math.PI / 2);
-    const nose = new THREE.Mesh(noseGeom, planeWhiteMat);
-    nose.position.set(0, 2.2, 7.2);
-    nose.castShadow = true;
-    planeGroup.add(nose);
-
-    // Cockpit Windows
-    const cock = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.45, 1.2), cockpitGlassMat);
-    cock.position.set(0, 2.85, 6.2);
-    planeGroup.add(cock);
-
-    // Main Wings (Swept back)
-    const wingL = new THREE.Mesh(new THREE.BoxGeometry(6.5, 0.12, 2.4), planeWhiteMat);
-    wingL.position.set(-4.2, 2.0, 0.4);
-    wingL.rotation.y = -0.25;
-    wingL.rotation.z = 0.06;
-    wingL.castShadow = true;
-
-    const wingR = new THREE.Mesh(new THREE.BoxGeometry(6.5, 0.12, 2.4), planeWhiteMat);
-    wingR.position.set(4.2, 2.0, 0.4);
-    wingR.rotation.y = 0.25;
-    wingR.rotation.z = -0.06;
-    wingR.castShadow = true;
-    planeGroup.add(wingL, wingR);
-
-    // Jet Engines under wings
-    for (const side of [-2.8, 2.8]) {
-      const engGeom = new THREE.CylinderGeometry(0.55, 0.55, 2.2, 16);
-      engGeom.rotateX(Math.PI / 2);
-      const engine = new THREE.Mesh(engGeom, jetEngineMat);
-      engine.position.set(side, 1.1, 0.6);
-      engine.castShadow = true;
-      planeGroup.add(engine);
-
-      const pylon = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.65, 0.8), planeWhiteMat);
-      pylon.position.set(side, 1.65, 0.6);
-      planeGroup.add(pylon);
-    }
-
-    // Vertical Tail Fin with green stripe
-    const tailFin = new THREE.Mesh(new THREE.BoxGeometry(0.16, 2.8, 2.4), planeGreenMat);
-    tailFin.position.set(0, 4.4, -5.2);
-    tailFin.rotation.x = -0.4;
-    tailFin.castShadow = true;
-    planeGroup.add(tailFin);
-    addAirlinerLivery(planeGroup, { radius: 1.2, height: 2.2, length: 12, axis: "z" });
 
     // ─────────────────────────────────────────────────────────────
     // 3. FLIGHT INFORMATION DISPLAY SYSTEM (FIDS) BOARD
