@@ -779,11 +779,15 @@ export async function doFawwwk(peerId: string) {
       const step = startHomeScene(player, other, peerId);
       if (!step.ok) return { ok: false, error: step.error };
       if (other && step.partner) {
+        step.partner.locationId = step.player.locationId;
+        step.partner.indoors = true;
+        step.partner.besideId = step.player.id;
         const index = db.players.findIndex((item) => item.id === other.id);
         if (index >= 0) db.players[index] = step.partner;
       }
       const next = structuredClone(step.player);
       next.besideId = peerId;
+      next.indoors = true;
       next.needs.social = Math.min(100, next.needs.social + 18);
       next.needs.fun = Math.min(100, next.needs.fun + 14);
       next.needs.energy = Math.max(0, next.needs.energy - 20);
@@ -800,22 +804,25 @@ export async function doFawwwk(peerId: string) {
   );
 }
 
-export async function inviteOver(peerId: string) {
+export async function inviteOver(peerId: string, homeId: string) {
   return withPlayer((id) =>
     play(id, (player, db) => {
       if (peerId === POLICE_ID) return { ok: false, error: "The State CID does not come over." };
       if (player.blocked.includes(peerId)) return { ok: false, error: "You blocked this person." };
+      const owned = player.homes?.includes(player.homeId) ? player.homes : [...(player.homes ?? []), player.homeId];
+      if (!owned.includes(homeId)) return { ok: false, error: "Pick one of your houses." };
       const npc = npcById(peerId);
       const other = db.players.find((item) => item.id === peerId);
       if (!npc && !other) return { ok: false, error: "That person is not in the city." };
       if (other?.blocked.includes(player.id)) return { ok: false, error: "They are not taking messages from you." };
-      const home = homeById(player.homeId);
+      const home = homeById(homeId);
       const text = `${player.username} invited you over to ${home.name}. Only you two can see this.`;
       pushDirect(db, player, peerId, text, { kind: "invite" });
+      const step = goToHouse(player, db.ledger, { placeId: home.areaId, name: home.name, peerId });
+      if (!step.ok) return { ok: false, error: step.error };
+      db.ledger = step.ledger;
+      step.player.homeId = home.id;
       if (npc) {
-        const step = goToHouse(player, db.ledger, { placeId: home.areaId, name: home.name, peerId });
-        if (!step.ok) return { ok: false, error: step.error };
-        db.ledger = step.ledger;
         db.messages.push({
           id: crypto.randomUUID(),
           box: boxFor(player.id, peerId),
@@ -823,10 +830,16 @@ export async function inviteOver(peerId: string) {
           text: `I am coming. See you at ${home.name}.`,
           at: stamp(step.player.day, step.player.hour),
         });
-        return { ok: true, player: step.player, notice: `${npc.name} is coming over.` };
+        return { ok: true, player: step.player, notice: `${npc.name} is coming to ${home.name}.` };
       }
-      other!.alerts = [...(other!.alerts ?? []), { id: crypto.randomUUID(), app: "messages", text: `${player.username} invited you over.` }];
-      return { ok: true, player, notice: `Invite sent to ${other!.username}.` };
+      other!.locationId = home.areaId;
+      other!.indoors = true;
+      other!.besideId = player.id;
+      other!.pose = "stand";
+      other!.intimacyWith = null;
+      if (!other!.met.includes(player.id)) other!.met.push(player.id);
+      other!.alerts = [...(other!.alerts ?? []), { id: crypto.randomUUID(), app: "messages", text: `${player.username} invited you over to ${home.name}.` }];
+      return { ok: true, player: step.player, notice: `${other!.username} is coming to ${home.name}.` };
     }),
   );
 }

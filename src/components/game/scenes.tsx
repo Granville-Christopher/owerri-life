@@ -360,8 +360,8 @@ function seatsFor(entry: { id: string; x: number; z: number; rot: number }): Sea
   if (entry.id === "desk") return [at(0, 0.9, Math.PI, false, 0.74)];
   if (entry.id === "sofa") return [at(0, 0.05, 0, false, 0.95)];
   if (entry.id === "armchair") return [at(0, 0.05, 0, false, 0.75)];
-  if (entry.id === "bed") return [at(0, 0.62, 0, true, 0.76)];
-  if (entry.id === "double-bed") return [at(0, 0.62, 0, true, 0.8)];
+  if (entry.id === "bed") return [at(0, 0.62, 0, true, 0.9)];
+  if (entry.id === "double-bed") return [at(0, 0.62, 0, true, 0.94)];
   return [];
 }
 
@@ -575,36 +575,6 @@ export type ScenePerson = {
   gender?: Gender | null;
   pose?: Pose;
 };
-
-function BedDuvet({
-  left,
-  right,
-  names,
-}: {
-  left: LookId;
-  right: LookId;
-  names: [string, string];
-}) {
-  return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-[28%] z-40 flex justify-center">
-      <div className="relative w-56">
-        <div className="absolute -top-8 left-10 z-10">
-          <Human look={left} className="h-10 w-5" />
-        </div>
-        <div className="absolute -top-8 right-10 z-10">
-          <Human look={right} className="h-10 w-5" />
-        </div>
-        <div className="ol-duvet relative h-28 overflow-hidden rounded-[2.2rem] bg-[#6b3a2a] shadow-2xl">
-          <div className="absolute inset-x-3 top-3 h-20 rounded-[2rem] bg-[#c4552a]" />
-          <div className="absolute inset-x-6 top-6 h-14 rounded-[1.6rem] bg-[#e0b15a]/70" />
-        </div>
-        <p className="mt-2 text-center text-[10px] font-semibold text-white" style={{ textShadow: "0 1px 3px #000" }}>
-          {names[0]} + {names[1]}
-        </p>
-      </div>
-    </div>
-  );
-}
 
 function PeopleLayer({
   people,
@@ -2866,7 +2836,7 @@ export function VenueInterior({
     extra ||
       onApply ||
       (!house && (sitHere || homeTogether)) ||
-      (homeTogether && partner && onFawwwk) ||
+      (homeTogether && partner && onFawwwk && !house) ||
       (!inRoom && (club || acts.drink || acts.plate || acts.dance || acts.spray)) ||
       suite ||
       acts.hotel ||
@@ -2985,13 +2955,6 @@ export function VenueInterior({
             ))}
           </span>
         ))}
-        {intimacyWith && partner ? (
-          <BedDuvet
-            left={lookFrom(selfId, look)}
-            right={lookFrom(partner.id, partner.look, partner.gender)}
-            names={[username, partner.name]}
-          />
-        ) : null}
         {picked ? (
           <div className="absolute bottom-[34%] left-1/2 z-50 w-[min(18rem,calc(100%-2rem))] -translate-x-1/2 rounded-2xl bg-white p-3 text-[#17241e] shadow-2xl">
             <p className="text-sm font-semibold">{people.find((person) => person.id === picked)?.name ?? "Talk"}</p>
@@ -3311,6 +3274,7 @@ function RoomView({
   pose = "stand",
   guests = [],
   selfId,
+  besideId = null,
   onSlept,
   aim = null,
 }: {
@@ -3336,6 +3300,7 @@ function RoomView({
   pose?: Pose;
   guests?: ScenePerson[];
   selfId?: string;
+  besideId?: string | null;
   onSlept?: () => void;
   aim?: "shower" | "toilet" | null;
 }) {
@@ -3764,18 +3729,20 @@ function RoomView({
     const seated = pose === "sit";
     const me = createRealisticHuman({ lookId: look, scale: 0.92, seated });
     const company = guests.filter((person) => person.id !== selfId).slice(0, 24);
+    let partnerMesh: THREE.Object3D | null = null;
     const placeGuest = (parent: THREE.Object3D, ox: number, oz: number, faceY: number, lift: number) => {
       company.forEach((person, index) => {
         const body = createRealisticHuman({
           lookId: lookFrom(person.id, person.look, person.gender),
-          seated: seated || person.pose === "sit",
-          scale: 0.9,
+          seated: person.pose === "sit",
+          scale: 0.78,
         });
         const dx = -1.15 - (index % 3) * 0.95;
         const dz = (index < 3 ? 0.05 : -0.85) - (index % 2) * 0.12;
         body.position.set(ox + dx, lift, oz + dz);
         body.rotation.y = faceY;
         parent.add(body);
+        if (person.id === besideId || (!besideId && index === 0)) partnerMesh = body;
       });
     };
 
@@ -4392,9 +4359,20 @@ function RoomView({
             you.rotation.y = sitDest.rot;
             you.position.y = sitDest.y ?? sitLift(0.86, bodyScale);
           } else if (sitDest.mode === "bed") {
+            const bed = seats.find((seat) => seat.bed) ?? { x: sitDest.x, z: sitDest.z, rot: sitDest.rot, y: sitDest.y };
+            const y = sitDest.y ?? lieLift(bed.y);
+            const gap = partnerMesh ? 0.42 : 0;
+            const ax = Math.cos(bed.rot);
+            const az = -Math.sin(bed.rot);
+            you = swapHuman(you, createRealisticHuman({ lookId: look, seated: false, scale: bodyScale }));
             you.rotation.x = -Math.PI / 2;
-            you.rotation.y = sitDest.rot;
-            you.position.y = sitDest.y ?? 0.72;
+            you.rotation.y = bed.rot;
+            you.position.set(bed.x - ax * gap, y, bed.z - az * gap);
+            if (partnerMesh) {
+              partnerMesh.rotation.x = -Math.PI / 2;
+              partnerMesh.rotation.y = bed.rot;
+              partnerMesh.position.set(bed.x + ax * gap, y, bed.z + az * gap);
+            }
             if (!sleptSent) {
               sleptSent = true;
               cbs.current.slept?.();
@@ -4436,7 +4414,7 @@ function RoomView({
       renderer.dispose();
       root.removeChild(renderer.domElement);
     };
-  }, [placedKey, carsKey, look, beds, upstairs, duplex, spot, roomNo, atKey, walkKey, aim, guestsKey, selfId]);
+  }, [placedKey, carsKey, look, beds, upstairs, duplex, spot, roomNo, atKey, walkKey, aim, guestsKey, selfId, besideId]);
 
   function turn(dir: number) {
     rig.current.yaw += dir * 0.55;
@@ -4609,6 +4587,13 @@ export function HouseRoom({
   const [at, setAt] = useState<Loc>({ spot: studio ? "room" : "parlour", roomNo: 1 });
   const [walk, setWalk] = useState<{ to: Loc; then?: () => void; aim?: "shower" | "toilet" } | null>(null);
   const [posed, setPosed] = useState<null | "shower" | "toilet">(null);
+  useEffect(() => {
+    if (pose !== "bed") return;
+    setWalk(null);
+    setSpot("room");
+    setRoomNo(1);
+    setAt({ spot: "room", roomNo: 1 });
+  }, [pose]);
   const sameLoc = (a: Loc, b: Loc) => a.spot === b.spot && (a.spot !== "room" || a.roomNo === b.roomNo);
   const placeName = (loc: Loc) => (loc.spot === "door" ? "the front door" : loc.spot === "room" ? (studio ? "the room" : `Room ${loc.roomNo}`) : loc.spot === "landing" ? "the landing" : `the ${loc.spot}`);
   function lookAt(s: HomeSpot, no = 1) {
@@ -4712,7 +4697,8 @@ export function HouseRoom({
         pose={sleeping ? "bed" : pose}
         guests={visitors}
         selfId={selfId}
-        onSlept={() => {
+        besideId={besideId}
+        onSlept={sleeping ? () => {
           if (sleptLock.current) return;
           sleptLock.current = true;
           onSleep?.();
@@ -4720,7 +4706,7 @@ export function HouseRoom({
             setSleeping(false);
             sleptLock.current = false;
           }, 700);
-        }}
+        } : undefined}
       />
       {walk ? (
         <div className="absolute bottom-[15.5rem] left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full bg-[#17241e]/95 px-3 py-2 text-xs font-semibold text-white shadow-lg">
@@ -4735,13 +4721,6 @@ export function HouseRoom({
         >
           Come here
         </button>
-      ) : null}
-      {pose === "bed" && partner ? (
-        <BedDuvet
-          left={look ?? "chidi"}
-          right={lookFrom(partner.id, partner.look, partner.gender)}
-          names={[visitors.find((person) => person.id === selfId)?.name ?? "You", partner.name]}
-        />
       ) : null}
       {onOutside ? (
         <button
@@ -4758,8 +4737,12 @@ export function HouseRoom({
         {partner && onFawwwk ? (
           <button
             type="button"
-            disabled={pending}
-            onClick={() => onFawwwk(partner.id)}
+            disabled={pending || Boolean(walk)}
+            onClick={() => {
+              const start = () => onFawwwk(partner.id);
+              if (spot === "room" && sameLoc(at, { spot: "room", roomNo })) start();
+              else walkTo({ spot: "room", roomNo: 1 }, start);
+            }}
             className="rounded-full bg-[#7a2e1e] px-3 py-1 text-[10px] font-semibold text-white shadow disabled:opacity-40"
           >
             Fawwwk

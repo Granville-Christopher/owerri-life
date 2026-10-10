@@ -225,6 +225,16 @@ export function GameShell({ view, spaceCode = null }: { view: GameView; spaceCod
   const alertsReady = useRef(false);
 
   useEffect(() => {
+    if (view.me.pose !== "bed" || !view.me.intimacyWith) return;
+    if (view.inside?.homeId === view.me.homeId) {
+      setRoomEntry("look");
+      setTab("room");
+      return;
+    }
+    setTab("map");
+  }, [view.me.pose, view.me.intimacyWith, view.inside?.homeId, view.me.homeId]);
+
+  useEffect(() => {
     if (!spaceCode) return;
     setTab("phone");
     setPhoneStart("spaces");
@@ -367,8 +377,9 @@ export function GameShell({ view, spaceCode = null }: { view: GameView; spaceCod
               guests={[
                 { id: me.id, name: me.username, look: me.look, gender: me.gender, pose: me.pose },
                 ...view.city
-                  .filter((person) => person.indoors && person.besideId === me.id && person.locationId === homeAreaId(me.homeId))
+                  .filter((person) => person.indoors && person.locationId === homeAreaId(me.homeId) && (person.besideId === me.id || person.id === me.besideId || person.id === me.intimacyWith))
                   .map(faceOf),
+                ...NPCS.filter((npc) => npc.id === me.besideId || npc.id === me.intimacyWith).map((npc) => ({ id: npc.id, name: npc.name, look: null, gender: null, pose: me.pose })),
               ]}
               selfId={me.id}
               besideId={me.besideId}
@@ -447,6 +458,10 @@ export function GameShell({ view, spaceCode = null }: { view: GameView; spaceCod
                   }
                 });
               }}
+              onInvited={() => {
+                setRoomEntry("look");
+                setTab("room");
+              }}
             />
           ) : null}
           {!account && tab === "bets" ? <BetsPanel view={view} run={run} pending={pending} /> : null}
@@ -466,6 +481,11 @@ export function GameShell({ view, spaceCode = null }: { view: GameView; spaceCod
                 onVisit={() => {
                   setChatWith(null);
                   setTab("map");
+                }}
+                onInvited={() => {
+                  setChatWith(null);
+                  setRoomEntry("look");
+                  setTab("room");
                 }}
               />
             </div>
@@ -1326,6 +1346,7 @@ function PhonePanel({
   onRide,
   onOpen,
   onMeet,
+  onInvited,
   start = null,
   onStarted,
   spaceCode = null,
@@ -1338,6 +1359,7 @@ function PhonePanel({
   onRide: (placeId: string, mode: TravelMode) => void;
   onOpen: (id: string) => void;
   onMeet: (id: string) => void;
+  onInvited?: () => void;
   start?: PhoneApp | null;
   onStarted?: () => void;
   spaceCode?: string | null;
@@ -1416,7 +1438,7 @@ function PhonePanel({
       ) : null}
       {app === "messages" ? (
         <div className="flex min-h-0 flex-1 flex-col">
-              <PeoplePanel view={view} run={run} pending={pending} peerId={peer} onPeer={setPeer} onOpen={onOpen} onMeet={onMeet} onVisit={onArrived} />
+              <PeoplePanel view={view} run={run} pending={pending} peerId={peer} onPeer={setPeer} onOpen={onOpen} onMeet={onMeet} onVisit={onArrived} onInvited={onInvited} />
         </div>
       ) : null}
       {app === "spaces" && spaceCode ? (
@@ -2247,6 +2269,7 @@ function PeoplePanel({
   onMeet,
   onVisit,
   onJoined,
+  onInvited,
 }: {
   view: GameView;
   run: Run;
@@ -2257,10 +2280,12 @@ function PeoplePanel({
   onMeet: (id: string) => void;
   onVisit?: () => void;
   onJoined?: () => void;
+  onInvited?: () => void;
 }) {
   const [text, setText] = useState("");
   const [handle, setHandle] = useState("");
   const [reply, setReply] = useState<{ id: string; fromName: string; text: string } | null>(null);
+  const [invitePeer, setInvitePeer] = useState<string | null>(null);
   const friends = new Set(view.me.friends);
   const contacts = new Map<string, { id: string; name: string; look: GameView["me"]["look"] | null; preview: string; at: string }>();
   for (const person of [...view.city, ...view.known, ...view.nearby]) {
@@ -2307,13 +2332,33 @@ function PeoplePanel({
           {peer.id !== POLICE_ID ? (
             <div className="mt-2 flex flex-wrap gap-1">
               <button type="button" disabled={pending} className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold" onClick={() => onMeet(peer.id)}>Meet</button>
-              <button type="button" disabled={pending} className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold" onClick={() => run(() => inviteOver(peer.id))}>Invite over</button>
+              <button type="button" disabled={pending} className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold" onClick={() => setInvitePeer(invitePeer === peer.id ? null : peer.id)}>Invite over</button>
               <button type="button" disabled={pending} className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold" onClick={() => run(() => visitHouseOf(peer.id)).then((result) => { if (result.ok) onVisit?.(); })}>Visit house</button>
               <button type="button" disabled={pending} className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold" onClick={() => { const amount = Number(window.prompt("How much naira?", "5000")); if (amount) run(() => sendMoney(peer.id, amount)); }}>Send money</button>
               <button type="button" disabled={pending} className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold" onClick={() => run(() => buyThemFood(peer.id))}>Buy food</button>
               <button type="button" disabled={pending} className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold" onClick={() => { const note = window.prompt("Post in this private chat"); if (note) run(() => postToChat(peer.id, note)); }}>Post</button>
               {view.me.friends.includes(peer.id) ? <button type="button" disabled={pending} className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold" onClick={() => run(() => unfriend(peer.id)).then((result) => { if (result.ok) onPeer(null); })}>Unfriend</button> : null}
               <button type="button" disabled={pending} className="rounded-full bg-[#7a2e1e] px-2 py-1 text-[10px] font-semibold" onClick={() => run(() => blockPerson(peer.id))}>Block</button>
+            </div>
+          ) : null}
+          {invitePeer === peer.id ? (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {view.me.homes.map((homeId) => (
+                <button
+                  key={homeId}
+                  type="button"
+                  disabled={pending}
+                  className="rounded-full bg-[#e0b15a] px-2 py-1 text-[10px] font-semibold text-[#1a140c]"
+                  onClick={() => {
+                    setInvitePeer(null);
+                    run(() => inviteOver(peer.id, homeId)).then((result) => {
+                      if (result.ok) onInvited?.();
+                    });
+                  }}
+                >
+                  {homeById(homeId).name}
+                </button>
+              ))}
             </div>
           ) : null}
         </div>
