@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import * as THREE from "three";
 import { makeRenderer } from "@/lib/game/renderQuality";
-import { DORIME_AMOUNTS, FURNITURE, FURNITURE_GROUPS, LOOKS, TREATMENT_FEE, canSitAt, carById, clampPlacement, furnitureById, furnitureInstances, homeById, isTripPlace, lookForGender, matchLook, npcsAt, placeActs, placeById, placeClosedNotice, placeIn, roomSize, sprayFloor } from "@/lib/game/content";
+import { DORIME_AMOUNTS, FURNITURE, FURNITURE_GROUPS, LOOKS, TREATMENT_FEE, canSitAt, carById, clampPlacement, furnitureById, furnitureInstances, homeById, isTripPlace, lookForGender, matchLook, npcsAt, placeActs, placeById, placeClosedNotice, placeHoursLabel, placeIn, roomSize, sprayFloor } from "@/lib/game/content";
 import type { FurnitureGroup, Home, Place } from "@/lib/game/content";
 import { naira } from "@/lib/game/format";
 import type { FurnitureSpot, Gender, LookId, Placement, Pose } from "@/lib/game/types";
@@ -2057,26 +2057,24 @@ export function ArrivalScene({
   placeId,
   look,
   pending,
-  hour,
   onEnter,
   onLeave,
 }: {
   placeId: string;
   look: LookId;
   pending: boolean;
-  hour: number;
   onEnter: () => void;
   onLeave: () => void;
 }) {
   const place = placeById(placeId);
-  const closed = placeClosedNotice(place, hour);
+  const closed = placeClosedNotice(place);
   return (
     <section className="relative h-full overflow-hidden">
       <BuildingFront placeId={placeId} look={look} />
       <div className="pointer-events-none absolute left-3 top-14 z-20 max-w-[14rem] rounded-2xl bg-[#0e1c16]/80 px-3 py-2 text-[#f6f1e6]">
         <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#e0b15a]">Outside</p>
         <p className="truncate font-semibold">{place.name}</p>
-        <p className="mt-1 text-[11px] text-[#d5e4d8]">{closed ?? place.hours}</p>
+        <p className="mt-1 text-[11px] text-[#d5e4d8]">{closed ?? placeHoursLabel(place)}</p>
       </div>
       <div className="absolute inset-x-3 bottom-24 z-30 flex gap-2">
         <button

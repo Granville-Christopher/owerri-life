@@ -1932,34 +1932,55 @@ export function meetSpots() {
   );
 }
 
-export function clockFace(hour: number) {
-  return `${String(((hour % 24) + 24) % 24).padStart(2, "0")}:00`;
+export function clockFace(minutes: number) {
+  const total = ((Math.round(minutes) % 1440) + 1440) % 1440;
+  const hour = Math.floor(total / 60);
+  const minute = total % 60;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+export function westAfricanMinutes(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Africa/Lagos",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const hour = Number(parts.find((part) => part.type === "hour")?.value ?? "0") % 24;
+  const minute = Number(parts.find((part) => part.type === "minute")?.value ?? "0") % 60;
+  return hour * 60 + minute;
 }
 
 export function parsePlaceHours(hours: string): { always: boolean; open: number; close: number } {
   if (!hours || /always|your room|your flat|your place/i.test(hours)) {
-    return { always: true, open: 0, close: 24 };
+    return { always: true, open: 0, close: 1440 };
   }
   const match = hours.match(/(\d{1,2})(?::(\d{2}))?\s*[–-]\s*(\d{1,2})(?::(\d{2}))?/);
-  if (!match) return { always: true, open: 0, close: 24 };
-  const open = Number(match[1]);
-  const close = Number(match[3]) === 24 ? 24 : Number(match[3]);
+  if (!match) return { always: true, open: 0, close: 1440 };
+  const open = Number(match[1]) * 60 + Number(match[2] ?? 0);
+  const closeHour = Number(match[3]);
+  const close = closeHour === 24 ? 1440 : closeHour * 60 + Number(match[4] ?? 0);
   return { always: false, open, close };
 }
 
-export function placeIsOpen(place: Place, hour: number) {
+export function placeHoursLabel(place: Place) {
+  const spec = parsePlaceHours(place.hours);
+  return spec.always ? place.hours : `${place.hours} WAT`;
+}
+
+export function placeIsOpen(place: Place, date = new Date()) {
   const spec = parsePlaceHours(place.hours);
   if (spec.always) return true;
-  const now = ((hour % 24) + 24) % 24;
+  const now = westAfricanMinutes(date);
   if (spec.open === spec.close) return true;
   if (spec.open < spec.close) return now >= spec.open && now < spec.close;
   return now >= spec.open || now < spec.close;
 }
 
-export function placeClosedNotice(place: Place, hour: number) {
-  if (placeIsOpen(place, hour)) return null;
+export function placeClosedNotice(place: Place, date = new Date()) {
+  if (placeIsOpen(place, date)) return null;
   const spec = parsePlaceHours(place.hours);
-  return `${place.name} is not open now. Come back by ${clockFace(spec.open)}.`;
+  return `${place.name} is closed. It is ${clockFace(westAfricanMinutes(date))} WAT. Come back at ${clockFace(spec.open)} WAT.`;
 }
 
 export function canSitAt(place: Place) {

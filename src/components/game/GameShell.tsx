@@ -89,7 +89,7 @@ import {
   useRestroom,
   go,
 } from "@/lib/game/actions";
-import { BET_STAKES, CAREERS, DREAMS, HOMES, LANDS, NPCS, PLACES, TOP_UPS, TRAITS, TREATMENT_FEE, TRIPS, careerById, carById, coursesAt, homeAreaId, homeById, isTripPlace, lectureLabel, meetSpots, placeActs, placeById, placeClosedNotice, tripById, tripFromPlace, type Course } from "@/lib/game/content";
+import { BET_STAKES, CAREERS, DREAMS, HOMES, LANDS, NPCS, PLACES, TOP_UPS, TRAITS, TREATMENT_FEE, TRIPS, careerById, carById, coursesAt, homeAreaId, homeById, isTripPlace, lectureLabel, meetSpots, placeActs, placeById, placeClosedNotice, placeHoursLabel, tripById, tripFromPlace, type Course } from "@/lib/game/content";
 import { photoForVehicle } from "@/components/game/photoVehicles";
 import { INVEST_TERMS, POLICE_ID, multiplyOdds, travelOptions } from "@/lib/game/engine";
 import { clockLabel, dreamProgress, jobTitle, levelPay, moodLabel, naira, skillLabel, skillNeeded, weekday } from "@/lib/game/format";
@@ -851,7 +851,7 @@ function PlaceTrip({
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#a9782a]">{place.area}</p>
             <h2 className="mt-1 font-display text-3xl leading-none">{place.name}</h2>
-            <p className="mt-1 text-sm text-[#5d6b62]">{placeClosedNotice(place, view.me.hour) ?? place.hours}</p>
+            <p className="mt-1 text-sm text-[#5d6b62]">{placeClosedNotice(place) ?? placeHoursLabel(place)}</p>
           </div>
           <button type="button" aria-label="Close" onClick={onClose} className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-lg leading-none shadow-sm">×</button>
         </div>
@@ -866,7 +866,7 @@ function PlaceTrip({
         {here ? (
           <button
             type="button"
-            disabled={pending || Boolean(placeClosedNotice(place, view.me.hour))}
+            disabled={pending || Boolean(placeClosedNotice(place))}
             onClick={() => {
               run(enterDoor).then((result) => {
                 if (result.ok) {
@@ -877,7 +877,7 @@ function PlaceTrip({
             }}
             className="mt-4 w-full rounded-full bg-[#1f6b45] py-3 text-sm font-semibold text-[#f6f1e6] shadow-sm disabled:opacity-40"
           >
-            {placeClosedNotice(place, view.me.hour) ?? "Go inside"}
+            {placeClosedNotice(place) ?? "Go inside"}
           </button>
         ) : (
           <div className="mt-4 grid gap-2">
@@ -1238,7 +1238,6 @@ function MapPanel({
           placeId={view.me.locationId}
           look={view.me.look}
           pending={pending}
-          hour={view.me.hour}
           onEnter={() => {
             const entering = placeById(view.me.locationId);
             const already = Boolean(view.me.school);
@@ -1553,8 +1552,8 @@ function PhonePanel({
             return (
               <button key={place.id} type="button" onClick={() => setPicked(place.id)} className="rounded-2xl bg-white px-3 py-3 text-left text-sm">
                 <span className="block font-semibold">{place.name}</span>
-                <span className="text-[#5d6b62]">{place.area} · {place.hours}</span>
-                {placeClosedNotice(place, me.hour) ? <span className="mt-1 block text-xs font-semibold text-[#b5523a]">{placeClosedNotice(place, me.hour)}</span> : null}
+                <span className="text-[#5d6b62]">{place.area} · {placeHoursLabel(place)}</span>
+                {placeClosedNotice(place) ? <span className="mt-1 block text-xs font-semibold text-[#b5523a]">{placeClosedNotice(place)}</span> : null}
                 {plate ? <span className="mt-1 block font-semibold text-[#1f6b45]">{plate.name} · {naira(plate.cost)}</span> : null}
               </button>
             );

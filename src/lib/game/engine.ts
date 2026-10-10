@@ -410,7 +410,7 @@ export function meetPerson(
 export function enterPlace(player: Player, ledger: LedgerEntry[]): Step {
   const place = placeById(player.locationId);
   if (player.indoors) return succeed(player, ledger, [`You are inside ${place.name}.`]);
-  const closed = placeClosedNotice(place, player.hour);
+  const closed = placeClosedNotice(place);
   if (closed) return fail(player, ledger, closed);
   const next = structuredClone(player);
   next.indoors = true;
@@ -1395,7 +1395,7 @@ export function goToHouse(
     current = moved.player;
     book = moved.ledger;
   }
-  const closed = placeClosedNotice(placeById(where.placeId), current.hour);
+  const closed = placeClosedNotice(placeById(where.placeId));
   if (closed && placeById(where.placeId).kind !== "home") return fail(current, book, closed);
   const next = structuredClone(current);
   next.locationId = where.placeId;
