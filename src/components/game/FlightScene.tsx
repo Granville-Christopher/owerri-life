@@ -497,8 +497,13 @@ export function FlightScene({
       } else {
         cabin.visible = false;
         exterior.visible = true;
-        const swing = Math.sin(now / 4200) * 1.4;
-        const goal = flight.position.clone().add(new THREE.Vector3(12 + swing, 1.6, 0.6));
+        const aspect = Math.max(0.35, camera.aspect || 0.6);
+        const fov = aspect < 0.9 ? 54 : 40;
+        const tanV = Math.tan((fov * Math.PI) / 360);
+        const tanH = tanV * aspect;
+        const dist = (13.5 / Math.min(tanV, tanH)) * 1.22;
+        const yaw = 0.85 + Math.sin(now / 4200) * 0.12;
+        const goal = flight.position.clone().add(new THREE.Vector3(Math.sin(yaw) * dist, dist * 0.22, -Math.cos(yaw) * dist * 0.42));
         if (!camReady) {
           camPos.copy(goal);
           camReady = true;
@@ -506,8 +511,8 @@ export function FlightScene({
           camPos.lerp(goal, 0.07);
         }
         camera.position.copy(camPos);
-        camera.lookAt(flight.position.clone().add(new THREE.Vector3(0, 0.15, 0.4)));
-        camera.fov = 38;
+        camera.lookAt(flight.position.clone().add(new THREE.Vector3(0, 1.35, 0)));
+        camera.fov = fov;
         camera.updateProjectionMatrix();
       }
       if (barRef.current) barRef.current.style.width = `${Math.round(t * 100)}%`;
