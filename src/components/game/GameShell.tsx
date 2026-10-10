@@ -253,9 +253,7 @@ export function GameShell({ view }: { view: GameView }) {
         ? placeSound(here.id)
         : tab === "room"
           ? placeSound("home")
-          : tab === "map"
-            ? MAP_TRACK
-            : null;
+          : MAP_TRACK;
   const soundRate = inClub || sound === MAP_TRACK || !sound ? 1 : me.indoors ? placeRate(here.id) : placeRate("home");
 
   return (

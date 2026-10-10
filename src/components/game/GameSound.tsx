@@ -15,17 +15,19 @@ export function GameSound({ track, club, rate = 1 }: { track: string | null; clu
     const el = new Audio();
     el.loop = true;
     el.preload = "auto";
+    el.autoplay = true;
     audio.current = el;
     const unlock = () => {
       unlocked.current = true;
-      setHeard(true);
       const node = audio.current;
       if (!node?.src || window.localStorage.getItem(MUTE_KEY) === "off") return;
-      void node.play().catch(() => undefined);
+      void node.play().then(() => setHeard(true)).catch(() => undefined);
     };
     window.addEventListener("pointerdown", unlock);
+    window.addEventListener("keydown", unlock);
     return () => {
       window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
       el.pause();
       el.src = "";
       if (audio.current === el) audio.current = null;
@@ -35,7 +37,7 @@ export function GameSound({ track, club, rate = 1 }: { track: string | null; clu
   useEffect(() => {
     const el = audio.current;
     if (!el) return;
-    if (!track) {
+    if (!track || muted) {
       el.pause();
       return;
     }
@@ -46,11 +48,10 @@ export function GameSound({ track, club, rate = 1 }: { track: string | null; clu
       el.src = next;
       el.load();
     }
-    if (!unlocked.current || muted) {
-      el.pause();
-      return;
-    }
-    void el.play().catch(() => undefined);
+    void el.play().then(() => {
+      unlocked.current = true;
+      setHeard(true);
+    }).catch(() => undefined);
   }, [track, club, muted, rate]);
 
   function toggle() {
